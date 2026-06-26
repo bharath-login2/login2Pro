@@ -240,18 +240,28 @@ class _LoginState extends State<Login> with TickerProviderStateMixin {
       }
       updatedata = await HttpService.forceUpdate();
       String? savedUrl = await Common.getSharedPref("url");
+      // setState(() {
+      //   if (updatedata!.data!.server!.length == 1) {
+      //     Common.saveSharedPref(
+      //         "url", updatedata!.data!.server![0].url.toString());
+      //     selectedUrl = updatedata!.data!.server![0].url.toString();
+      //     serverChoose = true;
+      //   } else if (savedUrl != null && savedUrl.isNotEmpty) {
+      //     selectedUrl = savedUrl;
+      //     serverChoose = true;
+      //   } else {
+      //     serverChoose = false;
+      //   }
+      // });
       setState(() {
-        if (updatedata!.data!.server!.length == 1) {
-          Common.saveSharedPref(
-              "url", updatedata!.data!.server![0].url.toString());
-          selectedUrl = updatedata!.data!.server![0].url.toString();
-          serverChoose = true;
-        } else if (savedUrl != null && savedUrl.isNotEmpty) {
-          selectedUrl = savedUrl;
-          serverChoose = true;
-        } else {
-          serverChoose = false;
-        }
+        selectedUrl = updatedata!.data!.server![0].url.toString();
+
+        Common.saveSharedPref(
+          "url",
+          selectedUrl,
+        );
+
+        serverChoose = true;
       });
     } catch (e) {
       setState(() {
@@ -384,18 +394,18 @@ class _LoginState extends State<Login> with TickerProviderStateMixin {
             Icons.lock_outline_rounded,
             color: Colors.orange,
           );
-        } else if (serverChoose == false) {
-          Common.premiumToast(
-            context,
-            updatedata!.data!.server!.length > 1
-                ? 'Please select a server'
-                : 'Server configuration error',
-            Icons.dns_outlined,
-            color: Colors.red,
-          );
-          if (updatedata!.data!.server!.length > 1) {
-            openPopupMenu();
-          }
+        // } else if (serverChoose == false) {
+        //   Common.premiumToast(
+        //     context,
+        //     updatedata!.data!.server!.length > 1
+        //         ? 'Please select a server'
+        //         : 'Server configuration error',
+        //     Icons.dns_outlined,
+        //     color: Colors.red,
+        //   );
+        //   if (updatedata!.data!.server!.length > 1) {
+        //     openPopupMenu();
+        //   }
         } else {
           setState(() {
             _loading = true;
@@ -830,92 +840,92 @@ class _LoginState extends State<Login> with TickerProviderStateMixin {
                                 color: Colors.transparent,
                                 child: Column(children: [
                                   // Server selector at top right (only if multiple servers)
-                                  if (updatedata!.data!.server!.length > 1)
-                                    Container(
-                                      alignment: Alignment.centerRight,
-                                      padding: const EdgeInsets.only(
-                                          right: 20, top: 10),
-                                      child: PopupMenuButton(
-                                        key: popupMenuKey,
-                                        elevation: 8,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 12, vertical: 6),
-                                          decoration: BoxDecoration(
-                                            color: Colors.blue.shade50,
-                                            borderRadius:
-                                                BorderRadius.circular(20),
-                                            border: Border.all(
-                                                color: Colors.blue.shade200),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.dns_rounded,
-                                                size: 18,
-                                                color: Colors.blue.shade700,
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                serverChoose &&
-                                                        selectedUrl.isNotEmpty
-                                                    ? _getServerDisplayName()
-                                                    : 'Select Server',
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Colors.blue.shade700,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Icon(
-                                                Icons.arrow_drop_down_rounded,
-                                                color: Colors.blue.shade700,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        itemBuilder: (context) {
-                                          return updatedata!.data!.server!
-                                              .map((data) {
-                                            return PopupMenuItem<String>(
-                                              value: data.url,
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceBetween,
-                                                children: [
-                                                  Text(
-                                                    data.name.toString(),
-                                                    style: const TextStyle(
-                                                        fontSize: 14),
-                                                  ),
-                                                  if (selectedUrl == data.url)
-                                                    Icon(
-                                                      Icons
-                                                          .check_circle_rounded,
-                                                      color:
-                                                          Colors.green.shade600,
-                                                      size: 18,
-                                                    ),
-                                                ],
-                                              ),
-                                            );
-                                          }).toList();
-                                        },
-                                        onSelected: (value) {
-                                          Common.saveSharedPref("url", value);
-                                          selectedUrl = value;
-                                          serverChoose = true;
-                                          setState(() {});
-                                        },
-                                      ),
-                                    ),
+                                  // if (updatedata!.data!.server!.length > 1)
+                                  //   Container(
+                                  //     alignment: Alignment.centerRight,
+                                  //     padding: const EdgeInsets.only(
+                                  //         right: 20, top: 10),
+                                  //     child: PopupMenuButton(
+                                  //       key: popupMenuKey,
+                                  //       elevation: 8,
+                                  //       shape: RoundedRectangleBorder(
+                                  //         borderRadius:
+                                  //             BorderRadius.circular(12),
+                                  //       ),
+                                  //       child: Container(
+                                  //         padding: const EdgeInsets.symmetric(
+                                  //             horizontal: 12, vertical: 6),
+                                  //         decoration: BoxDecoration(
+                                  //           color: Colors.blue.shade50,
+                                  //           borderRadius:
+                                  //               BorderRadius.circular(20),
+                                  //           border: Border.all(
+                                  //               color: Colors.blue.shade200),
+                                  //         ),
+                                  //         child: Row(
+                                  //           mainAxisSize: MainAxisSize.min,
+                                  //           children: [
+                                  //             Icon(
+                                  //               Icons.dns_rounded,
+                                  //               size: 18,
+                                  //               color: Colors.blue.shade700,
+                                  //             ),
+                                  //             const SizedBox(width: 6),
+                                  //             Text(
+                                  //               serverChoose &&
+                                  //                       selectedUrl.isNotEmpty
+                                  //                   ? _getServerDisplayName()
+                                  //                   : 'Select Server',
+                                  //               style: TextStyle(
+                                  //                 fontSize: 13,
+                                  //                 fontWeight: FontWeight.w500,
+                                  //                 color: Colors.blue.shade700,
+                                  //               ),
+                                  //             ),
+                                  //             const SizedBox(width: 4),
+                                  //             Icon(
+                                  //               Icons.arrow_drop_down_rounded,
+                                  //               color: Colors.blue.shade700,
+                                  //             ),
+                                  //           ],
+                                  //         ),
+                                  //       ),
+                                  //       itemBuilder: (context) {
+                                  //         return updatedata!.data!.server!
+                                  //             .map((data) {
+                                  //           return PopupMenuItem<String>(
+                                  //             value: data.url,
+                                  //             child: Row(
+                                  //               mainAxisAlignment:
+                                  //                   MainAxisAlignment
+                                  //                       .spaceBetween,
+                                  //               children: [
+                                  //                 Text(
+                                  //                   data.name.toString(),
+                                  //                   style: const TextStyle(
+                                  //                       fontSize: 14),
+                                  //                 ),
+                                  //                 if (selectedUrl == data.url)
+                                  //                   Icon(
+                                  //                     Icons
+                                  //                         .check_circle_rounded,
+                                  //                     color:
+                                  //                         Colors.green.shade600,
+                                  //                     size: 18,
+                                  //                   ),
+                                  //               ],
+                                  //             ),
+                                  //           );
+                                  //         }).toList();
+                                  //       },
+                                  //       onSelected: (value) {
+                                  //         Common.saveSharedPref("url", value);
+                                  //         selectedUrl = value;
+                                  //         serverChoose = true;
+                                  //         setState(() {});
+                                  //       },
+                                  //     ),
+                                  //   ),
 
                                   // Main content
                                   Padding(
@@ -966,7 +976,7 @@ class _LoginState extends State<Login> with TickerProviderStateMixin {
                                                     ),
                                                     child: ClipOval(
                                                       child: Image.asset(
-                                                        'assets/main/logo.png',
+                                                        'assets/main/funriders.png',
                                                         width: 100,
                                                         height: 100,
                                                         fit: BoxFit.contain,

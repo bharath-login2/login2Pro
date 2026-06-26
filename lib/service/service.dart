@@ -187,6 +187,7 @@ import 'package:login2/models/lead_management/viewPurcahseBillModel.dart';
 import 'package:login2/models/lead_management/workCountModel.dart';
 import 'package:login2/models/lead_management/workMessageModel.dart';
 import 'package:login2/models/lead_management/workOrderIdModel.dart';
+import 'package:login2/models/lead_management/lead_work_details_model.dart';
 import 'package:login2/models/officialWhatsapp/campaigns_official_message_model.dart';
 import 'package:login2/models/officialWhatsapp/campaign_sample_model.dart';
 import 'package:login2/models/officialWhatsapp/message_view_status.dart';
@@ -427,7 +428,7 @@ import '../models/userManagement/staffDetailsModel.dart';
 import '../models/Product_mannagement/checkBarcodeDuplicateModel.dart';
 import '../models/userPermissionModel.dart';
 import '../models/verifyPhoneModel.dart';
-
+import 'package:login2/models/lead_management/lead_module_model.dart';
 class HttpService {
   static final Dio _dio = Dio();
 
@@ -2805,6 +2806,7 @@ class HttpService {
           options: Options(receiveTimeout: const Duration(seconds: 30)),
           queryParameters: params);
       if (result.statusCode == 200) {
+         print('client_id: $result');
         LeadDeatailsModelAdd model = LeadDeatailsModelAdd.fromJson(result.data);
         return model;
       }
@@ -5369,6 +5371,7 @@ class HttpService {
     var formData = FormData.fromMap({
       "token": await Common.getSharedPref('token'),
       "project_id": workData['project_id'],
+      "call_master_id": workData['call_master_id'],
       "project_name": workData['project_name'],
       "title": workData['title'],
       "title_id": workData['title_id'],
@@ -5400,6 +5403,7 @@ class HttpService {
       data: formData,
     );
     if (result.statusCode == 200) {
+      print("product by id response: ${result.data}");
       return SubmitResponse.fromJson(result.data);
     } else {
       throw Exception("Failed to submit work");
@@ -7529,7 +7533,76 @@ class HttpService {
       return null;
     }
   }
+  static Future<TitleListDet?> submitModule({
+  required BuildContext context,
+  required String leadId,
+  required String title,
+}) async {
+  try {
+    final token = await Common.getSharedPref("token");
 
+    FormData formData = FormData.fromMap({
+      'token': token,
+      'lead_id': leadId,
+      'title': title,
+    });
+
+    var response = await _dio.post(
+      "${await Config.getUrl()}submitttitle",
+      data: formData,
+      options: Options(
+        contentType: 'multipart/form-data',
+      ),
+    );
+
+    final responseData =
+        response.data is String ? json.decode(response.data) : response.data;
+
+    print("RESPONSE DATA: $responseData");
+
+    if (response.statusCode == 200 &&
+    responseData['status'] == true) {
+  final data = responseData["data"];
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text(
+        'Module Added Successfully',
+        style: TextStyle(color: Colors.white),
+      ),
+      backgroundColor: Colors.green,
+    ),
+  );
+
+  return TitleListDet(
+    id: data["id"]?.toString() ?? '',
+    name: data["name"]?.toString() ?? '',
+  );
+} else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            responseData["message"] ?? 'Failed to add module',
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Error: $e',
+          style: const TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  return null;
+}
   static Future<CommonResponse?> startWork(
     DateTime startTime, {
     required double latitude,
@@ -16583,6 +16656,55 @@ static Future<Map<String, dynamic>?> approveRejectStockRequest(
     }
   } catch (e) {
     log("approveRejectStockRequest error: $e");
+  }
+
+  return null;
+}
+static Future<LeadModuleModel?> getLeadModules(String callMasterId) async {
+  final token = await Common.getSharedPref("token");
+
+  final data = {
+    'token': token,
+    'lead_id': callMasterId, // callMasterId goes here
+  };
+
+  try {
+    final response = await _dio.post(
+      "${await Config.getUrl()}get_lead_modules",
+      data: FormData.fromMap(data),
+    );
+
+    if (response.statusCode == 200) {
+      return LeadModuleModel.fromJson(response.data);
+    }
+  } catch (e) {
+    log("getLeadModules Error: $e");
+  }
+
+  return null;
+}
+static Future<LeadWorkDetailsModel?> getLeadWorkDetails(
+    String callMasterId) async {
+  try {
+    final token = await Common.getSharedPref("token");
+
+    print("lead_id = $callMasterId");
+
+    final response = await _dio.post(
+      "${await Config.getUrl()}getLeadWorkDetails",
+      data: FormData.fromMap({
+        "token": token,
+        "lead_id": callMasterId,
+      }),
+    );
+
+    print("Response = ${response.data}");
+
+    if (response.statusCode == 200) {
+      return LeadWorkDetailsModel.fromJson(response.data);
+    }
+  } catch (e) {
+    print(e);
   }
 
   return null;

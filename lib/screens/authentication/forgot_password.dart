@@ -305,7 +305,7 @@ class _ForgotPasswordState extends State<ForgotPassword>
                                 ),
                                 child: ClipOval(
                                   child: Image.asset(
-                                    'assets/main/logo.png',
+                                    'assets/main/funriders.png',
                                     width: 90,
                                     height: 90,
                                     fit: BoxFit.contain,
@@ -696,7 +696,7 @@ class _ForgotPasswordState extends State<ForgotPassword>
                       ),
                       child: ClipOval(
                         child: Image.asset(
-                          'assets/main/logo.png',
+                          'assets/main/funriders.png',
                           fit: BoxFit.contain,
                           errorBuilder: (context, error, stackTrace) {
                             return Container(

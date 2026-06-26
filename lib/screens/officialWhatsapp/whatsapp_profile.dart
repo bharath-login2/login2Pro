@@ -90,7 +90,7 @@ class _WhatsappProfileState extends State<WhatsappProfile> {
                         decoration: BoxDecoration(
                           color: Colors.grey.shade100,
                           image: const DecorationImage(
-                              image: AssetImage("assets/main/logo.png"),
+                              image: AssetImage("assets/main/funriders.png"),
                               fit: BoxFit.fitHeight),
                         ),
                       ),

@@ -239,7 +239,7 @@ class _SettingsMenuWidgetState extends State<SettingsMenuWidget> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Center(
-                            child: Image.asset('assets/main/logo.png',
+                            child: Image.asset('assets/main/funriders.png',
                                 height: 130, fit: BoxFit.contain),
                           ),
                         ),

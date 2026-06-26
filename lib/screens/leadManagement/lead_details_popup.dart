@@ -17,6 +17,7 @@ import 'package:login2/models/lead_management/deleteLeadModel.dart';
 import 'package:login2/models/lead_management/leadTransferModel.dart';
 import 'package:login2/models/lead_management/uploadAudioRecoed.dart';
 import 'package:login2/models/lead_management/leadExtraSettings.dart';
+import 'package:login2/models/lead_management/lead_work_details_model.dart';
 import 'package:login2/models/lead_management/leadFollowupAdd.dart' as af;
 import 'package:login2/models/lead_management/callResultResonModel.dart' as cr;
 import 'package:login2/models/lead_management/leadSubTypeModel.dart' as lst;
@@ -59,7 +60,7 @@ import 'package:login2/screens/authentication/googleDriveAccountsModel.dart';
 import 'package:login2/screens/authentication/googleDriveFilesModel.dart';
 import 'package:login2/models/lead_management/deleteGoogleDriveFileModel.dart';
 import 'package:login2/models/lead_management/renameGdriveApiModel.dart';
-
+import 'package:login2/screens/leadManagement/assignwork_lead.dart';
 class LeadDetailsPopup extends StatefulWidget {
   final String token;
   final bool editLead;
@@ -168,7 +169,8 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
   TextEditingController folderName = TextEditingController();
   TextEditingController fileName = TextEditingController();
   TextEditingController fileNameEdit = TextEditingController();
-
+LeadWorkDetailsModel? workDetails;
+bool isLoadingWorkDetails = false;
   final AudioRecordController audioCreateController =
       Get.put(AudioRecordController());
   final ImageUploadController imageUploadController =
@@ -279,6 +281,15 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
 
   double totalRenAmount = 0;
   String totalProdAmount = "";
+
+bool get _showAssignWorkButton {
+  final currentCallResultId =
+      leadDetails?.data?.callResultId?.toString() ?? callResultId;
+
+  return currentCallResultId == "7" ||
+      currentCallResultId == "8" ||
+      currentCallResultId == "10";
+}
 
   LeadProductSectionModel? productSectionModel;
   List<LeadProduct> _selectedProducts = [];
@@ -446,13 +457,20 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
 
     _tabController = TabController(length: _getTabCount(), vsync: this);
     _tabController.addListener(() {
-      setState(() {
-        selectedIndex = _tabController.index;
-      });
-    });
+  setState(() {
+    selectedIndex = _tabController.index;
+  });
 
+  final labels = _getTabLabels();
+
+  if (_tabController.index < labels.length &&
+      labels[_tabController.index] == "Work Details" &&
+      workDetails == null &&
+      !isLoadingWorkDetails) {
+    _loadWorkDetails();
+  }
+});
     _loadUserPreferences();
-
     if (leadDetails != null) {
       contactFName.text = leadDetails!.data!.clientName ?? '';
       contactMobile.text = '+${leadDetails!.data!.contactNumber1 ?? ''}';
@@ -472,23 +490,48 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
   }
 
   int _getTabCount() {
-    int count = 4; // Followup, Activities, Details, Documents
+    int count = 5; // Followup, Activities, Details, Documents
     if (widget.leadDetails.data?.callHistoryPermission == true) count++;
     if (widget.mileStone?.data?.milestones?.isNotEmpty ?? false) count++;
     return count;
   }
+bool get _showFollowupButton {
+  final callResultId =
+      widget.leadDetails.data?.callResultId?.toString();
 
-  List<String> _getTabLabels() {
-    List<String> labels = ['Followup', 'Activities', 'Details', 'File Manager'];
-    if (widget.leadDetails.data?.callHistoryPermission == true) {
-      labels.insert(1, 'Call Logs');
-    }
-    if (widget.mileStone?.data?.milestones?.isNotEmpty ?? false) {
-      labels.add('Milestones');
-    }
-    return labels;
+  return callResultId == "7" ||
+      callResultId == "8" ||
+      callResultId == "10";
+}
+  // List<String> _getTabLabels() {
+  //   List<String> labels = ['Followup', 'Activities', 'Details', 'File Manager','Work Details'];
+  //   if (widget.leadDetails.data?.callHistoryPermission == true) {
+  //     labels.insert(1, 'Call Logs');
+  //   }
+  //   if (widget.mileStone?.data?.milestones?.isNotEmpty ?? false) {
+  //     labels.add('Milestones');
+  //   }
+  //   return labels;
+  // }
+List<String> _getTabLabels() {
+  List<String> labels = [
+    'Followup',
+    'Activities',
+    'Details',
+    'File Manager',
+    'Work Details',
+  ];
+
+  if (widget.leadDetails.data?.callHistoryPermission == true) {
+    labels.insert(1, 'Call Logs');
   }
 
+  if (widget.mileStone?.data?.milestones?.isNotEmpty ?? false) {
+    labels.add('Milestones');
+  }
+
+  return labels;
+}
   Future<void> _initializeData() async {
     contactPermission = await Common.getSharedPref("getContactPermission");
     transferPermission = await Common.getSharedPref("transferLeads");
@@ -1215,36 +1258,131 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
     }
   }
 
-  Future<void> _fetchGoogleDriveFiles(String accountId,
-      {String parentId = ""}) async {
+  // Future<void> _fetchGoogleDriveFiles(String accountId,
+  //     {String parentId = ""}) async {
+  //   if (!mounted) return;
+  //   setState(() {
+  //     isDriveFilesLoading = true;
+  //     googleDriveFiles = [];
+  //   });
+  //   try {
+  //     final response = await HttpService.getGoogleDriveFiles(
+  //         (callMasterId ?? widget.callMasterId), accountId, parentId);
+  //     if (mounted && response != null && response.status) {
+  //       setState(() {
+  //         googleDriveFiles = response.data;
+  //         isDriveFilesLoading = false;
+  //       });
+  //     } else {
+  //       if (mounted) {
+  //         setState(() {
+  //           isDriveFilesLoading = false;
+  //         });
+  //         Common.toastMessaage(
+  //             response?.message ?? "Failed to load Files", Colors.red);
+  //       }
+  //     }
+  //   } catch (e) {
+  //     log("Error fetching drive files: $e");
+  //     if (mounted) setState(() => isDriveFilesLoading = false);
+  //   }
+  // }
+Future<void> _fetchGoogleDriveFiles(
+  String accountId, {
+  String parentId = "",
+}) async {
+  if (!mounted) return;
+
+  setState(() {
+    isDriveFilesLoading = true;
+    googleDriveFiles = [];
+  });
+
+  try {
+    final leadId = callMasterId ?? widget.callMasterId;
+
+    print("accountId = $accountId");
+    print("parentId = $parentId");
+    print("callMasterId = $leadId");
+
+    final response = await HttpService.getGoogleDriveFiles(
+      leadId,
+      accountId,
+      parentId,
+    );
+
+    print("Drive Response = $response");
+
     if (!mounted) return;
-    setState(() {
-      isDriveFilesLoading = true;
-      googleDriveFiles = [];
-    });
-    try {
-      final response = await HttpService.getGoogleDriveFiles(
-          (callMasterId ?? widget.callMasterId), accountId, parentId);
-      if (mounted && response != null && response.status) {
-        setState(() {
-          googleDriveFiles = response.data;
-          isDriveFilesLoading = false;
-        });
-      } else {
-        if (mounted) {
-          setState(() {
-            isDriveFilesLoading = false;
-          });
-          Common.toastMessaage(
-              response?.message ?? "Failed to load Files", Colors.red);
-        }
-      }
-    } catch (e) {
-      log("Error fetching drive files: $e");
-      if (mounted) setState(() => isDriveFilesLoading = false);
+
+    if (response != null && response.status == true) {
+      setState(() {
+        googleDriveFiles = response.data;
+        isDriveFilesLoading = false;
+      });
+    } else {
+      setState(() {
+        isDriveFilesLoading = false;
+      });
+
+      print("Drive API Error: ${response?.message}");
+
+      Common.toastMessaage(
+        response?.message ?? "Failed to load Files",
+        Colors.red,
+      );
+    }
+  } catch (e, s) {
+    print("Error fetching drive files: $e");
+    print(s);
+
+    if (mounted) {
+      setState(() {
+        isDriveFilesLoading = false;
+      });
     }
   }
+}
+Future<void> _loadWorkDetails() async {
+  if (isLoadingWorkDetails) return;
 
+  setState(() {
+    isLoadingWorkDetails = true;
+  });
+
+  try {
+    print("Loading Work Details...");
+    print("Call Master ID = ${widget.callMasterId}");
+
+    final response = await HttpService.getLeadWorkDetails(
+  widget.callMasterId,
+);
+
+if (mounted) {
+  setState(() {
+    workDetails = response;
+  });
+}
+    print("ASSIGN WORK RESULT = TRUE");
+    if (mounted) {
+      setState(() {
+        workDetails = response;
+      });
+    }
+
+    print(
+      "Work Details Response Count = ${workDetails?.data.length}",
+    );
+  } catch (e) {
+    print("Work Details Error: $e");
+  } finally {
+    if (mounted) {
+      setState(() {
+        isLoadingWorkDetails = false;
+      });
+    }
+  }
+}
   void _updateBreadcrumbs(String id, String name) {
     setState(() => driveBreadcrumbs.add({'id': id, 'name': name}));
   }
@@ -1521,21 +1659,307 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
           body: TabBarView(
             controller: _tabController,
             physics: const BouncingScrollPhysics(),
+            // children: [
+            //   _buildFollowupTab(),
+            //   if (widget.leadDetails.data?.callHistoryPermission == true)
+            //     _buildCallHistoryTab(),
+            //   _buildActivitiesTab(),
+            //   _buildDetailsTab(),
+            //   _buildDocumentsTab(),
+            //   if (widget.mileStone?.data?.milestones?.isNotEmpty ?? false)
+            //     _buildMilestonesTab(),
+            // ],
             children: [
-              _buildFollowupTab(),
-              if (widget.leadDetails.data?.callHistoryPermission == true)
-                _buildCallHistoryTab(),
-              _buildActivitiesTab(),
-              _buildDetailsTab(),
-              _buildDocumentsTab(),
-              if (widget.mileStone?.data?.milestones?.isNotEmpty ?? false)
-                _buildMilestonesTab(),
-            ],
+  _buildFollowupTab(),
+
+  if (widget.leadDetails.data?.callHistoryPermission == true)
+    _buildCallHistoryTab(),
+
+  _buildActivitiesTab(),
+
+  _buildDetailsTab(),
+
+  _buildDocumentsTab(),
+
+  _buildWorkDetailsTab(),
+
+  if (widget.mileStone?.data?.milestones?.isNotEmpty ?? false)
+    _buildMilestonesTab(),
+],
           ),
         ),
       ),
     );
   }
+Widget _buildWorkDetailsTab() {
+  if (isLoadingWorkDetails) {
+    return const Center(
+      child: CircularProgressIndicator(),
+    );
+  }
+
+  if (workDetails == null || workDetails!.data.isEmpty) {
+    return const Center(
+      child: Text(
+        "No Work Details Found",
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+ final allTasks = workDetails!.data
+    .expand((work) => work.tasks)
+    .toList();
+
+final allReports = workDetails!.data
+    .expand((work) => work.workReport)
+    .toList();
+
+final overallProgress = workDetails!.data.isNotEmpty
+    ? workDetails!.data.first.progress
+    : null;
+final allProgress = workDetails!.data
+    .map((work) => work.progress)
+    .toList();
+return SingleChildScrollView(
+  padding: const EdgeInsets.all(16),
+  child: Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.grey.withOpacity(0.15),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+
+        /// TASK LIST
+        ...allTasks.map(
+          (task) => Padding(
+            padding: const EdgeInsets.only(bottom: 20),
+            child: Row(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Task :',
+                        style: TextStyle(
+                          fontWeight:
+                              FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        task.taskName.isEmpty
+                            ? '-'
+                            : task.taskName,
+                      ),
+                    ],
+                  ),
+                ),
+
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Staff :',
+                        style: TextStyle(
+                          fontWeight:
+                              FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        (task.staffName ?? '')
+                                .isEmpty
+                            ? '-'
+                            : task.staffName!,
+                      ),
+                    ],
+                  ),
+                ),
+
+                Expanded(
+                  flex: 4,
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Uploaded Documents :',
+                        style: TextStyle(
+                          fontWeight:
+                              FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+
+                      if (task.documents.isEmpty)
+                        const Text(
+                          'No files uploaded',
+                        )
+                      else
+                        ...task.documents.map(
+                          (doc) => InkWell(
+                            onTap: () {
+                              launchUrl(
+                                Uri.parse(
+                                  doc.fileUrl,
+                                ),
+                              );
+                            },
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.only(
+                                bottom: 4,
+                              ),
+                              child: Text(
+                                doc.fileId,
+                                style:
+                                    const TextStyle(
+                                  color: Colors.blue,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const Divider(height: 30),
+
+const Text(
+  'Progress',
+  style: TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.bold,
+  ),
+),
+
+const SizedBox(height: 15),
+
+...allProgress.map((progress) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 20),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment:
+              MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              progress.text,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Text(
+              "${progress.percentage}%",
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 8),
+
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: LinearProgressIndicator(
+            value: progress.percentage / 100,
+            minHeight: 10,
+          ),
+        ),
+      ],
+    ),
+  );
+}).toList(),
+
+        const SizedBox(height: 20),
+
+        /// WORK REPORT
+        ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          title: const Text(
+            'Work Report',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          children: [
+
+            if (allReports.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Text(
+                  'No work reports available',
+                ),
+              ),
+
+            ...allReports.map(
+              (report) => Container(
+                width: double.infinity,
+                margin:
+                    const EdgeInsets.only(
+                        bottom: 10),
+                padding:
+                    const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius:
+                      BorderRadius.circular(
+                          10),
+                ),
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Completed Date : ${report.completedDate}",
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      "Time Taken : ${report.timeTaken}",
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  
+  ),
+);
+}
 
   Widget _buildHeader() {
     return Container(
@@ -2466,6 +2890,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
       final response =
           await HttpService.leadDetails(widget.token, newCallMasterId);
       if (response != null) {
+             print("RESPONSE DATA: $response");
         setState(() {
           callMasterId = newCallMasterId;
           leadDetails = response;
@@ -2755,11 +3180,15 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
 
           // Refresh popup data
           await _refreshData(callMasterId ?? widget.callMasterId);
-
+          if (mounted) {
+            setState(() {});
+          }
           // Refresh parent page
           widget.onDataChanged();
 
           setState(() {
+            leadDetails?.data?.callResultId = callResultId;
+            leadDetails?.data?.callResult = callResult;
             remarks.clear();
             nextFollowupDate1.clear();
 
@@ -2952,57 +3381,149 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: InkWell(
-            onTap: () {
-              setState(() {
-                isExpand = !isExpand;
-                if (isExpand) {
-                  calledDate1.text =
-                      DateFormat('dd-MM-yyyy hh:mm a').format(DateTime.now());
-                }
-              });
-            },
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF2a86c9), Color(0xFF2a86c9)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+child: Row(
+  children: [
+    Expanded(
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            isExpand = !isExpand;
+            if (isExpand) {
+              calledDate1.text = DateFormat(
+                'dd-MM-yyyy hh:mm a',
+              ).format(DateTime.now());
+            }
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF2a86c9),
+                Color(0xFF2a86c9),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF2a86c9)
+                    .withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isExpand
+                    ? Icons.close
+                    : Icons.add_circle_outline,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isExpand
+                    ? "Close Followup Form"
+                    : "Add New Followup",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
                 ),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF2a86c9).withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+
+    if (_showAssignWorkButton) ...[
+      const SizedBox(width: 10),
+
+      Expanded(
+        child: InkWell(
+          onTap: () async {
+  final result = await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => AssignWorkPage(
+        callMasterId: widget.callMasterId.toString(),
+        callLeadId:
+            leadDetails?.data?.callLeadId?.toString() ?? '',
+        clientName:
+            leadDetails?.data?.clientName ?? '',
+        onSuccess: () {
+          setState(() {});
+        },
+      ),
+    ),
+  );
+
+  print("NAV RESULT = $result");
+
+  if (result == true) {
+    await _refreshData(
+      callMasterId ?? widget.callMasterId,
+    );
+
+    await _loadWorkDetails();
+
+    setState(() {});
+  }
+},
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Colors.orange,
+                  Colors.deepOrange,
                 ],
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    isExpand ? Icons.close : Icons.add_circle_outline,
+              borderRadius:
+                  BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.orange
+                      .withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Row(
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.assignment_add,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  "Assign Work",
+                  style: TextStyle(
                     color: Colors.white,
-                    size: 20,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    isExpand ? "Close Followup Form" : "Add New Followup",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
+      ),
+    ],
+  ],
+),
+),
         if (isExpand)
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

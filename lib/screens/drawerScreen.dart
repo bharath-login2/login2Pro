@@ -133,7 +133,7 @@ class _DraweScreenState extends State<DraweScreen> {
                               ])),
                           child: DrawerHeader(
                               child: Center(
-                            child: Image.asset('assets/main/logo.png',
+                            child: Image.asset('assets/main/funriders.png',
                                 height: 130, fit: BoxFit.contain),
                           )),
                         ),

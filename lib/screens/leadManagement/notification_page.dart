@@ -402,7 +402,7 @@ class _NotificationPageState extends State<NotificationPage> {
                                                             .data[i].type ==
                                                         "3"
                                                     ? "assets/icons/whatsapp_white.png"
-                                                    : "assets/main/logo.png",
+                                                    : "assets/main/funriders.png",
                                                 width: 25),
                                           ),
                                           SizedBox(

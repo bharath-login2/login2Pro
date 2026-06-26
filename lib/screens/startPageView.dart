@@ -38,7 +38,7 @@ class _StartPageViewState extends State<StartPageView> {
                 height: SizeConfig.screenHeight!/5.174,  /// 132.0
                 decoration: const BoxDecoration(
                     image: DecorationImage(
-                        image: AssetImage("assets/main/logo.png",),
+                        image: AssetImage("assets/main/funriders.png",),
                         fit: BoxFit.cover
                     )
                 ),
