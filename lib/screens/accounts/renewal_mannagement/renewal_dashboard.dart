@@ -1491,7 +1491,7 @@ class _RenewalDashboardState extends State<RenewalDashboard> {
                     width: 200,
                     child: Padding(
                       padding: const EdgeInsets.all(30.0),
-                      child: Image.asset("assets/main/bill_logo.png"),
+                      child: Image.asset("assets/main/bill_funriders.png"),
                     )),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,

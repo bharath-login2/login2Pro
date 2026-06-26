@@ -22,7 +22,7 @@ class SideBar extends StatelessWidget {
             ),
             child: Center(
               child: Image.asset(
-                "assets/main/logo.png",
+                "assets/main/funriders.png",
                 height: 180,
                 fit: BoxFit.contain,
               ),

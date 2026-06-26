@@ -422,7 +422,7 @@ class _OtpScreenState extends State<OtpScreen>
                                 ),
                                 child: ClipOval(
                                   child: Image.asset(
-                                    'assets/main/logo.png',
+                                    'assets/main/funriders.png',
                                     width: 80,
                                     height: 80,
                                     fit: BoxFit.contain,

@@ -1958,7 +1958,7 @@ class _MinimalDashboardState extends State<MinimalDashboard> {
                           //   decoration: BoxDecoration(
                           //       borderRadius: BorderRadius.circular(12),
                           //       image: DecorationImage(
-                          //           image: AssetImage("assets/main/logo.png"))),
+                          //           image: AssetImage("assets/main/funriders.png"))),
                           // ),
                           const SizedBox(
                             height: 20,

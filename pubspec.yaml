@@ -164,9 +164,9 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: "assets/main/logo.png"
+  image_path: "assets/main/funriders.png"
 
-  adaptive_icon_foreground: "assets/main/logo.png"
+  adaptive_icon_foreground: "assets/main/funriders.png"
   adaptive_icon_background: "#FFFFFF"
 
 flutter:

@@ -20,8 +20,9 @@ class TaskForm {
   TextEditingController descriptionController;
   String? status;
   String? taskId;
-  List<File> attachments;
   List<TextEditingController> remarksControllers;
+
+  List<File> attachments;
 
   TaskForm({
     required this.controller,
@@ -32,16 +33,21 @@ class TaskForm {
     List<File>? attachments,
   })  : remarksControllers = remarks ?? [TextEditingController()],
         attachments = attachments ?? [];
-  
 }
 
 class AssignWorkPage extends StatefulWidget {
+  final String callMasterId;
+  final String callLeadId;
+  final String clientName;
   final WorkStatus? existingWork;
   final Function() onSuccess;
   final int isPaused;
   final int Restart;
   const AssignWorkPage({
     super.key,
+    required this.callMasterId,
+    required this.callLeadId,
+    required this.clientName,
     this.existingWork,
     required this.onSuccess,
     this.isPaused = 0,
@@ -116,11 +122,21 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
   @override
   void initState() {
     super.initState();
+   _loadModules();
+  print("AssignWork callMasterId = ${widget.callMasterId}");
+  print("AssignWork callLeadId = ${widget.callLeadId}");
     debugPrint('Work is paused? ${widget.isPaused == 1 ? "Yes" : "No"}');
     debugPrint('Work is restarted? ${widget.Restart == 1 ? "Yes" : "No"}');
     titleController = TextEditingController(
       text: widget.existingWork?.title_name ?? '',
     );
+    log('''
+===== Assign Work =====
+Call Master ID : ${widget.callMasterId}
+Call Lead ID   : ${widget.callLeadId}
+Client Name    : ${widget.clientName}
+=======================
+''');
     _searchController.addListener(_filterProjects);
     tasks = widget.existingWork != null
         ? widget.existingWork!.tasks
@@ -334,7 +350,23 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
     });
     debugPrint('Lat: ${position.latitude}, Long: ${position.longitude}');
   }
+Future<void> _loadModules() async {
+  final response =
+      await HttpService.getLeadModules(widget.callMasterId);
 
+  if (response != null && response.status) {
+    setState(() {
+      titleList = response.data
+          .map(
+            (module) => TitleListDet(
+              id: module.id,
+              name: module.module,
+            ),
+          )
+          .toList();
+    });
+  }
+}
   @override
   void dispose() {
     titleController.dispose();
@@ -398,15 +430,15 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
     });
 
     try {
-      if (selectedProjectId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select a project'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
+      // if (selectedProjectId == null) {
+      //   ScaffoldMessenger.of(context).showSnackBar(
+      //     const SnackBar(
+      //       content: Text('Please select a project'),
+      //       backgroundColor: Colors.red,
+      //     ),
+      //   );
+      //   return;
+      // }
 
       if (isLocationEnabled &&
           (currentLatitude == null || currentLongitude == null)) {
@@ -470,6 +502,7 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
       final workData = {
         'work_id': widget.existingWork?.id,
         'project_id': selectedProjectId,
+         'call_master_id': widget.callMasterId,
         'project_name': selectedProjectName,
         'title': titleController.text,
         'title_id': selectedTitleId,
@@ -506,9 +539,9 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
             'status': (task.status != null && task.status.toString().isNotEmpty)
                 ? task.status
                 : 1,
-                'attachments': task.attachments
-        .map((file) => file.path)
-        .toList(),
+            'attachments': task.attachments
+    .map((file) => file.path)
+    .toList(),
             'remarks': task.remarksControllers
                 .map((controller) => controller.text)
                 .where((remark) => remark.isNotEmpty)
@@ -870,229 +903,182 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
                         //     ),
                         //   ),
                         // ),
-                        Card(
-                          elevation: 1,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.folder_special_rounded,
-                                      color: Colors.blue,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Project Details',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey[800],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Project *',
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.grey[700],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              border: Border.all(
-                                                color: Colors.grey.shade300,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: ListTile(
-                                              onTap: () async {
-                                                final selected =
-                                                    await dropDialogExisting(
-                                                        context, "Projects");
-                                                if (selected != null) {
-                                                  setState(() {
-                                                    selectedProjectId =
-                                                        selected['id'];
-                                                    selectedProjectController
-                                                            .text =
-                                                        selected['name'] ?? '';
-                                                  });
-                                                  await _loadTitle();
-                                                }
-                                              },
-                                              title: Text(
-                                                selectedProjectController
-                                                        .text.isEmpty
-                                                    ? 'Project'
-                                                    : selectedProjectController
-                                                        .text,
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  color:
-                                                      selectedProjectController
-                                                              .text.isEmpty
-                                                          ? Colors.grey[500]
-                                                          : Colors.grey[800],
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              trailing: const Icon(
-                                                Icons.arrow_drop_down,
-                                                color: Colors.grey,
-                                                size: 20,
-                                              ),
-                                              dense: true,
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 10,
-                                                vertical: 4,
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                              ),
-                                              minVerticalPadding: 0,
-                                              minLeadingWidth: 0,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                       Card(
+  elevation: 1,
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(12),
+  ),
+  child: Padding(
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.folder_special_rounded,
+              color: Colors.blue,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Project Details',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[800],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
 
-                                    const SizedBox(width: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Client Name
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Client Name',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.grey.shade300,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      widget.clientName ?? '',
+                      style: const TextStyle(
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
-                                    // Module field
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Module *',
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.grey[700],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              border: Border.all(
-                                                color: Colors.grey.shade300,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: ListTile(
-                                              onTap: () async {
-                                                final selected =
-                                                    await dropTitleDialog(
-                                                        context, titleList);
-                                                if (selected != null) {
-                                                  setState(() {
-                                                    selectedTitleId =
-                                                        selected['id'];
-                                                    titleController.text =
-                                                        selected['name']!;
-                                                  });
-                                                }
-                                              },
-                                              title: Text(
-                                                titleController.text.isEmpty
-                                                    ? 'Module'
-                                                    : titleController.text,
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  color: titleController
-                                                          .text.isEmpty
-                                                      ? Colors.grey[500]
-                                                      : Colors.grey[800],
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              trailing: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  IconButton(
-                                                    icon: const Icon(
-                                                      Icons.add,
-                                                      size: 16,
-                                                    ),
-                                                    onPressed: () async {
-                                                      final newTitle =
-                                                          await showProjectTitleDialog(
-                                                              context);
-                                                      if (newTitle != null) {
-                                                        setState(() {
-                                                          titleList
-                                                              .add(newTitle);
-                                                          selectedTitleId =
-                                                              newTitle.id;
-                                                          titleController.text =
-                                                              newTitle.name;
-                                                        });
-                                                      }
-                                                    },
-                                                    padding: EdgeInsets.zero,
-                                                    constraints:
-                                                        const BoxConstraints(
-                                                      minWidth: 24,
-                                                      minHeight: 24,
-                                                    ),
-                                                  ),
-                                                  const Icon(
-                                                    Icons.arrow_drop_down,
-                                                    color: Colors.grey,
-                                                    size: 20,
-                                                  ),
-                                                ],
-                                              ),
-                                              dense: true,
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 4,
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                              ),
-                                              minVerticalPadding: 0,
-                                              minLeadingWidth: 0,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
+            const SizedBox(width: 12),
+
+            // Module Field
+                           Expanded(
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        'Module *',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: Colors.grey[700],
+        ),
+      ),
+      const SizedBox(height: 4),
+      Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: Colors.grey.shade300,
+          ),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: ListTile(
+          onTap: () async {
+  if (titleList.isEmpty) {
+    await _loadModules();
+  }
+
+  final selected =
+      await dropTitleDialog(context, titleList);
+
+  if (selected != null) {
+    setState(() {
+      selectedTitleId = selected['id'];
+      titleController.text = selected['name'] ?? '';
+    });
+  }
+},
+          title: Text(
+            titleController.text.isEmpty
+                ? 'Select Module'
+                : titleController.text,
+            style: TextStyle(
+              fontSize: 14,
+              color: titleController.text.isEmpty
+                  ? Colors.grey[500]
+                  : Colors.grey[800],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.add,
+                  size: 16,
+                ),
+                onPressed: () async {
+                  final newModule =
+                      await showProjectTitleDialog(context);
+
+                  if (newModule != null) {
+                    setState(() {
+                      titleList.add(newModule);
+                      selectedTitleId = newModule.id;
+                      titleController.text = newModule.name;
+                    });
+                  }
+                },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 24,
+                  minHeight: 24,
+                ),
+              ),
+              const Icon(
+                Icons.arrow_drop_down,
+                color: Colors.grey,
+                size: 20,
+              ),
+            ],
+          ),
+          dense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 4,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(6),
+          ),
+          minVerticalPadding: 0,
+          minLeadingWidth: 0,
+        ),
+      ),
+    ],
+  ),
+),
+                          
+                          ],
                         ),
-
+                      ],
+                    ),
+                  ),
+                ),
                         Card(
                           elevation: 1,
                           shape: RoundedRectangleBorder(
@@ -1204,7 +1190,6 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
                                       ],
                                     ),
                                   ),
-                                    
                                     const SizedBox(width: 16),
                                     Expanded(
                                       child: Column(
@@ -2490,85 +2475,56 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
   }
 
   Future<TitleListDet?> showProjectTitleDialog(BuildContext context) async {
-    TextEditingController titleController = TextEditingController();
-    TextEditingController projectController = TextEditingController();
-    projectController.text = selectedProjectName ?? '';
-    return showDialog<TitleListDet>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Add Module'),
-              content: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    GestureDetector(
-                      onTap: () async {
-                        await dropDialogExisting(context, "Projects");
-                        setState(() {
-                          projectController.text = selectedProjectName ?? '';
-                        });
-                      },
-                      child: AbsorbPointer(
-                        child: TextFormField(
-                          controller: projectController,
-                          decoration: const InputDecoration(
-                            labelText: 'Select Project',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Module',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (selectedProjectId == null ||
-                        titleController.text.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content:
-                              Text('Please select a project and enter a title'),
-                        ),
-                      );
-                      return;
-                    }
-                    final newTitle = await HttpService.submitTitle(
-                      context: context,
-                      projectId: selectedProjectId!,
-                      title: titleController.text.trim(),
-                    );
-                    if (newTitle != null) {
-                      Navigator.pop(context, newTitle);
-                    }
-                  },
-                  child: const Text('Submit'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
+  TextEditingController titleController = TextEditingController();
 
+  return showDialog<TitleListDet>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Add Module'),
+        content: TextField(
+          controller: titleController,
+          decoration: const InputDecoration(
+            labelText: 'Module',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (titleController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter module name'),
+                  ),
+                );
+                return;
+              }
+
+              final newTitle = await HttpService.submitModule(
+                context: context,
+                leadId: widget.callMasterId,
+                title: titleController.text.trim(),
+              );
+              print("newTitle id = ${newTitle?.id}");
+              print("newTitle name = ${newTitle?.name}");
+              if (newTitle != null) {
+                Navigator.pop(context, newTitle);
+              }
+            },
+            child: const Text('Submit'),
+          ),
+        ],
+      );
+    },
+  );
+}
   Future<Map<String, String>?> _showStaffSearchDialog(
       BuildContext context) async {
     TextEditingController searchController = TextEditingController();
