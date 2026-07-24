@@ -84,6 +84,7 @@ class _EditLeadNewState extends State<EditLeadNew> {
   final TextEditingController clientNameCtrl = TextEditingController();
   final TextEditingController contactNoCtrl = TextEditingController();
   final TextEditingController costCtrl = TextEditingController();
+  final TextEditingController costCtrls = TextEditingController();
   final TextEditingController addressCtrl = TextEditingController();
   final TextEditingController remarkCtrl = TextEditingController();
   final TextEditingController pinCodeCtrl = TextEditingController();
@@ -91,6 +92,7 @@ class _EditLeadNewState extends State<EditLeadNew> {
   final TextEditingController districtCtrl = TextEditingController();
   final TextEditingController whatsappNoCtrl = TextEditingController();
   final TextEditingController emailCtrl = TextEditingController();
+  final TextEditingController companyNameCtrl = TextEditingController();
   final List<TextEditingController> _additionalCtrls = [];
   final List<Map<String, dynamic>> _additionalValues = [];
   PostalCodeModel? postalCodeModel;
@@ -210,6 +212,7 @@ class _EditLeadNewState extends State<EditLeadNew> {
     commonDetails = await HttpService.addLeadCommonData(widget.token);
     leadDetails =
         await HttpService.leadDetails(widget.token, widget.callMasterId);
+        print("API Cost = ${leadDetails?.data?.cost}");
     if (leadDetails?.data != null) {
       final data = leadDetails!.data!;
       clientNameCtrl.text = data.clientName ?? "";
@@ -221,7 +224,7 @@ class _EditLeadNewState extends State<EditLeadNew> {
           mobileNumber: data.contactNumber1 ?? "", countryCode: code);
       whatsappNoCtrl.text = data.whatsaAppNumber ?? "";
       emailCtrl.text = data.emailId ?? "";
-      costCtrl.text = data.cost?.toString() ?? "";
+      costCtrls.text = leadDetails?.data?.cost ?? "";
       addressCtrl.text = data.address ?? "";
       pinCodeCtrl.text = data.pinCode ?? "";
       remarkCtrl.text = data.remarks ?? "";
@@ -240,6 +243,7 @@ class _EditLeadNewState extends State<EditLeadNew> {
       priorityId = data.priorityId?.toString() ?? '';
       leadSource = data.leadSource ?? 'Lead Source';
       leadSourceId = data.leadSourceId?.toString() ?? '';
+      companyNameCtrl.text = data.companyName ?? "";
       if (commonDetails?.data.leadSource != null) {
         for (var src in commonDetails!.data.leadSource) {
           if (src.leadSourceId.toString() == leadSourceId && src.isRestricted == "Y") {
@@ -398,6 +402,8 @@ class _EditLeadNewState extends State<EditLeadNew> {
                 const SizedBox(height: 12),
                 _buildCustomerRow(),
                 const SizedBox(height: 12),
+                _buildCompanyNameField(),
+                const SizedBox(height: 12),
                 _buildPhoneField(),
                 const SizedBox(height: 12),
                 _buildWhatsappField(),
@@ -453,19 +459,20 @@ class _EditLeadNewState extends State<EditLeadNew> {
 
                 const SizedBox(height: 12),
                 _buildRemarksField(),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _buildSectionCard(
-              title: 'Product Info',
-              icon: Icons.shopping_bag_outlined,
-              children: [
-                const SizedBox(height: 12),
-                _buildProductSelection(),
+                
                 const SizedBox(height: 12),
                 _buildCostField(),
               ],
             ),
+            // const SizedBox(height: 12),
+            // _buildSectionCard(
+            //   title: 'Product Info',
+            //   icon: Icons.shopping_bag_outlined,
+            //   children: [
+            //     const SizedBox(height: 12),
+            //     _buildProductSelection(),
+            //   ],
+            // ),
             if (commonDetails!.data.additionalFields.isNotEmpty) ...[
               const SizedBox(height: 12),
               _buildSectionCard(
@@ -528,7 +535,7 @@ class _EditLeadNewState extends State<EditLeadNew> {
         Expanded(
             child: TextFormField(
                 controller: clientNameCtrl,
-                decoration: _inputDecoration('Customer Name *', Icons.person),
+                decoration: _inputDecoration('Client Name *', Icons.person),
                 validator: (v) => v!.isEmpty ? 'Required' : null)),
         const SizedBox(width: 10),
         GestureDetector(
@@ -547,7 +554,16 @@ class _EditLeadNewState extends State<EditLeadNew> {
       ],
     );
   }
-
+Widget _buildCompanyNameField() {
+  return TextFormField(
+    controller: companyNameCtrl,
+    decoration: _inputDecoration(
+      'Company Name *',
+      Icons.business,
+    ),
+    validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+  );
+}
   Widget _buildPhoneField() {
     return TextFormField(
       controller: contactNoCtrl,
@@ -630,13 +646,22 @@ class _EditLeadNewState extends State<EditLeadNew> {
         });
   }
 
-  Widget _buildCostField() {
-    return TextFormField(
-        controller: costCtrl,
-        keyboardType: TextInputType.number,
-        decoration: _inputDecoration('Cost', Icons.currency_rupee));
-  }
-
+  // Widget _buildCostField() {
+  //   return TextFormField(
+  //       controller: costCtrl,
+  //       keyboardType: TextInputType.number,
+  //       decoration: _inputDecoration('Cost', Icons.currency_rupee));
+  // }
+Widget _buildCostField() {
+  return TextFormField(
+    controller: costCtrls,
+    keyboardType: TextInputType.number,
+    decoration: _inputDecoration(
+      'Cost',
+      Icons.currency_rupee,
+    ),
+  );
+}
   Widget _buildStaffField() {
     return GestureDetector(
         onTap: () => _showStaffDialog(),
@@ -1685,11 +1710,12 @@ class _EditLeadNewState extends State<EditLeadNew> {
       widget.callMasterId,
       branch,
       clientNameCtrl.text,
+      companyNameCtrl.text,
       leadTypeId,
       leadSubTypeId,
       contactNoCtrl.text,
       assignStaffId,
-      costCtrl.text,
+      costCtrls.text,
       priorityId,
       addressCtrl.text,
       pinCodeCtrl.text,

@@ -56,6 +56,7 @@ class Data {
   String checkStock;
   String openingStock;
   String currentStock;
+  String lowStockLimit;
   String stockStatus;
   String isFeatureProduct;
   String isGst;
@@ -107,6 +108,7 @@ class Data {
     required this.checkStock,
     required this.openingStock,
     required this.currentStock,
+    required this.lowStockLimit,
     required this.stockStatus,
     required this.isFeatureProduct,
     required this.isGst,
@@ -158,6 +160,7 @@ class Data {
         checkStock: json["check_stock"]?.toString() ?? "",
         openingStock: json["opening_stock"]?.toString() ?? "",
         currentStock: json["current_stock"]?.toString() ?? "",
+        lowStockLimit: json["low_stock_limit"]?.toString() ?? json["low_stock"]?.toString() ?? "",
         stockStatus: json["stock_status"]?.toString() ?? "",
         isFeatureProduct: json["is_feature_product"]?.toString() ?? "",
         isGst: json["is_gst"]?.toString() ?? "",
@@ -216,6 +219,7 @@ class Data {
         "check_stock": checkStock,
         "opening_stock": openingStock,
         "current_stock": currentStock,
+        "low_stock_limit": lowStockLimit,
         "stock_status": stockStatus,
         "is_feature_product": isFeatureProduct,
         "is_gst": isGst,

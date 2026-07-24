@@ -1,6 +1,17 @@
+import 'dart:io';
+
+class TaskAttachment {
+  final String taskId;
+  final File file;
+
+  TaskAttachment({
+    required this.taskId,
+    required this.file,
+  });
+}
 class WorkSession {
-   final String projectId;
-    final String taskId;
+  final String projectId;
+  final String taskId;
   final String taskName;
   final String description;
   final String remark;
@@ -8,11 +19,16 @@ class WorkSession {
   final String count;
   final String totalHours;
   final String lastUpdatedTime;
+
+  final List<String> attachments;
+  final List<int> attachmentIds;
+  final List<String> attachmentFileIds;
+
   final List<Work> works;
 
   WorkSession({
     required this.projectId,
-     required this.taskId,
+    required this.taskId,
     required this.taskName,
     required this.description,
     required this.remark,
@@ -20,34 +36,53 @@ class WorkSession {
     required this.count,
     required this.totalHours,
     required this.lastUpdatedTime,
+    required this.attachments,
+    required this.attachmentIds,
+    required this.attachmentFileIds,
     required this.works,
   });
 
   factory WorkSession.fromJson(Map<String, dynamic> json) {
     return WorkSession(
-       projectId: json['project_id'] ?? '',
-      taskId: json['task_id'] ?? '',
-      taskName: json['task_name'] ?? '',
-      description: json['description'] ?? '',
-      remark: json['remarks'] ?? '',
-      status: json['status'] ?? '',
-      count: json['count'] ?? '',
-      totalHours: json['total_hours'] ?? '',
-      lastUpdatedTime: json['last_updated_time'] ?? '',
+      projectId: json['project_id']?.toString() ?? '',
+      taskId: json['task_id']?.toString() ?? '',
+      taskName: json['task_name']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      remark: json['remarks']?.toString() ?? '',
+      status: json['status']?.toString() ?? '',
+      count: json['count']?.toString() ?? '',
+      totalHours: json['total_hours']?.toString() ?? '',
+      lastUpdatedTime: json['last_updated_time']?.toString() ?? '',
+
+      attachments: (json['attachments'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+
+      attachmentIds: (json['attachment_ids'] as List<dynamic>?)
+              ?.map((e) => int.tryParse(e.toString()) ?? 0)
+              .toList() ??
+          [],
+
+      attachmentFileIds: (json['attachment_file_ids'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+
       works: (json['works'] as List<dynamic>?)
-              ?.map((work) => Work.fromJson(work))
+              ?.map((e) => Work.fromJson(e))
               .toList() ??
           [],
     );
   }
 }
-
 class Work {
   final String workedDate;
   final String startTime;
   final String endTime;
   final String duration;
   final List<String> remarks;
+  final List<String> logAttachments;
 
   Work({
     required this.workedDate,
@@ -55,6 +90,7 @@ class Work {
     required this.endTime,
     required this.duration,
     required this.remarks,
+    this.logAttachments = const [],
   });
 
   factory Work.fromJson(Map<String, dynamic> json) {
@@ -78,12 +114,21 @@ class Work {
       }
     }
 
+    List<String> parsedAttachments = [];
+    if (json['log_attachments'] != null && json['log_attachments'] is List) {
+      parsedAttachments = (json['log_attachments'] as List)
+          .map((item) => item?.toString() ?? '')
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+
     return Work(
       workedDate: json['worked_date']?.toString() ?? '',
       startTime: json['start_time']?.toString() ?? '',
       endTime: json['end_time']?.toString() ?? '',
       duration: json['duration']?.toString() ?? '',
       remarks: parsedRemarks,
+      logAttachments: parsedAttachments,
     );
   }
 }
@@ -158,6 +203,7 @@ class AssignedWork {
   final String unreadCount;
   final String completion;
 
+
   AssignedWork({
     required this.total,
      required this.totalTask,
@@ -183,6 +229,7 @@ class AssignedWork {
     required this.notification,
     required this.unreadCount,
     required this.completion,
+
   });
 
   factory AssignedWork.fromJson(Map<String, dynamic> json) {

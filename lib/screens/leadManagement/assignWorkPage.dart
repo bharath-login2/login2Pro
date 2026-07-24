@@ -112,7 +112,8 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
   List<String> selectedStaffIds = [];
   List<String> selectedAssignedStaffIds = [];
   bool _isAssigning = false;
-
+  String? whatsappMenu;
+  
   @override
   void initState() {
     super.initState();
@@ -184,7 +185,18 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
   void _initAsync() async {
     token = await Common.getSharedPref("token") ?? "";
     userId = await Common.getSharedPref("userId");
+    whatsappMenu = await Common.getSharedPref("whatsappMenu");
+    if (whatsappMenu == null && token.isNotEmpty) {
+      final object1 = await HttpService.userPermissionCheck(token);
+      if (object1 != null && object1.status == true && object1.data != null) {
+        whatsappMenu = object1.data!.whatsappMenu?.toString();
+        if (whatsappMenu != null) {
+          Common.saveSharedPref("whatsappMenu", whatsappMenu!);
+        }
+      }
+    }
     await _loadProjects();
+    setState(() {});
     // if (assignedTo == null) {
     //   setState(() {
     //     assignedTo = userId;
@@ -430,7 +442,32 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
         );
         return;
       }
+// Validate Task
+if (tasks.isEmpty ||
+    tasks.every((task) => task.controller.text.trim().isEmpty)) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Please add at least one task'),
+      backgroundColor: Colors.red,
+    ),
+  );
+  setState(() => _isAssigning = false);
+  return;
+}
 
+// Validate each task
+for (int i = 0; i < tasks.length; i++) {
+  if (tasks[i].controller.text.trim().isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Task ${i + 1} is mandatory'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    setState(() => _isAssigning = false);
+    return;
+  }
+}
       final currentUserId = await Common.getSharedPref('user_id');
       if (!selectedAssignedStaffIds.contains(currentUserId)) {
         final confirmed = await showDialog<bool>(
@@ -473,8 +510,9 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
         'project_name': selectedProjectName,
         'title': titleController.text,
         'title_id': selectedTitleId,
-        'due_date':
-            dueDate != null ? DateFormat('yyyy-MM-dd').format(dueDate!) : null,
+        'due_date': dueDate != null
+          ? DateFormat('yyyy-MM-dd HH:mm:ss').format(dueDate!)
+          : null,
         'priority': priority,
         'assigned_to': assignedTo,
         'task_type': taskType,
@@ -1138,35 +1176,67 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
                                         const SizedBox(height: 6),
                                         GestureDetector(
                                           onTap: () async {
+                                            final now = DateTime.now();
+
                                             // Pick Date
                                             final pickedDate = await showDatePicker(
                                               context: context,
-                                              initialDate: dueDate ?? DateTime.now(),
-                                              firstDate: DateTime(2022),
+                                              initialDate: dueDate ?? now,
+                                              firstDate: DateTime(now.year, now.month, now.day),
                                               lastDate: DateTime(2100),
                                             );
 
                                             if (pickedDate == null) return;
 
-                                            // Pick Time
-                                            final pickedTime = await showTimePicker(
-                                              context: context,
-                                              initialTime: dueDate != null
-                                                  ? TimeOfDay.fromDateTime(dueDate!)
-                                                  : TimeOfDay.now(),
-                                            );
+                                            TimeOfDay? pickedTime;
 
-                                            if (pickedTime == null) return;
+                                            while (true) {
+                                              pickedTime = await showTimePicker(
+                                                context: context,
+                                                initialTime: TimeOfDay.fromDateTime(
+                                                  pickedDate.year == now.year &&
+                                                          pickedDate.month == now.month &&
+                                                          pickedDate.day == now.day
+                                                      ? now
+                                                      : DateTime(
+                                                          pickedDate.year,
+                                                          pickedDate.month,
+                                                          pickedDate.day,
+                                                          9,
+                                                          0,
+                                                        ),
+                                                ),
+                                              );
 
-                                            setState(() {
-                                              dueDate = DateTime(
+                                              if (pickedTime == null) {
+                                                // User cancelled
+                                                return;
+                                              }
+
+                                              final selectedDateTime = DateTime(
                                                 pickedDate.year,
                                                 pickedDate.month,
                                                 pickedDate.day,
                                                 pickedTime.hour,
                                                 pickedTime.minute,
                                               );
-                                            });
+
+                                              if (!selectedDateTime.isBefore(now)) {
+                                                setState(() {
+                                                  dueDate = selectedDateTime;
+                                                });
+                                                break;
+                                              }
+
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'Past time is not allowed. Please select the current or a future time.',
+                                                  ),
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              );
+                                            }
                                           },
                                           child: Container(
                                             padding: const EdgeInsets.all(14),
@@ -1589,7 +1659,7 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
                                                     minLines: 1,
                                                     maxLines: 2,
                                                     decoration: InputDecoration(
-                                                      hintText: 'Task',
+                                                      hintText: 'Task *',
                                                       border:
                                                           OutlineInputBorder(
                                                         borderRadius:
@@ -1911,15 +1981,18 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
                                 ),
                                 const SizedBox(height: 16),
 
-                                _buildNotificationOption(
-                                  icon: FontAwesomeIcons.whatsapp,
-                                  iconColor: Colors.green,
-                                  title: 'WhatsApp Notification',
-                                  value: whatsappNotification,
-                                  onChanged: (value) => setState(() {
-                                    whatsappNotification = value;
-                                  }),
-                                ),
+                                if (whatsappMenu == "true") ...[
+                                    _buildNotificationOption(
+                                      icon: FontAwesomeIcons.whatsapp,
+                                      iconColor: Colors.green,
+                                      title: 'WhatsApp Notification',
+                                      value: whatsappNotification,
+                                      onChanged: (value) => setState(() {
+                                        whatsappNotification = value;
+                                      }),
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
                                 const SizedBox(height: 12),
                                 _buildNotificationOption(
                                   icon: Icons.notifications_active_rounded,

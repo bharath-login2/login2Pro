@@ -78,6 +78,7 @@ class FollowUpDatum {
   bool voiceUploadPermission;
   bool playVoicePermission;
   String isNewCall;
+  String expectedClosing;
   FollowUpDatum({
     required this.callDetailsId,
     required this.scheduledDate,
@@ -106,6 +107,7 @@ class FollowUpDatum {
     required this.voiceUploadPermission,
     required this.playVoicePermission,
     required this.isNewCall,
+    required this.expectedClosing,
   });
 
   factory FollowUpDatum.fromJson(Map<String, dynamic> json) => FollowUpDatum(
@@ -136,6 +138,7 @@ class FollowUpDatum {
         voiceUploadPermission: json["voiceUploadPermission"] ?? false,
         playVoicePermission: json["playVoicePermission"] ?? false,
         isNewCall: json["is_new_call"] ?? false,
+        expectedClosing: json["expected_closing_date"] ?? false,
       );
 
   Map<String, dynamic> toJson() => {
@@ -166,5 +169,6 @@ class FollowUpDatum {
         "voiceUploadPermission": voiceUploadPermission,
         "playVoicePermission": playVoicePermission,
         "is_new_call": isNewCall,
+        "expected_closing_date": expectedClosing,
       };
 }

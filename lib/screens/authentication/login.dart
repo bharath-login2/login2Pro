@@ -508,6 +508,8 @@ class _LoginState extends State<Login> with TickerProviderStateMixin {
                   object1.data!.whatsappOfficial.toString());
               Common.saveSharedPref("unofficialWhatsApp",
                   object1.data!.whatsappUnofficial.toString());
+              Common.saveSharedPref("whatsappMenu",
+                  object1.data!.whatsappMenu.toString());
               Common.saveSharedPref(
                   "transferLeads", object1.data!.transferLead.toString());
               Common.saveSharedPref("addAttendanceRemarks",

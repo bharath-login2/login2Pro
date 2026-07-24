@@ -46,7 +46,12 @@ class PurchaseRequestDetail {
   String totalAmount;
   String description;
   String remarks;
-
+String purchaseRequestId;
+String alreadyOrderedQty;
+String remainingQty;
+String amount;
+String taxPercent;
+String taxAmount;
   PurchaseRequestDetail({
     required this.pmrId,
     required this.requestId,
@@ -64,6 +69,12 @@ class PurchaseRequestDetail {
     required this.totalAmount,
     required this.description,
     required this.remarks,
+    required this.purchaseRequestId,
+required this.alreadyOrderedQty,
+required this.remainingQty,
+required this.amount,
+required this.taxPercent,
+required this.taxAmount,
   });
 
   factory PurchaseRequestDetail.fromJson(Map<String, dynamic> json) {
@@ -84,6 +95,23 @@ class PurchaseRequestDetail {
       totalAmount: json['total_amount']?.toString() ?? '',
       description: json['description'] ?? '',
       remarks: json['remarks'] ?? '',
+      purchaseRequestId:
+    json['purchase_request_id']?.toString() ?? '',
+
+alreadyOrderedQty:
+    json['already_ordered_qty']?.toString() ?? '',
+
+remainingQty:
+    json['remaining_qty']?.toString() ?? '',
+
+amount:
+    json['amount']?.toString() ?? '',
+
+taxPercent:
+    json['tax_percent']?.toString() ?? '',
+
+taxAmount:
+    json['tax_amount']?.toString() ?? '',
     );
   }
 

@@ -18,6 +18,7 @@ import 'package:login2/models/clients/invoiceAddCommonDetailsModelTemp.dart';
 import 'package:login2/models/clients/invoiceListModelGst.dart';
 import 'package:login2/models/clients/invoiceListTempModel.dart';
 import 'package:login2/models/clients/is_customer_exist.dart';
+import 'package:login2/models/departmentModel.dart';
 import 'package:login2/models/clients/printInvoiceModel.dart';
 import 'package:login2/models/clients/receiptDeleteModel.dart';
 import 'package:login2/models/clients/receiptListAccountsModel.dart';
@@ -864,6 +865,22 @@ class HttpService {
           options: Options(receiveTimeout: const Duration(seconds: 30)),
           data: jsonEncode(body));
       if (result.statusCode == 200) {
+        print("leadReport Data: ${result.data}");
+        ViewLeadsModel model = ViewLeadsModel.fromJson(result.data);
+        return model;
+      }
+    } catch (e) {
+      log("error: $e");
+    }
+  }
+  static Future leadStageReport(body) async {
+    print(body);
+    try {
+      var result = await _dio.post("${await Config.getUrl()}leadReportOtherStages",
+          options: Options(receiveTimeout: const Duration(seconds: 30)),
+          data: jsonEncode(body));
+      if (result.statusCode == 200) {
+        print('Stage Report Data: ${result.data}');
         ViewLeadsModel model = ViewLeadsModel.fromJson(result.data);
         return model;
       }
@@ -1040,6 +1057,7 @@ class HttpService {
       token,
       branchId,
       clientName,
+      companyName,
       leadType,
       leadSubType,
       contactNo,
@@ -1073,6 +1091,7 @@ class HttpService {
       'lead_category_id': leadType,
       'lead_sub_category_id': leadSubType,
       'clientName': clientName,
+      "company_name": companyName,
       'contactNumber': contactNo,
       'whatsapp_number': whatsappNumber ?? '',
       'whatsapp_country_code': whatsappnumber_country_code ?? '',
@@ -1440,6 +1459,7 @@ class HttpService {
       remarks,
       callMasterId,
       calledDate,
+      expectedClosingDate,
       callHistoryId,
       priorityId,
       checked,
@@ -1481,6 +1501,7 @@ class HttpService {
       "remarks": remarks,
       "call_master_id": callMasterId,
       "called_date": calledDate,
+      "expected_closing_date": expectedClosingDate,
       "cloud_call_id": callHistoryId,
       "address": address,
       "priority": priorityId,
@@ -1643,6 +1664,7 @@ class HttpService {
       callFollowupId,
       callResultId,
       nextFollowupDate,
+      expectedClosingDate,
       cost,
       leadTypeId,
       leadSubTypeId,
@@ -1657,9 +1679,11 @@ class HttpService {
       {String? whatsappLead,
       String? emailLead,
       String? products}) async {
+        print("Sending Cost: $cost");
     var formData = FormData.fromMap({
       "token": token,
       "next_followup_date": nextFollowupDate,
+      "expected_closing_date": expectedClosingDate,
       "call_result_id": callResultId,
       "lead_category_id": leadTypeId,
       "lead_sub_category_id": leadSubTypeId,
@@ -1677,7 +1701,7 @@ class HttpService {
       "products_lead": products ?? '',
       "additionalFields": jsonEncode(descriptions),
     });
-
+print("Form Data: ${formData.fields}");
     try {
       var result = await _dio.post(
           "${await Config.getUrl()}edit_lead_followup_updated",
@@ -1711,6 +1735,7 @@ class HttpService {
       callMasterId,
       branchId,
       clientName,
+      companyName,
       leadType,
       leadSubTypeId,
       contactNo,
@@ -1735,6 +1760,8 @@ class HttpService {
       String? whatsappNumber,
       String? whatsappnumber_country_code,
       String? email}) async {
+
+  print("Sending Cost: $cost");
     var formData = FormData.fromMap({
       'token': token,
       'branchId': branchId,
@@ -1746,6 +1773,7 @@ class HttpService {
       'lead_category_id': leadType,
       'lead_sub_category_id': leadSubTypeId,
       'clientName': clientName,
+      'company_name': companyName,
       'contactNumber': contactNo,
       'whatsapp_number': whatsappNumber ?? '',
       'whatsapp_country_code': whatsappnumber_country_code ?? '',
@@ -1765,6 +1793,8 @@ class HttpService {
       'district_id': districtId ?? '',
       'products': products ?? '',
     });
+
+    print("Form Data: ${formData.fields}");
     try {
       var result = await _dio.post("${await Config.getUrl()}edit_lead_updated",
           data: formData);
@@ -1807,6 +1837,7 @@ class HttpService {
           "${await Config.getUrl()}get_lead_followup_details",
           data: formData);
       FollowupDetailsModel model = FollowupDetailsModel.fromJson(result.data);
+      print('Editfololow: $result');
       return model;
     } catch (e) {
       log("error: $e");
@@ -1817,8 +1848,10 @@ class HttpService {
       {List<String>? staffIds}) async {
     Map<String, dynamic> map = {
       "token": token,
-      "fromDate": fromDate,
-      "toDate": toDate,
+      // "fromDate": fromDate,
+      // "toDate": toDate,
+      "fromDate": "",
+      "toDate": "",
       "callStatus": callStatus,
     };
     if (staffIds != null && staffIds.isNotEmpty) {
@@ -2829,6 +2862,8 @@ class HttpService {
       );
 
       if (result.statusCode == 200) {
+        
+        print('followup: $result');
         LeadFollowupData model = LeadFollowupData.fromJson(result.data);
         return model;
       }
@@ -4208,6 +4243,8 @@ class HttpService {
     try {
       var result = await _dio.get("${await Config.getUrl()}user_permissions",
           queryParameters: params);
+          
+      print('permission:${result}');
       UserPermissionModel model = UserPermissionModel.fromJson(result.data);
       return model;
     } catch (e) {
@@ -5300,41 +5337,105 @@ class HttpService {
 //   }
 // }
 
-  static Future<SubmitResponse> saveWorkData(
-      Map<String, dynamic> workData) async {
-    final data = {
-      "token": await Common.getSharedPref('token'),
-      "work_id": workData['work_id'],
-      "project_id": workData['project_id'],
-      "project_name": workData['project_name'] ?? '',
-      "title": workData['title'],
-      "title_id": workData['title_id'],
-      "assigned_id": workData['assignedId'],
-      "latitude": workData['latitude'],
-      "longitude": workData['longitude'],
-      "action": workData['action'] ?? '',
-      "tasks": workData['tasks'],
-    };
-    try {
-      var result = await _dio.post(
-        "${await Config.getUrl()}save_work",
-        data: jsonEncode(data),
-        options: Options(
-          headers: {
-            'Content-Type': 'application/json',
-          },
+  // static Future<SubmitResponse> saveWorkData(
+  //     Map<String, dynamic> workData) async {
+  //   final data = {
+  //     "token": await Common.getSharedPref('token'),
+  //     "work_id": workData['work_id'],
+  //     "project_id": workData['project_id'],
+  //     "project_name": workData['project_name'] ?? '',
+  //     "title": workData['title'],
+  //     "title_id": workData['title_id'],
+  //     "assigned_id": workData['assignedId'],
+  //     "latitude": workData['latitude'],
+  //     "longitude": workData['longitude'],
+  //     "action": workData['action'] ?? '',
+  //     "tasks": workData['tasks'],
+  //   };
+  //   try {
+  //     var result = await _dio.post(
+  //       "${await Config.getUrl()}save_work",
+  //       data: jsonEncode(data),
+  //       options: Options(
+  //         headers: {
+  //           'Content-Type': 'application/json',
+  //         },
+  //       ),
+  //     );
+  //     if (result.statusCode == 200) {
+  //       return SubmitResponse.fromJson(json.decode(result.data));
+  //     }
+  //     throw Exception("Failed to save work");
+  //   } catch (e) {
+  //     log("Save work error: $e");
+  //     rethrow;
+  //   }
+  // }
+static Future<SubmitResponse> saveWorkData(
+  Map<String, dynamic> workData,
+  List<File> attachments,
+) async {
+  try {
+    final token = await Common.getSharedPref('token');
+
+    FormData formData = FormData();
+
+    formData.fields.add(MapEntry("token", token));
+
+    formData.fields.add(
+        MapEntry("work_id", workData['work_id']?.toString() ?? ""));
+    formData.fields.add(
+        MapEntry("project_id", workData['project_id']?.toString() ?? ""));
+    formData.fields.add(
+        MapEntry("project_name", workData['project_name'] ?? ""));
+    formData.fields.add(
+        MapEntry("title", workData['title'] ?? ""));
+    formData.fields.add(
+        MapEntry("title_id", workData['title_id']?.toString() ?? ""));
+    formData.fields.add(
+        MapEntry("assigned_id", workData['assignedId']?.toString() ?? ""));
+    formData.fields.add(
+        MapEntry("latitude", workData['latitude']?.toString() ?? ""));
+    formData.fields.add(
+        MapEntry("longitude", workData['longitude']?.toString() ?? ""));
+    formData.fields.add(
+        MapEntry("action", workData['action'] ?? ""));
+
+    formData.fields.add(
+      MapEntry(
+        "tasks",
+        jsonEncode(workData['tasks']),
+      ),
+    );
+
+    /// Upload attachments
+    for (final file in attachments) {
+      formData.files.add(
+        MapEntry(
+          "attachments[]",
+          await MultipartFile.fromFile(
+            file.path,
+            filename: file.path.split('/').last,
+          ),
         ),
       );
-      if (result.statusCode == 200) {
-        return SubmitResponse.fromJson(json.decode(result.data));
-      }
-      throw Exception("Failed to save work");
-    } catch (e) {
-      log("Save work error: $e");
-      rethrow;
     }
-  }
 
+    final result = await _dio.post(
+      "${await Config.getUrl()}save_work",
+      data: formData,
+    );
+
+    if (result.statusCode == 200) {
+      return SubmitResponse.fromJson(result.data);
+    }
+
+    throw Exception("Failed to save work");
+  } catch (e) {
+    log("Save work error: $e");
+    rethrow;
+  }
+}
   static Future<SubmitResponse> submitWorkData(
       Map<String, dynamic> workData) async {
     var formData = FormData.fromMap({
@@ -5396,7 +5497,24 @@ class HttpService {
       "notify_on_start": workData['notification']['on_start'] ?? false,
       "notify_on_complete": workData['notification']['on_complete'] ?? false,
       "participant_ids": workData['participant_ids'] ?? '',
+      
     });
+    final List<dynamic> taskList = workData['tasks'] ?? [];
+
+    for (int i = 0; i < taskList.length; i++) {
+      final task = taskList[i];
+
+      if (task['attachments'] != null) {
+        for (String path in task['attachments']) {
+          formData.files.add(
+            MapEntry(
+              "attachments[$i][]",
+              await MultipartFile.fromFile(path),
+            ),
+          );
+        }
+      }
+    }
     // try {
     var result = await _dio.post(
       "${await Config.getUrl()}assign_work",
@@ -6411,6 +6529,7 @@ class HttpService {
     String? visibility,
     String? expiryDate,
     String? warrantyNumber,
+    String? lowStock,
     String? serviceCycle,
     String? freeService,
     String? paidService,
@@ -6445,8 +6564,15 @@ class HttpService {
       "opening_stock": openingStock,
       "current_stock": currentStock,
       "stock_status": stockStatus,
+      "low_stock_limit": lowStock,
     };
+    data["warranty"] = hasWarranty == true ? "Yes" : "No";
 
+    if (hasWarranty == true) {
+      data["expiry_date"] = expiryDate ?? "";
+      data["warranty_number"] = warrantyNumber ?? "";
+      data["service_cycle"] = serviceCycle ?? "";
+    }
     if (productImage != null && productImage != "null" && productImage != "") {
       data["product_image"] =
           await MultipartFile.fromFile(productImage.toString());
@@ -6578,6 +6704,7 @@ class HttpService {
     String visibility = "Public",
     String? expiryDate,
     String? warrantyNumber,
+    String? lowStock,
     String? serviceCycle,
     String? freeService,
     String? paidService,
@@ -6614,8 +6741,16 @@ class HttpService {
       "opening_stock": openingStock,
       "current_stock": currentStock,
       "stock_status": stockStatus,
+      "low_stock_limit": lowStock,
       "row_id": productId,
     };
+    data["warranty"] = hasWarranty == true ? "Yes" : "No";
+
+    if (hasWarranty == true) {
+      data["expiry_date"] = expiryDate ?? "";
+      data["warranty_number"] = warrantyNumber ?? "";
+      data["service_cycle"] = serviceCycle ?? "";
+    }
 
     if (productImage != null &&
         productImage != "null" &&
@@ -7474,6 +7609,7 @@ class HttpService {
   }) async {
     try {
       FormData formData = FormData.fromMap({
+        "token": await Common.getSharedPref('token'),
         'project_id': projectId,
         'title': title,
       });
@@ -7827,28 +7963,55 @@ class HttpService {
     return null;
   }
 
-  static Future<StaffListModel?> getStaffs() async {
-    var token = await Common.getSharedPref('token');
-    try {
-      FormData formData = FormData.fromMap({
-        'token': token,
-      });
-      final response = await _dio.post(
-        "${await Config.getUrl()}get_staffs",
-        data: formData,
-      );
+  // static Future<StaffListModel?> getStaffs() async {
+  //   var token = await Common.getSharedPref('token');
+  //   try {
+  //     FormData formData = FormData.fromMap({
+  //       'token': token,
+  //     });
+  //     final response = await _dio.post(
+  //       "${await Config.getUrl()}get_staffs",
+  //       data: formData,
+  //     );
 
-      if (response.statusCode == 200 && response.data['status'] == true) {
-        return StaffListModel.fromJson(response.data);
-      } else {
-        log("getStaffs failed: ${response.data}");
-      }
-    } catch (e) {
-      log("getStaffs error: $e");
+  //     if (response.statusCode == 200 && response.data['status'] == true) {
+  //       return StaffListModel.fromJson(response.data);
+  //     } else {
+  //       log("getStaffs failed: ${response.data}");
+  //     }
+  //   } catch (e) {
+  //     log("getStaffs error: $e");
+  //   }
+  //   return null;
+  // }
+static Future<StaffListModel?> getStaffs({
+  String? departmentId,
+}) async {
+  final token = await Common.getSharedPref('token');
+
+  try {
+    final formData = FormData.fromMap({
+      'token': token,
+      if (departmentId != null && departmentId.isNotEmpty)
+        'department_id': departmentId,
+    });
+
+    final response = await _dio.post(
+      "${await Config.getUrl()}get_staffs",
+      data: formData,
+    );
+
+    if (response.statusCode == 200 && response.data['status'] == true) {
+      return StaffListModel.fromJson(response.data);
+    } else {
+      log("getStaffs failed: ${response.data}");
     }
-    return null;
+  } catch (e) {
+    log("getStaffs error: $e");
   }
 
+  return null;
+}
   static Future<StaffListModel?> getWorkedStaffs(String date) async {
     var token = await Common.getSharedPref('token');
     try {
@@ -7975,6 +8138,7 @@ class HttpService {
       );
 
       if (response.statusCode == 200 && response.data['status'] == true) {
+        print('listpro:${response}');
         return ProjectListCustModel.fromJson(response.data);
       } else {
         log("getCustomers failed: ${response.data}");
@@ -8258,6 +8422,7 @@ class HttpService {
     required String projectName,
     DateTime? startDate,
     DateTime? endDate,
+    bool saveToLocation = false,
   }) async {
     var token = await Common.getSharedPref('token');
     try {
@@ -8265,6 +8430,7 @@ class HttpService {
         'token': token,
         'customer_id': customerId,
         'project_name': projectName,
+        'save_to_location': saveToLocation,
       };
       if (startDate != null) {
         formMap['start_date'] = DateFormat('yyyy-MM-dd').format(startDate);
@@ -8295,6 +8461,7 @@ class HttpService {
     required String projectName,
     DateTime? startDate,
     DateTime? endDate,
+    bool saveToLocation = false,
   }) async {
     final token = await Common.getSharedPref('token');
     try {
@@ -8303,6 +8470,7 @@ class HttpService {
         'id': id,
         'customer_id': customerId,
         'project_name': projectName,
+        'save_location': saveToLocation ? 'Y' : 'N',
       };
 
       if (startDate != null) {
@@ -8659,7 +8827,7 @@ class HttpService {
         '${await Config.getUrl()}staffwise_pending_works',
         data: formData,
       );
-      debugPrint("📥 Raw response: ${response.data}");
+      print("📥 Raw response: ${response.data}");
       if (response.statusCode == 200 && response.data['status'] == true) {
         return StaffSummaryReport.fromJson(response.data);
       } else {
@@ -8852,6 +9020,7 @@ class HttpService {
     );
 
     if (response.statusCode == 200 && response.data['status'] == true) {
+      print("WorkList:${response}");
       List data = response.data['data'];
       return data.map((e) => AssignedWork.fromJson(e)).toList();
     } else {
@@ -9116,13 +9285,18 @@ class HttpService {
   }
 
   static Future<ProjectCountModel?> dashboardCounts(
-      {required String token}) async {
+      {required String token, String? departmentId, String? staffId}) async {
     try {
+      final Map<String, dynamic> map = {'token': token};
+      if (departmentId != null && departmentId.isNotEmpty) {
+        map['department_id'] = departmentId;
+      }
+      if (staffId != null && staffId.isNotEmpty) {
+        map['staff_id'] = staffId;
+      }
       final response = await _dio.post(
         "${await Config.getUrl()}work_dashboard",
-        data: FormData.fromMap({
-          'token': token,
-        }),
+        data: FormData.fromMap(map),
       );
 
       final responseData = response.data;
@@ -11795,6 +11969,7 @@ class HttpService {
         "${await Config.getUrl()}location_list_api",
         data: formData,
       );
+      print('hellor:${response}');
       if (response.statusCode == 200) {
         final data = response.data;
         if (data is Map<String, dynamic>) {
@@ -11833,10 +12008,18 @@ class HttpService {
     return null;
   }
 
-  Future<WorksCountModel?> getCountsWorks() async {
+  Future<WorksCountModel?> getCountsWorks(
+      {String? departmentId, String? staffId}) async {
     try {
       final token = await Common.getSharedPref("token");
-      final formData = FormData.fromMap({"token": token});
+      final Map<String, dynamic> map = {"token": token};
+      if (departmentId != null && departmentId.isNotEmpty) {
+        map["department_id"] = departmentId;
+      }
+      if (staffId != null && staffId.isNotEmpty) {
+        map["staff_id"] = staffId;
+      }
+      final formData = FormData.fromMap(map);
 
       final response = await _dio.post(
         "${await Config.getUrl()}get_assigned_task_status_counts",
@@ -11849,6 +12032,55 @@ class HttpService {
       }
     } catch (e) {
       log("getCountsWorks error: $e");
+    }
+    return null;
+  }
+
+  static Future<DepartmentModel?> getDepartments() async {
+    try {
+      final token = await Common.getSharedPref("token");
+      final formData = FormData.fromMap({"token": token});
+
+      final response = await _dio.post(
+        "${await Config.getUrl()}get_departments",
+        data: formData,
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data is Map<String, dynamic>) {
+          return DepartmentModel.fromJson(data);
+        }
+      }
+    } catch (e) {
+      log("getDepartments error: $e");
+    }
+    return null;
+  }
+
+  static Future<DepartmentStaffModel?> getStaffByDepartment(
+      String departmentId) async {
+    try {
+      final token = await Common.getSharedPref("token");
+      final formData = FormData.fromMap({
+        "token": token,
+        "department_id": departmentId,
+      });
+
+      final response = await _dio.post(
+        "${await Config.getUrl()}get_staff_by_department",
+        data: formData,
+      );
+
+        print('staffs:${response}');
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data is Map<String, dynamic>) {
+          return DepartmentStaffModel.fromJson(data);
+        }
+      }
+    } catch (e) {
+      log("getStaffByDepartment error: $e");
     }
     return null;
   }
@@ -11907,31 +12139,86 @@ class HttpService {
     }
   }
 
-  Future<CommonResponse?> updateAssignedWork(Map<String, dynamic> data) async {
-    try {
-      final token = await Common.getSharedPref("token");
-      final formData = FormData.fromMap({
-        "token": token,
-        ...data,
-      });
+  // Future<CommonResponse?> updateAssignedWork(Map<String, dynamic> data) async {
+  //   try {
+  //     final token = await Common.getSharedPref("token");
+  //     final formData = FormData.fromMap({
+  //       "token": token,
+  //       ...data,
+  //     });
 
-      final response = await _dio.post(
-        "${await Config.getUrl()}update_assigned_work",
-        data: formData,
-      );
+  //     final response = await _dio.post(
+  //       "${await Config.getUrl()}update_assigned_work",
+  //       data: formData,
+  //     );
 
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        if (responseData is Map<String, dynamic>) {
-          return CommonResponse.fromJson(responseData);
-        }
+  //     if (response.statusCode == 200) {
+  //       final responseData = response.data;
+  //       if (responseData is Map<String, dynamic>) {
+  //         return CommonResponse.fromJson(responseData);
+  //       }
+  //     }
+  //   } catch (e) {
+  //     log("updateAssignedWork error: $e");
+  //   }
+  //   return null;
+  // }
+
+Future<CommonResponse?> updateAssignedWork(
+  Map<String, dynamic> data,
+  Map<int, List<File>> taskAttachments,
+) async {
+  try {
+    final token = await Common.getSharedPref("token");
+
+    FormData formData = FormData();
+
+    formData.fields.add(MapEntry("token", token));
+
+    data.forEach((key, value) {
+      if (value is List || value is Map) {
+        formData.fields.add(
+          MapEntry(key, jsonEncode(value)),
+        );
+      } else {
+        formData.fields.add(
+          MapEntry(key, value.toString()),
+        );
       }
-    } catch (e) {
-      log("updateAssignedWork error: $e");
+    });
+
+for (final entry in taskAttachments.entries) {
+  final taskIndex = entry.key;
+
+  for (final file in entry.value) {
+    formData.files.add(
+      MapEntry(
+        "attachments[$taskIndex][]",
+        await MultipartFile.fromFile(
+          file.path,
+          filename: file.path.split('/').last,
+        ),
+      ),
+    );
+  }
+}
+
+    final response = await _dio.post(
+      "${await Config.getUrl()}update_assigned_work",
+      data: formData,
+    );
+
+    if (response.statusCode == 200) {
+      print('updateAssign:${response}');
+      return CommonResponse.fromJson(response.data);
     }
-    return null;
+  } catch (e) {
+    log("updateAssignedWork error: $e");
   }
 
+  return null;
+}
+ 
   Future<UnverifiedTransactionModel?> getUnverifiedDetails({
     String? isFiltered,
     String? type,
@@ -13291,6 +13578,7 @@ class HttpService {
         }),
       );
       if (response.statusCode == 200) {
+        print("dashboardLeadsCounts response: ${response.data}");
         final data = response.data;
         if (data['status'] == true || data['status'] == 1) {
           return DashboardLeadsCountsModel.fromJson(data);
@@ -13320,6 +13608,7 @@ class HttpService {
         }),
       );
       if (response.statusCode == 200) {
+        pragma("dashboardCountsMain response: ${response.data}");
         final data = response.data;
         if (data['status'] == true || data['status'] == 'success') {
           return DashboardLeadCounts.fromJson(data);
@@ -14166,9 +14455,8 @@ class HttpService {
         data: formData,
       );
 
-      if (response.statusCode == 200 &&
-          (response.data['status'] == true ||
-              response.data['status'] == 'success')) {
+      if (response.statusCode == 200) {
+        // Always parse the response so the error message is accessible in the UI
         return GoogleDriveFilesResponse.fromJson(response.data);
       }
 
@@ -15470,40 +15758,45 @@ class HttpService {
     }
     return null;
   }
+static Future<PostProductModel?> addStockConsumption({
+  required String date,
+  required String locationId,
+  required String referenceNo,
+  required String remark,
+  required List<Map<String, dynamic>> items,
+}) async {
+  try {
+    final token = await Common.getSharedPref("token");
 
-  static Future<PostProductModel?> addStockConsumption({
-    required String date,
-    required String locationId,
-    required List<Map<String, dynamic>> items,
-  }) async {
-    try {
-      final token = await Common.getSharedPref("token");
-      Map<String, dynamic> data = {
-        "token": token,
-        "date": date,
-        "location_id": locationId,
-      };
+    Map<String, dynamic> data = {
+      "token": token,
+      "date": date,
+      "location_id": locationId,
+      "reference_no": referenceNo,
+      "remarks": remark,
+    };
 
-      for (int i = 0; i < items.length; i++) {
-        data["product_id[$i]"] = items[i]["product_id"];
-        data["quantity[$i]"] = items[i]["quantity"];
-        data["unit_price[$i]"] = items[i]["unit_price"];
-        data["unit[$i]"] = items[i]["unit"];
-      }
-
-      final response = await _dio.post(
-        "${await Config.getUrl()}post_consumed_stock",
-        data: FormData.fromMap(data),
-      );
-      if (response.statusCode == 200) {
-        return PostProductModel.fromJson(response.data);
-      }
-    } catch (e) {
-      log("addStockConsumption error: $e");
+    for (int i = 0; i < items.length; i++) {
+      data["product_id[$i]"] = items[i]["product_id"];
+      data["quantity[$i]"] = items[i]["quantity"];
+      data["unit_price[$i]"] = items[i]["unit_price"];
+      data["unit[$i]"] = items[i]["unit"];
     }
-    return null;
+
+    final response = await _dio.post(
+      "${await Config.getUrl()}post_consumed_stock",
+      data: FormData.fromMap(data),
+    );
+
+    if (response.statusCode == 200) {
+      return PostProductModel.fromJson(response.data);
+    }
+  } catch (e) {
+    log("addStockConsumption error: $e");
   }
 
+  return null;
+}
   static Future<StockRequestEditDetails?> getStockRequestEditDetails(
       String stockId) async {
     try {
@@ -15637,6 +15930,7 @@ class HttpService {
         data: FormData.fromMap(data),
       );
       if (response.statusCode == 200) {
+        print('getall:${response}');
         return GetPurchaseRequestListModel.fromJson(response.data);
       }
     } catch (e) {
@@ -15655,6 +15949,7 @@ class HttpService {
         data: FormData.fromMap(data),
       );
       if (response.statusCode == 200) {
+        print('getallw:${response}');
         return GetPurchaseOrderModel.fromJson(response.data);
       }
     } catch (e) {
@@ -16049,6 +16344,8 @@ class HttpService {
         "${await Config.getUrl()}get_request_with_materials",
         data: FormData.fromMap(data),
       );
+      
+        print("ndhd${response}");
       if (response.statusCode == 200) {
         return GetPurchaseRequestDetailsResponse.fromJson(response.data);
       }
@@ -16650,9 +16947,10 @@ static Future<Map<String, dynamic>?> approveRejectStockRequest(
       data: FormData.fromMap(data),
     );
 
-    if (response.statusCode == 200 &&
-        response.data['status'] == true) {
-      return response.data['data'];
+    print("approveres: ${response.data}");
+
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(response.data);
     }
   } catch (e) {
     log("approveRejectStockRequest error: $e");
@@ -16705,6 +17003,118 @@ static Future<LeadWorkDetailsModel?> getLeadWorkDetails(
     }
   } catch (e) {
     print(e);
+  }
+
+  return null;
+}
+static Future otherStageLeadProgressbar(
+  token,
+  fromDate,
+  toDate,
+  callResultId, {
+  List<String>? staffIds,
+}) async {
+  Map<String, dynamic> map = {
+    "token": token,
+    // "fromDate": fromDate,
+    // "toDate": toDate,
+    "fromDate": "",
+    "toDate": "",
+    "callResultId": callResultId,
+  };
+
+  if (staffIds != null && staffIds.isNotEmpty) {
+    if (staffIds.length == 1) {
+      map["staffId"] = staffIds.first;
+    } else {
+      map["staffId"] = staffIds.join(',');
+    }
+  }
+
+  var formData = FormData.fromMap(map);
+
+  try {
+    var result = await _dio.post(
+      "${await Config.getUrl()}other_stage_lead_progressbar",
+      data: formData,
+    );
+
+    LeadProgressbarModel model =
+        LeadProgressbarModel.fromJson(result.data);
+    return model;
+  } catch (e) {
+    log("error: $e");
+  }
+}
+static Future<bool> publishWork({
+  required String workId,
+  required String remark,
+}) async {
+  try {
+    final token = await Common.getSharedPref('token');
+
+    final formData = FormData.fromMap({
+      "token": token ?? "",
+      "work_id": workId,
+      "publish_remark": remark,
+    });
+
+    final response = await _dio.post(
+      '${await Config.getUrl()}publish_work',
+      data: formData,
+    );
+
+    return response.data["status"] == true;
+  } catch (e) {
+    print(e);
+    return false;
+  }
+}
+static Future<bool> approveWork({
+  required String workId,
+}) async {
+  try {
+    final token = await Common.getSharedPref('token');
+
+    final formData = FormData.fromMap({
+      "token": token ?? "",
+      "work_id": workId,
+    });
+
+    final response = await _dio.post(
+      '${await Config.getUrl()}approve_work',
+      data: formData,
+    );
+
+    print("Status Code : ${response.statusCode}");
+    print("Response : ${response.data}");
+
+    return response.data["status"] == true;
+  } on DioException catch (e) {
+    print("Dio Error : ${e.response?.data}");
+    print("Status : ${e.response?.statusCode}");
+    print("Message : ${e.message}");
+  } catch (e) {
+    print(e);
+  }
+
+  return false;
+}
+static Future<String?> getCompanyAddress() async {
+  final token = await Common.getSharedPref("token");
+
+  final response = await _dio.post(
+    "${await Config.getUrl()}get_company_address",
+    data: FormData.fromMap({
+      "token": token,
+    }),
+  );
+
+  print(response.data);
+
+  if (response.statusCode == 200 &&
+      response.data["status"] == true) {
+    return response.data["data"]["address"];
   }
 
   return null;

@@ -953,44 +953,53 @@ String removeHtmlTags(String htmlText) {
       children: [
         // Stock Overview Header Card
         Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: _buildStockMetricCard(
-                  "Opening Stock",
-                  product.openingStock,
-                  const Color(0xFF64748B),
-                  Icons.archive_outlined,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStockMetricCard(
-                  "Current Stock",
-                  product.currentStock,
-                  const Color(0xFF10B981),
-                  Icons.inventory_2_outlined,
-                ),
-              ),
-              // const SizedBox(width: 12),
-              // Expanded(
-              //   child: _buildStockMetricCard(
-              //     "Available Stock",
-              //     product.availableStock,
-              //     const Color(0xFF10B981),
-              //     Icons.inventory_2_outlined,
-              //   ),
-              // ),
-            ],
-          ),
+  margin: const EdgeInsets.all(16),
+  padding: const EdgeInsets.all(16),
+  decoration: BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.05),
+        blurRadius: 10,
+        offset: const Offset(0, 4),
+      ),
+    ],
+    border: Border.all(
+      color: const Color(0xFFE5E7EB),
+    ),
+  ),
+  child: Row(
+    children: [
+      Expanded(
+        child: _buildStockMetricCard(
+          "Opening Stock",
+          product.openingStock,
+          const Color(0xFF64748B), // Slate
+          Icons.archive_outlined,
         ),
+      ),
+      const SizedBox(width: 16),
+      Expanded(
+        child: _buildStockMetricCard(
+          "Current Stock",
+          product.currentStock,
+          const Color(0xFF10B981), // Green
+          Icons.inventory_2_outlined,
+        ),
+      ),
+      const SizedBox(width: 16),
+      Expanded(
+        child: _buildStockMetricCard(
+          "Low Stock",
+          product.lowStockLimit,
+          const Color(0xFFF59E0B), // Orange
+          Icons.warning_amber_rounded,
+        ),
+      ),
+    ],
+  ),
+),
 
         // Action Buttons Row
         Padding(
@@ -1119,43 +1128,46 @@ String removeHtmlTags(String htmlText) {
   }
 
   Widget _buildStockMetricCard(
-      String label, String value, Color color, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.12)),
+  String title,
+  String value,
+  Color color,
+  IconData icon,
+) {
+  return Container(
+    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: color.withOpacity(0.2),
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: color.withOpacity(0.1),
-            radius: 18,
-            child: Icon(icon, size: 18, color: color),
+    ),
+    child: Column(
+      children: [
+        Icon(icon, color: color, size: 26),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: color,
           ),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500)),
-              const SizedBox(height: 2),
-              Text(
-                value.isNotEmpty ? value : "0",
-                style: TextStyle(
-                    color: color, fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xFF64748B),
+            fontWeight: FontWeight.w500,
           ),
-        ],
-      ),
-    );
-  }
-
+        ),
+      ],
+    ),
+  );
+}
   Widget _buildTimelineItem(ProductHistoryData hist, bool isLast) {
     Color actionColor = Colors.blue;
     IconData actionIcon = Icons.info_outline;

@@ -166,8 +166,19 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
       "cache_lead_source_table_updated_v2";
   static const String keyCategoryTableLastUpdated =
       "cache_category_table_updated_v2";
-  DateTime fromDate = DateTime.now();
-  DateTime toDate = DateTime.now();
+  // DateTime fromDate = DateTime.now();
+  // DateTime toDate = DateTime.now();
+  DateTime fromDate = DateTime(
+  DateTime.now().year,
+  DateTime.now().month,
+  1,
+);
+
+DateTime toDate = DateTime(
+  DateTime.now().year,
+  DateTime.now().month + 1,
+  0,
+);
   DateTime fromDateClosed = DateTime.now();
   DateTime toDateClosed = DateTime.now();
   DateTime fromDateLost = DateTime.now();
@@ -606,47 +617,110 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     }
   }
 
-  Future<void> _fetchDashboardTabContent({String? staffId}) async {
-    setState(() => isDashboardCountsLoading = true);
-    try {
-      final fDate = DateFormat('dd-MM-yyyy').format(fromDate);
-      final tDate = DateFormat('dd-MM-yyyy').format(toDate);
-      final targetFDate = DateFormat('dd-MM-yyyy').format(targetFromDate);
-      final targetTDate = DateFormat('dd-MM-yyyy').format(targetToDate);
-      final countsData = await HttpService.dashboardLeadsCounts(
-        fromDate: fDate,
-        toDate: tDate,
-        userId: staffId ?? targetStaffId ?? userId,
-        targetFromDate: targetFDate,
-        targetToDate: targetTDate,
-      );
-      final staffResponse = await HttpService.getStaffsSomeof();
-      if (staffResponse != null && staffResponse.status) {
-        staffList = staffResponse.data;
-      }
-      if (countsData != null && countsData.status == true) {
-        setState(() {
-          dashboardCounts = countsData;
-        });
-      }
-      final mainCounts = await HttpService.dashboardCountsMain();
-      if (mainCounts != null) {
-        setState(() {
-          dashboardMainCounts = mainCounts;
-        });
-      }
-      await Future.wait([
-        getAccountDash(),
-        getRenewalDashboard(),
-        getCustomerList(),
-      ]);
-    } catch (e) {
-      log("Error fetching dashboard counts: $e");
-    } finally {
-      if (mounted) setState(() => isDashboardCountsLoading = false);
+  // Future<void> _fetchDashboardTabContent({String? staffId}) async {
+  //   setState(() => isDashboardCountsLoading = true);
+  //   try {
+  //     final fDate = DateFormat('dd-MM-yyyy').format(fromDate);
+  //     final tDate = DateFormat('dd-MM-yyyy').format(toDate);
+  //     final targetFDate = DateFormat('dd-MM-yyyy').format(targetFromDate);
+  //     final targetTDate = DateFormat('dd-MM-yyyy').format(targetToDate);
+  //     final countsData = await HttpService.dashboardLeadsCounts(
+  //       fromDate: fDate,
+  //       toDate: tDate,
+  //       userId: staffId ?? targetStaffId ?? userId,
+  //       targetFromDate: targetFDate,
+  //       targetToDate: targetTDate,
+  //     );
+  //     final staffResponse = await HttpService.getStaffsSomeof();
+  //     if (staffResponse != null && staffResponse.status) {
+  //       staffList = staffResponse.data;
+  //     }
+  //     if (countsData != null && countsData.status == true) {
+  //       setState(() {
+  //         dashboardCounts = countsData;
+  //       });
+  //     }
+  //     final mainCounts = await HttpService.dashboardCountsMain();
+  //     if (mainCounts != null) {
+  //       setState(() {
+  //         dashboardMainCounts = mainCounts;
+  //       });
+  //     }
+  //     await Future.wait([
+  //       getAccountDash(),
+  //       getRenewalDashboard(),
+  //       getCustomerList(),
+  //     ]);
+  //   } catch (e) {
+  //     log("Error fetching dashboard counts: $e");
+  //   } finally {
+  //     if (mounted) setState(() => isDashboardCountsLoading = false);
+  //   }
+  // }
+Future<void> _fetchDashboardTabContent({String? staffId}) async {
+  setState(() => isDashboardCountsLoading = true);
+
+  try {
+    final fDate = DateFormat('dd-MM-yyyy').format(fromDate);
+    final tDate = DateFormat('dd-MM-yyyy').format(toDate);
+    final targetFDate = DateFormat('dd-MM-yyyy').format(targetFromDate);
+    final targetTDate = DateFormat('dd-MM-yyyy').format(targetToDate);
+
+    final countsData = await HttpService.dashboardLeadsCounts(
+      fromDate: fDate,
+      toDate: tDate,
+      userId: staffId ?? targetStaffId ?? userId,
+      targetFromDate: targetFDate,
+      targetToDate: targetTDate,
+    );
+
+    final staffResponse = await HttpService.getStaffsSomeof();
+    if (staffResponse != null && staffResponse.status) {
+      staffList = staffResponse.data;
+    }
+
+    if (countsData != null && countsData.status == true) {
+      setState(() {
+        dashboardCounts = countsData;
+      });
+
+      // DEBUG - dashboardLeadsCounts
+debugPrint("===== dashboardCounts =====");
+debugPrint("Revenue          : ${dashboardCounts?.data?.leads?.revenue}");
+debugPrint("Project Planning : ${dashboardCounts?.data?.leads?.projectPlanning}");
+debugPrint("Designing        : ${dashboardCounts?.data?.leads?.designing}");
+debugPrint("===========================");
+    }
+
+    final mainCounts = await HttpService.dashboardCountsMain();
+
+    if (mainCounts != null) {
+      setState(() {
+        dashboardMainCounts = mainCounts;
+      });
+
+      // DEBUG - dashboardCountsMain
+      debugPrint("===== dashboardMainCounts =====");
+      debugPrint("Revenue          : ${dashboardMainCounts?.data.leads.revenue}");
+      debugPrint("Project Planning : ${dashboardMainCounts?.data.leads.projectPlanning}");
+      debugPrint("Designing        : ${dashboardMainCounts?.data.leads.designing}");
+      debugPrint("===============================");
+    }
+
+    await Future.wait([
+      getAccountDash(),
+      getRenewalDashboard(),
+      getCustomerList(),
+    ]);
+  } catch (e) {
+    log("Error fetching dashboard counts: $e");
+  } finally {
+    if (mounted) {
+      setState(() => isDashboardCountsLoading = false);
     }
   }
-
+}
+ 
   Future<void> _fetchReportTabContent() async {
     if (callStatusReport == null) _fetchCallStatusReport();
     if (stagewiseReport == null) _fetchStageWiseReport();
@@ -1202,20 +1276,42 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     );
   }
 
-  Future<void> getLeadProgressBarStaffData({
-    required String leadStatus,
-    required String selectedType,
-    DateTime? customFromDate,
-    DateTime? customToDate,
-  }) async {
-    staffProgressData = await HttpService.leadProgressBarStaff(
-      fromDate: customFromDate?.toString() ?? fromDate.toString(),
-      toDate: customToDate?.toString() ?? toDate.toString(),
-      leadStatus: leadStatus,
-      selectedType: selectedType,
-    );
+  // Future<void> getLeadProgressBarStaffData({
+  //   required String leadStatus,
+  //   required String selectedType,
+  //   DateTime? customFromDate,
+  //   DateTime? customToDate,
+  // }) async {
+  //   staffProgressData = await HttpService.leadProgressBarStaff(
+  //     fromDate: customFromDate?.toString() ?? fromDate.toString(),
+  //     toDate: customToDate?.toString() ?? toDate.toString(),
+  //     leadStatus: leadStatus,
+  //     selectedType: selectedType,
+  //   );
+  // }
+Future<void> getLeadProgressBarStaffData({
+  required String leadStatus,
+  required String selectedType,
+  DateTime? customFromDate,
+  DateTime? customToDate,
+}) async {
+  DateTime? apiFromDate = customFromDate ?? fromDate;
+  DateTime? apiToDate = customToDate ?? toDate;
+
+  // If leadStatus is 4, send current month's date range
+  if (leadStatus == "4") {
+    final now = DateTime.now();
+    apiFromDate = DateTime(now.year, now.month, 1);
+    apiToDate = DateTime(now.year, now.month + 1, 0);
   }
 
+  staffProgressData = await HttpService.leadProgressBarStaff(
+    fromDate: apiFromDate.toIso8601String(),
+    toDate: apiToDate.toIso8601String(),
+    leadStatus: leadStatus,
+    selectedType: selectedType,
+  );
+}
   Future<void> getLeadProgressBarCategoryData({
     required String leadStatus,
     DateTime? customFromDate,
@@ -1239,7 +1335,19 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
       leadStatus: leadStatus,
     );
   }
-
+Future<void> getOtherStageLeadProgressbar(
+  String token,
+  dynamic fromDate,
+  dynamic toDate,
+  String callResultId,
+) async {
+  object1 = await HttpService.otherStageLeadProgressbar(
+    token,
+    fromDate,
+    toDate,
+    callResultId,
+  );
+}
   Future<void> _fetchCallStatusReport() async {
     if (isCallStatusLoading) return;
     setState(() => isCallStatusLoading = true);
@@ -2607,6 +2715,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                 ],
               ),
             );
+          
           },
         );
       },
@@ -3104,15 +3213,15 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
               child: _buildBoxIcons('Active', '2', 'Active Leads'),
             ),
             _buildDashboardBox(
-              title: 'Closed',
+              title: 'Won',
               mainValue: isClosedDateFiltered
                   ? closedCount
                   : (dashboardCounts?.data?.leads?.closedLeads ?? 0).toString(),
               color: callGreen,
               child: _buildBoxIcons(
-                'Closed',
+                'Won',
                 '4',
-                'Closed Leads',
+                'Won Leads',
                 customFromDate:
                     isClosedDateFiltered ? fromDateClosed : fromDate,
                 customToDate: isClosedDateFiltered ? toDateClosed : toDate,
@@ -4435,6 +4544,26 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                               ? 'Missed Leads'
                                               : _listTabFilter == 'Called'
                                                   ? 'Called Leads'
+                                                : _listTabFilter == 'Designing'
+                                                    ? 'Designing Leads'
+                                                : _listTabFilter == 'Design Submit'
+                                                    ? 'Design Submit Leads'
+                                                : _listTabFilter == 'Estimation'
+                                                    ? 'Estimation Leads'
+                                                : _listTabFilter == 'Proposal Made'
+                                                    ? 'Proposal Made Leads'
+                                                : _listTabFilter == 'Re Designing'
+                                                    ? 'Re Designing Leads'
+                                                : _listTabFilter == 'Lost'
+                                                    ? 'Lost Leads'
+                                                : _listTabFilter == 'Project Planning'
+                                                    ? 'Project Planning Leads'
+                                                : _listTabFilter == 'Negotiation'
+                                                    ? 'Negotiation Leads'
+                                                : _listTabFilter == 'won'
+                                                    ? 'Won Leads'
+                                                : _listTabFilter == 'Revenue'
+                                                    ? 'Revenue'
                                                   : _listTabFilter ==
                                                           'Transferred'
                                                       ? 'Transferred Leads'
@@ -4594,11 +4723,12 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                       setState(() {
                                         _isListTabLoading = true;
                                         listTabLeads = [];
-                                        fromDate = filters['fromDate'] ??
-                                            DateTime.now();
-                                        toDate =
-                                            filters['toDate'] ?? DateTime.now();
-
+                                        // fromDate = filters['fromDate'] ??
+                                        //     DateTime.now();
+                                        // toDate =
+                                        //     filters['toDate'] ?? DateTime.now();
+fromDate = filters['fromDate'];
+toDate = filters['toDate'];
                                         _listTabSelectedStatusIds =
                                             List<String>.from(
                                           filters['statusIds'] ?? [],
@@ -5261,12 +5391,132 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
             _listTabCurrentLeadType == "2" ||
             _listTabCurrentStatus == "4");
     body["filterStatus"] = shouldSendDates ? 1 : 0;
+    // body["fromDate"] =
+    //     shouldSendDates ? DateFormat('yyyy-MM-dd').format(fromDate) : "";
+    // body["toDate"] =
+    //     shouldSendDates ? DateFormat('yyyy-MM-dd').format(toDate) : "";
+    if (_listTabCurrentStatus == "4") {
+  final now = DateTime.now();
+
+  body["fromDate"] =
+      DateFormat('yyyy-MM-dd').format(DateTime(now.year, now.month, 1));
+
+  body["toDate"] =
+      DateFormat('yyyy-MM-dd').format(DateTime(now.year, now.month + 1, 0));
+} else if (_isListTabDateFiltered) {
+  body["fromDate"] = DateFormat('yyyy-MM-dd').format(fromDate);
+  body["toDate"] = DateFormat('yyyy-MM-dd').format(toDate);
+} else {
+  body["fromDate"] = "";
+  body["toDate"] = "";
+}
+  //    body["fromDate"] = "";
+  // body["toDate"] = "";
+  
+    try {
+      print("Body before API: $body");
+      final response = await HttpService.leadReport(body);
+      if (response != null && response.data != null) {
+        final newLeads = response.data.details;
+        setState(() {
+          if (isLoadMore) {
+            listTabLeads.addAll(newLeads);
+          } else {
+            listTabLeads = newLeads;
+          }
+          _listTabCallPermission = response.data.callPermission ?? true;
+          _totalLeads = response.data.totalLeads;
+          _hasMoreListTabLeads = newLeads.length >= 10;
+          _isListTabLoading = false;
+          _isListTabLoadingMore = false;
+        });
+      } else {
+        setState(() {
+          if (!isLoadMore) {
+            listTabLeads = [];
+            _totalLeads = 0;
+          }
+          _hasMoreListTabLeads = false;
+          _isListTabLoading = false;
+          _isListTabLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      log("Error fetching tab leads: $e");
+      setState(() {
+        if (!isLoadMore) listTabLeads = [];
+        _isListTabLoading = false;
+        _isListTabLoadingMore = false;
+      });
+    }
+  }
+  
+  Future<void> _fetchTabStageLeads({
+    String? status,
+    String? leadType,
+    String? callStatus,
+    bool? isCalled,
+    bool isLoadMore = false,
+  }) async {
+    if (isLoadMore) {
+      if (_isListTabLoadingMore || !_hasMoreListTabLeads) return;
+      setState(() {
+        _isListTabLoadingMore = true;
+      });
+      _listTabPage++;
+    } else {
+      setState(() {
+        _isListTabLoading = true;
+        _listTabPage = 1;
+        _hasMoreListTabLeads = true;
+        if (status != null) _listTabCurrentStatus = status;
+        if (leadType != null) _listTabCurrentLeadType = leadType;
+        if (callStatus != null) _listTabCurrentCallStatus = callStatus;
+        if (isCalled != null) _listTabCurrentIsCalled = isCalled;
+      });
+    }
+
+    Map<String, dynamic> body = {
+      "token": widget.token,
+      "callResultId": (_listTabCurrentIsCalled == true)
+    ? ((_listTabSelectedStatusIds != null &&
+            _listTabSelectedStatusIds!.isNotEmpty)
+        ? _listTabSelectedStatusIds!.join(',')
+        : (_listTabCurrentStatus ?? ""))
+    : (_listTabCurrentStatus == "0"
+        ? ""
+        : (_listTabCurrentStatus ?? "")),
+      "leadCategoryId": _listTabSelectedCategoryIds,
+      "leadSubcategoryId": [],
+      "callResponseId": (_listTabCurrentIsCalled == true)
+          ? []
+          : (_listTabSelectedStatusIds ?? []),
+      "callStatus": _listTabCurrentCallStatus ?? "",
+      "staffId": _listTabSelectedStaffIds,
+      "isCalled": _listTabCurrentIsCalled ?? true,
+      "productId": _listTabSelectedProductIds,
+      "sort": _listTabSortOrder,
+      "page": _listTabPage,
+      "pageSize": 10,
+      "isFirst": !isLoadMore,
+      "leadType": _listTabCurrentLeadType ?? "",
+      "priority": _listTabSelectedPriorityIds,
+      "call_result_reason": _listTabSelectedTagIds,
+    };
+
+    bool shouldSendDates = _isListTabDateFiltered ||
+        (_listTabCurrentLeadType == "-1" ||
+            _listTabCurrentLeadType == "1" ||
+            _listTabCurrentLeadType == "2" ||
+            _listTabCurrentStatus == "4");
+    body["filterStatus"] = shouldSendDates ? 1 : 0;
     body["fromDate"] =
         shouldSendDates ? DateFormat('yyyy-MM-dd').format(fromDate) : "";
     body["toDate"] =
         shouldSendDates ? DateFormat('yyyy-MM-dd').format(toDate) : "";
     try {
-      final response = await HttpService.leadReport(body);
+      print("Fetching tab stage leads with body: $body");
+      final response = await HttpService.leadStageReport(body);
       if (response != null && response.data != null) {
         final newLeads = response.data.details;
         setState(() {
@@ -12508,95 +12758,214 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                   child: Padding(
                     padding: const EdgeInsets.only(top: 8, right: 8, bottom: 4),
                     child: Row(
-                      children: [
-                        _buildListSummaryItemOld(
-                          'New',
-                          dashboardMainCounts != null
-                              ? (dashboardMainCounts?.data.leads.newLeads ?? 0)
-                                  .toString()
-                              : data.newLeads.toString(),
-                          Icons.person_add_rounded,
-                          _colors[1], // Standardized Blue
-                          '1',
-                          isCalled: true,
-                        ),
-                        _buildListSummaryItemOldAcive(
-                          'Followup',
-                          dashboardMainCounts != null
-                              ? (dashboardMainCounts
-                                          ?.data.leads.followupLeads ??
-                                      0)
-                                  .toString()
-                              : data.followupLeads.toString(),
-                          Icons.schedule_rounded,
-                          _colors[2],
-                          '2',
-                          isCalled: false,
-                        ),
-                        _buildListSummaryItemOld(
-                          'Missed',
-                          dashboardMainCounts != null
-                              ? (dashboardMainCounts?.data.leads.missedLeads ??
-                                      0)
-                                  .toString()
-                              : data.missedLeads.toString(),
-                          Icons.event_busy_rounded,
-                          _colors[5],
-                          '0',
-                          leadType: '1',
-                          callStatus: '-1',
-                          isCalled: true,
-                          graphId: '-3',
-                        ),
-                        _buildListSummaryItemOld(
-                          'Called',
-                          dashboardMainCounts != null
-                              ? (dashboardMainCounts?.data.leads.calledCount ??
-                                      0)
-                                  .toString()
-                              : data.totalCalled.toString(),
-                          Icons.phone_in_talk_rounded,
-                          _colors[6],
-                          '0',
-                          leadType: '-1',
-                          callStatus: '1',
-                          isCalled: true,
-                          graphId: '-1',
-                        ),
-                        _buildListSummaryItemOld(
-                          'Transferred',
-                          dashboardMainCounts != null
-                              ? (dashboardMainCounts
-                                          ?.data.leads.transferLeads ??
-                                      0)
-                                  .toString()
-                              : data.transferLeads.toString(),
-                          Icons.swap_horiz_rounded,
-                          _colors[8],
-                          '0',
-                          leadType: '2',
-                          callStatus: '-2',
-                          isCalled: true,
-                        ),
-                        _buildListSummaryItemOld(
-                          'Closed',
-                          dashboardMainCounts != null
-                              ? (dashboardMainCounts?.data.leads.closedLeads ??
-                                      0)
-                                  .toString()
-                              : '0',
-                          Icons.check_circle_outline_rounded,
-                          _colors[4],
-                          '4',
-                          isCalled: false,
-                          graphId: '4',
-                        ),
-                      ],
-                    ),
+  children: [
+    _buildListSummaryItemOld(
+      'New',
+      dashboardMainCounts != null
+          ? (dashboardMainCounts?.data.leads.newLeads ?? 0).toString()
+          : data.newLeads.toString(),
+      Icons.person_add_rounded,
+      _colors[1],
+      '1',
+      isCalled: true,
+    ),
+    _buildListSummaryItemOldAcive(
+      'Followup',
+      dashboardMainCounts != null
+          ? (dashboardMainCounts?.data.leads.followupLeads ?? 0).toString()
+          : data.followupLeads.toString(),
+      Icons.schedule_rounded,
+      _colors[2],
+      '2',
+      isCalled: false,
+    ),
+    _buildListSummaryItemOld(
+      'Missed',
+      dashboardMainCounts != null
+          ? (dashboardMainCounts?.data.leads.missedLeads ?? 0).toString()
+          : data.missedLeads.toString(),
+      Icons.event_busy_rounded,
+      _colors[5],
+      '0',
+      leadType: '1',
+      callStatus: '-1',
+      isCalled: true,
+      graphId: '-3',
+    ),
+    _buildListSummaryItemOld(
+      'Called',
+      dashboardMainCounts != null
+          ? (dashboardMainCounts?.data.leads.calledCount ?? 0).toString()
+          : data.totalCalled.toString(),
+      Icons.phone_in_talk_rounded,
+      _colors[6],
+      '0',
+      leadType: '-1',
+      callStatus: '1',
+      isCalled: true,
+      graphId: '-1',
+    ),
+    _buildListSummaryItemOld(
+      'Transferred',
+      dashboardMainCounts != null
+          ? (dashboardMainCounts?.data.leads.transferLeads ?? 0).toString()
+          : data.transferLeads.toString(),
+      Icons.swap_horiz_rounded,
+      _colors[8],
+      '0',
+      leadType: '2',
+      callStatus: '-2',
+      isCalled: true,
+    ),
+    _buildListSummaryItemOld(
+      'Won Leads',
+      dashboardMainCounts != null
+          ? (dashboardMainCounts?.data.leads.closedLeads ?? 0).toString()
+          : '0',
+      Icons.check_circle_outline_rounded,
+      _colors[4],
+      '4',
+      isCalled: false,
+      // graphId: '4',
+    ),
+
+    // New Fields
+    _buildListSummaryItemOld(
+      'Revenue',
+      (dashboardCounts?.data?.leads?.revenue ?? data.revenue).toString(),
+      Icons.currency_rupee_rounded,
+      _colors[6],
+      '4',
+      isCalled: true,
+    ),
+
+    _buildListSummaryItemOld(
+      'Project Planning',
+      (dashboardCounts?.data?.leads?.projectPlanning ??
+              data.projectPlanning)
+          .toString(),
+      Icons.assignment_rounded,
+      _colors[7],
+      '6',
+      isCalled: true,
+    ),
+
+    _buildListSummaryItemOld(
+      'Designing',
+      (dashboardCounts?.data?.leads?.designing ??
+              data.designing)
+          .toString(),
+      Icons.design_services,
+      _colors[1],
+      '7',
+      isCalled: true,
+    ),
+
+    _buildListSummaryItemOld(
+      'Re Designing',
+      (dashboardCounts?.data?.leads?.reDesigning ??
+              data.reDesigning)
+          .toString(),
+      Icons.refresh,
+      _colors[2],
+      '8',
+      isCalled: true,
+    ),
+
+    _buildListSummaryItemOld(
+      'Design Submit',
+      (dashboardCounts?.data?.leads?.designSubmit ??
+              data.designSubmit)
+          .toString(),
+      Icons.upload_file,
+      _colors[3],
+      '9',
+      isCalled: true,
+    ),
+
+    _buildListSummaryItemOld(
+      'Estimation',
+      (dashboardCounts?.data?.leads?.estimation ??
+              data.estimation)
+          .toString(),
+      Icons.calculate,
+      _colors[5],
+      '10',
+      isCalled: true,
+    ),
+
+    _buildListSummaryItemOld(
+      'Proposal Made',
+      (dashboardCounts?.data?.leads?.proposalMade ??
+              data.proposalMade)
+          .toString(),
+      Icons.description,
+      _colors[6],
+      '11',
+      isCalled: true,
+    ),
+
+    _buildListSummaryItemOld(
+      'Negotiation',
+      (dashboardCounts?.data?.leads?.negotiation ??
+              data.negotiation)
+          .toString(),
+      Icons.handshake,
+      _colors[8],
+      '12',
+      isCalled: true,
+    ),
+
+    _buildListSummaryItemOld(
+      'Total Leads',
+      (dashboardCounts?.data?.leads?.totalLeads ??
+              data.totalLeads)
+          .toString(),
+      Icons.groups,
+      _colors[4],
+      '0',
+      isCalled: true,
+    ),
+  ],
+),
                   ),
                 )
               : Column(
                   children: [
+                    Row(
+                      children: [
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildListSummaryItem(
+                            'won',
+                            dashboardCounts != null
+                                ? (dashboardCounts?.data?.leads?.closedLeads ??
+                                        0)
+                                    .toString()
+                                : '0',
+                            Icons.check_circle_outline_rounded,
+                            _colors[4], // Standardized Green for Closed
+                            '4',
+                            isCalled: false,
+                            graphId: '4',
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        
+                        Expanded(
+                          child: _buildListSummaryItem(
+                            'Revenue',
+                            (dashboardCounts?.data?.leads?.revenue ?? data.revenue).toString(),
+                            Icons.person_add_rounded,
+                            _colors[1],
+                            '4', // callResultId
+                            isCalled: false,
+                            graphId: '4',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
                     Row(
                       children: [
                         Expanded(
@@ -12629,30 +12998,6 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                             isCalled: false,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildListSummaryItem(
-                            'Missed',
-                            dashboardMainCounts != null
-                                ? (dashboardMainCounts
-                                            ?.data.leads.missedLeads ??
-                                        0)
-                                    .toString()
-                                : data.missedLeads.toString(),
-                            Icons.event_busy_rounded,
-                            _colors[5],
-                            '0',
-                            leadType: '1',
-                            callStatus: '-1',
-                            isCalled: true,
-                            graphId: '-3',
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
                         Expanded(
                           child: _buildListSummaryItem(
                             'Called',
@@ -12674,15 +13019,36 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                         const SizedBox(width: 8),
                         Expanded(
                           child: _buildListSummaryItem(
-                            'Transferred',
+                            'Missed',
                             dashboardMainCounts != null
                                 ? (dashboardMainCounts
-                                            ?.data.leads.transferLeads ??
+                                            ?.data.leads.missedLeads ??
                                         0)
                                     .toString()
+                                : data.missedLeads.toString(),
+                            Icons.event_busy_rounded,
+                            _colors[5],
+                            '0',
+                            leadType: '1',
+                            callStatus: '-1',
+                            isCalled: true,
+                            graphId: '-3',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildListSummaryItem(
+                            'Transferred',
+                            dashboardMainCounts != null
+                                ? (dashboardMainCounts?.data.leads.transferLeads ?? 0)
+                                    .toString()
                                 : data.transferLeads.toString(),
-                            Icons.swap_horiz_rounded,
-                            _colors[8], // Teal for Transferred
+                            Icons.compare_arrows_rounded,
+                            _colors[8],
                             '0',
                             leadType: '2',
                             callStatus: '-2',
@@ -12691,18 +13057,135 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: _buildListSummaryItem(
-                            'Closed',
-                            dashboardCounts != null
-                                ? (dashboardCounts?.data?.leads?.closedLeads ??
-                                        0)
-                                    .toString()
-                                : '0',
-                            Icons.check_circle_outline_rounded,
-                            _colors[4], // Standardized Green for Closed
-                            '4',
+                          child: _buildListSummaryStageItem(
+                            'Lost',
+                            (dashboardCounts?.data?.leads?.todaysLost ??
+                                    data.todaysLost)
+                                .toString(),
+                            Icons.cancel_rounded,
+                            _colors[2],
+                            '3',
+                            isCalled: true,
+                            useOtherStageApi: true,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildListSummaryStageItem(
+                            'Project Planning',
+                            (dashboardCounts?.data?.leads?.projectPlanning ??
+                                    data.projectPlanning)
+                                .toString(),
+                            Icons.architecture_rounded,
+                            _colors[2],
+                            '6',
                             isCalled: false,
-                            graphId: '4',
+                            useOtherStageApi: true,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildListSummaryStageItem(
+                            'Designing',
+                            (dashboardCounts?.data?.leads?.designing ?? data.designing)
+                                .toString(),
+                            Icons.design_services_rounded,
+                            _colors[5],
+                            '7',
+                            isCalled: true,
+                            useOtherStageApi: true,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildListSummaryStageItem(
+                            'Re Designing',
+                            (dashboardCounts?.data?.leads?.reDesigning ?? data.reDesigning)
+                                .toString(),
+                            Icons.auto_fix_high_rounded,
+                            _colors[1],
+                            '8',
+                            isCalled: true,
+                            useOtherStageApi: true,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildListSummaryStageItem(
+                            'Design Submit',
+                            (dashboardCounts?.data?.leads?.designSubmit ?? data.designSubmit)
+                                .toString(),
+                            Icons.assignment_turned_in_rounded,
+                            _colors[2],
+                            '9',
+                            isCalled: true,
+                            useOtherStageApi: true,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                    ),
+                     const SizedBox(width: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildListSummaryStageItem(
+                            'Estimation',
+                            (dashboardCounts?.data?.leads?.estimation ?? data.estimation)
+                                .toString(),
+                            Icons.calculate_rounded,
+                            _colors[5],
+                            '10',
+                            isCalled: true,
+                            useOtherStageApi: true,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildListSummaryStageItem(
+                            'Proposal Made',
+                            (dashboardCounts?.data?.leads?.proposalMade ??
+                                    data.proposalMade)
+                                .toString(),
+                            Icons.description_rounded,
+                            _colors[1],
+                            '11',
+                            isCalled: true,
+                            useOtherStageApi: true,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildListSummaryStageItem(
+                            'Negotiation',
+                            (dashboardCounts?.data?.leads?.negotiation ??
+                                    data.negotiation)
+                                .toString(),
+                            Icons.handshake_rounded,
+                            _colors[2],
+                            '12',
+                            isCalled: true,
+                            useOtherStageApi: true,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildListSummaryStageItem(
+                            'Total Leads',
+                            (dashboardCounts?.data?.leads?.totalLeads ??
+                                    data.totalLeads)
+                                .toString(),
+                            Icons.groups_rounded,
+                            _colors[5],
+                            '',
+                            leadType: '0',
+                            isCalled: false,
+                            useOtherStageApi: true,
                           ),
                         ),
                       ],
@@ -12941,29 +13424,95 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
         clipBehavior: Clip.none,
         children: [
           InkWell(
-            onTap: () {
-              bool labelChanged = _listTabFilter != label;
-              setState(() {
-                _listTabFilter = label;
-                if (labelChanged) {
-                  _clearListTabFilters();
-                }
-                _listTabCurrentStatus = status;
-                _listTabCurrentLeadType = leadType ?? "";
-                _listTabCurrentCallStatus = callStatus ?? "";
-                _listTabCurrentIsCalled = isCalled;
-              });
-              if (_isGraphViewActive) {
-                _fetchProgressBarLeads(label);
-              } else {
-                _fetchTabLeads(
-                  status: status,
-                  leadType: leadType ?? "",
-                  callStatus: callStatus ?? "",
-                  isCalled: isCalled,
-                );
-              }
-            },
+            onTap: () async {
+  Common.showProgressDialog(context, "Loading Analytics..");
+  Common.saveSharedPref("statusWise", 'no');
+
+  String effectiveGraphStatus = graphId ??
+      ((status == '0' && callStatus != null)
+          ? callStatus
+          : status);
+
+  // Other Stage Progress APIs
+  if ([
+    '6',
+    '7',
+    '8',
+    '9',
+    '10',
+    '11',
+    '12',
+  ].contains(status)) {
+    await getOtherStageLeadProgressbar(
+      widget.token!,
+      fromDate,
+      toDate,
+      status,
+    );
+  }
+  // Existing APIs
+  else if (label == "New") {
+    await getLeadProgressbarNew(
+      widget.token!,
+      fromDate,
+      toDate,
+      effectiveGraphStatus,
+    );
+  } else if (label == "Followup") {
+    await getLeadProgressbarFollowup(
+      widget.token!,
+      fromDate,
+      toDate,
+      effectiveGraphStatus,
+    );
+  } else if (label == "Missed") {
+    await getLeadProgressbarMissed(
+      widget.token!,
+      fromDate,
+      toDate,
+      effectiveGraphStatus,
+    );
+  } else if (label == "Called") {
+    await getLeadProgressbarCalled(
+      widget.token!,
+      fromDate,
+      toDate,
+      effectiveGraphStatus,
+    );
+  } else if (label == "Transferred") {
+    await getLeadProgressbarTransferred(
+      widget.token!,
+      fromDate,
+      toDate,
+      effectiveGraphStatus,
+    );
+  } else {
+    await getLeadProgressbar(
+      widget.token!,
+      fromDate,
+      toDate,
+      effectiveGraphStatus,
+    );
+  }
+
+  if (object1 != null && object1!.status == true) {
+    if (context.mounted) {
+      Navigator.pop(context);
+      leadProgressbarDialog(
+        context,
+        label,
+        "$label Leads",
+        status,
+        leadType ?? "",
+        callStatus: callStatus,
+      );
+    }
+  } else {
+    if (context.mounted) {
+      Navigator.pop(context);
+    }
+  }
+},
             borderRadius: BorderRadius.circular(12),
             child: Container(
               width: 72,
@@ -13296,6 +13845,229 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                         toDate,
                                         effectiveGraphStatus,
                                       );
+
+                if (object1!.status == true) {
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    leadProgressbarDialog(
+                      context,
+                      label,
+                      "$label Leads",
+                      status,
+                      leadType ?? "",
+                      callStatus: callStatus,
+                    );
+                  }
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [color, color.withOpacity(0.8)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: const Icon(
+                  Icons.bar_chart_rounded,
+                  color: Colors.white,
+                  size: 10,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  Widget _buildListSummaryStageItem(
+    String label,
+    String count,
+    IconData icon,
+    Color color,
+    String status, {
+    String? leadType,
+    String? callStatus,
+    bool? isCalled,
+    String? graphId,
+    bool useOtherStageApi = false,
+  }) {
+    bool isSelected = _listTabFilter == label;
+
+    return SizedBox(
+      child: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 8, right: 8),
+            child: InkWell(
+              onTap: () {
+                bool labelChanged = _listTabFilter != label;
+                setState(() {
+                  _listTabFilter = label;
+                  if (label == 'Closed') {
+                    fromDate = DateTime.now();
+                    toDate = DateTime.now();
+                  }
+                  if (labelChanged) {
+                    _clearListTabFilters();
+                  }
+                  _listTabCurrentStatus = status;
+                  _listTabCurrentLeadType = leadType ?? "";
+                  _listTabCurrentCallStatus = callStatus ?? "";
+                  _listTabCurrentIsCalled = isCalled;
+                });
+                if (_isGraphViewActive) {
+                  _fetchProgressBarLeads(label);
+                } else {
+                  _fetchTabStageLeads(
+                    status: status,
+                    leadType: leadType ?? "",
+                    callStatus: callStatus ?? "",
+                    isCalled: isCalled,
+                  );
+                }
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isSelected
+                        ? [color.withOpacity(0.25), color.withOpacity(0.1)]
+                        : [color.withOpacity(0.15), color.withOpacity(0.05)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isSelected
+                        ? color.withOpacity(0.5)
+                        : color.withOpacity(0.2),
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: color.withOpacity(0.15),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : [],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: color, size: 14),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      count,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? color : textPrimary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                    const SizedBox(height: 0),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight:
+                            isSelected ? FontWeight.w700 : FontWeight.w600,
+                        color: isSelected ? color : textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: GestureDetector(
+              onTap: () async {
+                Common.showProgressDialog(context, "Loading Analytics..");
+                Common.saveSharedPref("statusWise", 'no');
+                String effectiveGraphStatus = graphId ??
+                    ((status == '0' && callStatus != null)
+                        ? callStatus
+                        : status);
+                if (useOtherStageApi) {
+  await getOtherStageLeadProgressbar(
+    widget.token!,
+    fromDate,
+    toDate,
+    status, // status = callResultId (6,7,8...)
+  );
+} else if (label == "New") {
+  await getLeadProgressbarNew(
+    widget.token!,
+    fromDate,
+    toDate,
+    effectiveGraphStatus,
+  );
+} else if (label == "Followup") {
+  await getLeadProgressbarFollowup(
+    widget.token!,
+    fromDate,
+    toDate,
+    effectiveGraphStatus,
+  );
+} else if (label == "Missed") {
+  await getLeadProgressbarMissed(
+    widget.token!,
+    fromDate,
+    toDate,
+    effectiveGraphStatus,
+  );
+} else if (label == "Called") {
+  await getLeadProgressbarCalled(
+    widget.token!,
+    fromDate,
+    toDate,
+    effectiveGraphStatus,
+  );
+} else if (label == "Transferred") {
+  await getLeadProgressbarTransferred(
+    widget.token!,
+    fromDate,
+    toDate,
+    effectiveGraphStatus,
+  );
+} else {
+  await getLeadProgressbar(
+    widget.token!,
+    fromDate,
+    toDate,
+    effectiveGraphStatus,
+  );
+}
 
                 if (object1!.status == true) {
                   if (context.mounted) {

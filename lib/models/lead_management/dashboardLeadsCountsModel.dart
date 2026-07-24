@@ -73,6 +73,15 @@ class Leads {
   int? thisMonthClosed;
   int? todaysLost;
   int? thisMonthLost;
+  int? revenue;
+  int? projectPlanning;
+  int? designing;
+  int? reDesigning;
+  int? designSubmit;
+  int? estimation;
+  int? proposalMade;
+  int? negotiation;
+  int? totalLeads;
 
   Leads({
     this.newLeads,
@@ -87,6 +96,15 @@ class Leads {
     this.thisMonthClosed,
     this.todaysLost,
     this.thisMonthLost,
+    this.revenue,
+    this.projectPlanning,
+    this.designing,
+    this.reDesigning,
+    this.designSubmit,
+    this.estimation,
+    this.proposalMade,
+    this.negotiation,
+    this.totalLeads,
   });
 
   factory Leads.fromJson(Map<String, dynamic> json) {
@@ -103,6 +121,15 @@ class Leads {
       thisMonthClosed: json['thisMonthClosed'],
       todaysLost: json['todaysRejectedLeads'],
       thisMonthLost: json['thisMonthRejectedLeads'],
+      revenue: json['Revenue'],
+      projectPlanning: json['projectPlanning'],
+      designing: json['designing'],
+      reDesigning: json['reDesigning'],
+      designSubmit: json['designSubmit'],
+      estimation: json['estimation'],
+      proposalMade: json['proposalMade'],
+      negotiation: json['negotiation'],
+      totalLeads: json['totalLeads'],
     );
   }
 
@@ -120,6 +147,15 @@ class Leads {
     data['thisMonthClosed'] = thisMonthClosed;
     data['todaysRejectedLeads'] = todaysLost;
     data['thisMonthRejectedLeads'] = thisMonthLost;
+    data['Revenue'] = revenue;
+    data['projectPlanning'] = projectPlanning;
+    data['designing'] = designing;
+    data['reDesigning'] = reDesigning;
+    data['designSubmit'] = designSubmit;
+    data['estimation'] = estimation;
+    data['proposalMade'] = proposalMade;
+    data['negotiation'] = negotiation;
+    data['totalLeads'] = totalLeads;
     return data;
   }
 }

@@ -197,6 +197,12 @@ class _TotalSummeryPageState extends State<TotalSummeryPage>
         case '5':
           label = 'Cancelled';
           break;
+        case '6':
+          label = 'Approval Pending';
+          break;
+        case '7':
+          label = 'Approved';
+          break;
         default:
           label = 'Unknown';
       }
@@ -247,6 +253,14 @@ class _TotalSummeryPageState extends State<TotalSummeryPage>
         color = const Color.fromARGB(255, 235, 69, 69);
         label = 'Cancelled';
         break;
+      case '6':
+        color = const Color(0xFF5C6BC0); // Indigo 400
+        label = 'Approval Pending';
+        break;
+      case '7':
+        color = const Color(0xFFE3F2FD); // Indigo 400
+        label = 'Approve';
+        break;
       default:
         color = Colors.grey;
         label = 'Unknown';
@@ -291,6 +305,10 @@ class _TotalSummeryPageState extends State<TotalSummeryPage>
         return Colors.yellow.shade50;
       case '5': // Cancelled
         return Colors.red.shade50;
+      case '6': // Ready to Publish
+        return const Color(0xFFFF9800);
+     case '7': // Approved
+      return const Color(0xFFE3F2FD);
       default:
         return Colors.grey.shade50;
     }

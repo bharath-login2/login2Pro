@@ -39,6 +39,16 @@ class Data {
     int totalCalled;
     int missedLeads;
     int transferLeads;
+    int revenue;
+    int projectPlanning;
+    int designing;
+    int reDesigning;
+    int designSubmit;
+    int estimation;
+    int proposalMade;
+    int negotiation;
+    int totalLeads;
+    int todaysLost;
     LeadsCount currentLeadsCount;
     LeadsCount previousLeadsCount;
     int unreadNotification;
@@ -50,6 +60,16 @@ class Data {
         required this.totalCalled,
         required this.missedLeads,
         required this.transferLeads,
+        required this.revenue,
+        required this.projectPlanning,
+        required this.designing,
+        required this.reDesigning,
+        required this.designSubmit,
+        required this.estimation,
+        required this.proposalMade,
+        required this.negotiation,
+        required this.totalLeads,
+        required this.todaysLost,
         required this.currentLeadsCount,
         required this.previousLeadsCount,
         required this.unreadNotification,
@@ -62,6 +82,16 @@ class Data {
         totalCalled: json["totalCalled"],
         missedLeads: json["missedLeads"],
         transferLeads: json["transferLeads"],
+        revenue: json["Revenue"] ?? 0,
+        projectPlanning: json["projectPlanning"] ?? 0,
+        designing: json["designing"] ?? 0,
+        reDesigning: json["reDesigning"] ?? 0,
+        designSubmit: json["designSubmit"] ?? 0,
+        estimation: json["estimation"] ?? 0,
+        proposalMade: json["proposalMade"] ?? 0,
+        negotiation: json["negotiation"] ?? 0,
+        totalLeads: json["totalLeads"] ?? 0,
+        todaysLost: json["todaysLost"] ?? 0,
         currentLeadsCount: LeadsCount.fromJson(json["current_leads_count"]),
         previousLeadsCount: LeadsCount.fromJson(json["previous_leads_count"]),
         unreadNotification: json["unread_notification"],
@@ -74,6 +104,15 @@ class Data {
         "totalCalled": totalCalled,
         "missedLeads": missedLeads,
         "transferLeads": transferLeads,
+        "revenue": revenue,
+        "projectPlanning": projectPlanning,
+        "reDesigning": reDesigning,
+        "designSubmit": designSubmit,
+        "estimation": estimation,
+        "proposalMade": proposalMade,
+        "negotiation": negotiation,
+        "totalLeads": totalLeads,
+        "todaysLost": todaysLost,
         "current_leads_count": currentLeadsCount.toJson(),
         "previous_leads_count": previousLeadsCount.toJson(),
         "unread_notification": unreadNotification,

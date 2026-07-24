@@ -81,6 +81,7 @@ class _EditFollowupState extends State<EditFollowup> {
   final TextEditingController callReasonVal = TextEditingController();
   final TextEditingController whatsappLead = TextEditingController();
   final TextEditingController emailLead = TextEditingController();
+  final TextEditingController expectedClosingDate = TextEditingController();
   LeadSettings? leadSettings;
   bool checked = false;
   final TextEditingController timeBefore = TextEditingController(text: '10');
@@ -202,7 +203,7 @@ class _EditFollowupState extends State<EditFollowup> {
           await HttpService.leadDetails(widget.token, widget.callMasterId);
       followupDetails = await HttpService.followupDetails(
           widget.token, widget.callFollowupId);
-
+print("Expected Closing API: ${followupDetails?.data?.expectedClosingDate}");
       if (followupDetails != null) {
         if (followupDetails!.data!.leadCategoryId.toString().isNotEmpty) {
           leadSubTypeList = await HttpService.leadSubType(
@@ -279,6 +280,8 @@ class _EditFollowupState extends State<EditFollowup> {
       } else {
         nextFollowupDate1.text = "";
       }
+       expectedClosingDate.text =
+        followupDetails?.data?.expectedClosingDate ?? "";
       leadType = followupDetails!.data!.leadCategory.toString();
       leadTypeId = followupDetails!.data!.leadCategoryId.toString();
       cost.text = followupDetails!.data!.cost.toString();
@@ -358,7 +361,22 @@ class _EditFollowupState extends State<EditFollowup> {
       Common.toastMessaage('Select Tag', Colors.red);
       return;
     }
+// Mandatory fields
+if (cost.text.trim().isEmpty ||
+    (double.tryParse(cost.text.trim()) ?? 0) <= 0) {
+  Common.toastMessaage('Enter Cost', Colors.red);
+  return;
+}
 
+if (leadTypeId.isEmpty || leadTypeId == "0") {
+  Common.toastMessaage('Select Lead Category', Colors.red);
+  return;
+}
+
+if (remarks.text.trim().isEmpty) {
+  Common.toastMessaage('Enter Remarks', Colors.red);
+  return;
+}
     if (context.mounted) {
       Common.showProgressDialog(context, "Loading..");
     }
@@ -379,6 +397,7 @@ class _EditFollowupState extends State<EditFollowup> {
         widget.callFollowupId,
         callResultId,
         nextFollowupDate1.text,
+        expectedClosingDate.text,
         cost.text,
         leadTypeId,
         leadSubTypeId,
@@ -548,28 +567,36 @@ class _EditFollowupState extends State<EditFollowup> {
                 if (callResultReason?.data?.isNotEmpty ?? false)
                   _buildCallReasonField(),
                 const SizedBox(height: 12),
+                // if (leadSettings != null
+                //     ? leadSettings!.isFollowupRequiredBool
+                //     : (callResultId == '2'))
+                //   _buildNextFollowupField(),
                 if (leadSettings != null
                     ? leadSettings!.isFollowupRequiredBool
-                    : (callResultId == '2'))
+                    : (callResultId == '2')) ...[
                   _buildNextFollowupField(),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _buildSectionCard(
-              title: 'Product Details',
-              icon: Icons.inventory_2_outlined,
-              children: [
-                const SizedBox(height: 12),
-                _buildProductSelection(),
+                  const SizedBox(height: 12),
+                  _buildExpectedClosingDateField(),
+                ],
+                
                 const SizedBox(height: 12),
                 _buildCostField(),
-                const SizedBox(height: 12),
-                _buildLeadCategoryField(),
-                const SizedBox(height: 12),
-                if (leadSubTypeList?.data?.isNotEmpty ?? false)
-                  _buildLeadSubCategoryField(),
               ],
             ),
+            // const SizedBox(height: 12),
+            // _buildSectionCard(
+            //   title: 'Product Details',
+            //   icon: Icons.inventory_2_outlined,
+            //   children: [
+            //     // const SizedBox(height: 12),
+            //     // _buildProductSelection(),
+            //     const SizedBox(height: 12),
+            //     _buildLeadCategoryField(),
+            //     const SizedBox(height: 12),
+            //     if (leadSubTypeList?.data?.isNotEmpty ?? false)
+            //       _buildLeadSubCategoryField(),
+            //   ],
+            // ),
             const SizedBox(height: 12),
             _buildSectionCard(
               title: 'Contact Info',
@@ -1082,7 +1109,42 @@ Widget _buildProductSelection() {
       ],
     );
   }
+Widget _buildExpectedClosingDateField() {
+  return TextFormField(
+    controller: expectedClosingDate,
+    readOnly: true,
+    onTap: () async {
+      DateTime initialDate = DateTime.now();
 
+      if (expectedClosingDate.text.trim().isNotEmpty) {
+        try {
+          initialDate = DateFormat('dd-MM-yyyy')
+              .parseStrict(expectedClosingDate.text.trim());
+        } catch (e) {
+          initialDate = DateTime.now();
+        }
+      }
+
+      final pickedDate = await showDatePicker(
+        context: context,
+        initialDate: initialDate,
+        firstDate: DateTime.now(),
+        lastDate: DateTime(2100),
+      );
+
+      if (pickedDate != null) {
+        setState(() {
+          expectedClosingDate.text =
+              DateFormat('dd-MM-yyyy').format(pickedDate);
+        });
+      }
+    },
+    decoration: _inputDecoration(
+      'Expected Closing Date *',
+      Icons.event_available,
+    ),
+  );
+}
   Widget _buildCallReasonField() {
     return GestureDetector(
       onTap: () => _showSelectionDialog(
@@ -1139,18 +1201,36 @@ Widget _buildProductSelection() {
     );
   }
 
-  Widget _buildLeadCategoryField() {
-    return GestureDetector(
-      onTap: () => _showLeadCategoryDialog(),
-      child: AbsorbPointer(
-        child: TextFormField(
-          controller: leadTypeVal,
-          //   validator: (v) => v!.isEmpty ? 'Lead category is required' : null,
-          decoration: _inputDecoration('Lead Category', Icons.category),
+Widget _buildLeadCategoryField() {
+  return GestureDetector(
+    onTap: () => _showLeadCategoryDialog(),
+    child: AbsorbPointer(
+      child: TextFormField(
+        controller: leadTypeVal,
+        decoration: _inputDecoration(
+          'Lead Category',
+          Icons.category,
+        ).copyWith(
+          label: RichText(
+            text: const TextSpan(
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+              children: [
+                TextSpan(text: 'Lead Category '),
+                TextSpan(
+                  text: '*',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildLeadSubCategoryField() {
     return GestureDetector(
@@ -1164,23 +1244,60 @@ Widget _buildProductSelection() {
     );
   }
 
-  Widget _buildCostField() {
-    return TextFormField(
-      controller: cost,
-      keyboardType: TextInputType.number,
-      decoration: _inputDecoration('Cost', Icons.currency_rupee),
-    );
-  }
-
-  Widget _buildRemarksField() {
-    return TextFormField(
-      controller: remarks,
-      maxLines: 3,
-      decoration: _inputDecoration('Remarks', Icons.note).copyWith(
-        alignLabelWithHint: true,
+Widget _buildCostField() {
+  return TextFormField(
+    controller: cost,
+    keyboardType: TextInputType.number,
+    decoration: _inputDecoration(
+      'Cost *',
+      Icons.currency_rupee,
+    ).copyWith(
+      label: RichText(
+        text: const TextSpan(
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.grey,
+          ),
+          children: [
+            TextSpan(text: 'Cost '),
+            TextSpan(
+              text: '*',
+              style: TextStyle(color: Colors.red),
+            ),
+          ],
+        ),
       ),
-    );
-  }
+    ),
+  );
+}
+
+Widget _buildRemarksField() {
+  return TextFormField(
+    controller: remarks,
+    maxLines: 3,
+    decoration: _inputDecoration(
+      'Remarks *',
+      Icons.note,
+    ).copyWith(
+      alignLabelWithHint: true,
+      label: RichText(
+        text: const TextSpan(
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.grey,
+          ),
+          children: [
+            TextSpan(text: 'Remarks '),
+            TextSpan(
+              text: '*',
+              style: TextStyle(color: Colors.red),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
   Widget _buildSubmitButton() {
     return SizedBox(

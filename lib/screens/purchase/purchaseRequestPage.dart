@@ -15,46 +15,89 @@ class PurchaseRequestPage extends StatefulWidget {
   final String name;
   final String userId;
 
-final String? openRequestId;
+  final String? openRequestId;
+  final Map<String, dynamic>? prefillData;
 
-const PurchaseRequestPage({
-  Key? key,
-  required this.token,
-  required this.name,
-  required this.userId,
-  this.openRequestId,
-}) : super(key: key);
+  const PurchaseRequestPage({
+    Key? key,
+    required this.token,
+    required this.name,
+    required this.userId,
+    this.openRequestId,
+    this.prefillData,
+  }) : super(key: key);
 
   @override
-  State<PurchaseRequestPage> createState() => _PurchaseRequestPageState();
+  State<PurchaseRequestPage> createState() =>
+      _PurchaseRequestPageState();
 }
 
 class CartItem {
   MaterialData material;
+
   double quantity;
+  double unitPrice;
+
   String description;
   String pmrId;
+
+  // Stock Request Details
+  String stockRequestQty;
+  String alreadyPrQty;
+  String remainingQty;
+  bool isFromStockRequest;
+  String stockRequestItemId;
+
   late TextEditingController descriptionController;
   late TextEditingController quantityController;
+  late TextEditingController unitPriceController;
 
   CartItem({
     required this.material,
     this.quantity = 1.0,
+    this.unitPrice = 0.0,
     this.description = "",
     this.pmrId = "",
+
+    this.stockRequestQty = "",
+    this.alreadyPrQty = "",
+    this.remainingQty = "",
+    this.isFromStockRequest = false,
+    this.stockRequestItemId = "",
   }) {
-    descriptionController = TextEditingController(text: description);
+    descriptionController =
+        TextEditingController(text: description);
+
     quantityController = TextEditingController(
-        text: quantity > 0
-            ? (quantity == quantity.toInt()
-                ? quantity.toInt().toString()
-                : quantity.toString())
-            : "1");
+      text: quantity > 0
+          ? (quantity == quantity.toInt()
+              ? quantity.toInt().toString()
+              : quantity.toString())
+          : "1",
+    );
+
+    unitPriceController = TextEditingController(
+      text: unitPrice > 0
+          ? unitPrice.toString()
+          : "",
+    );
   }
+
+  double get taxAmount {
+    final gst = double.tryParse(
+          material.gstPercentage?.toString() ?? "0",
+        ) ??
+        0;
+
+    return (quantity * unitPrice) * gst / 100;
+  }
+
+  double get total => (quantity * unitPrice) + taxAmount;
 
   void dispose() {
     descriptionController.dispose();
     quantityController.dispose();
+    unitPriceController.dispose();
   }
 }
 
@@ -72,26 +115,103 @@ class _PurchaseRequestPageState extends State<PurchaseRequestPage> {
   DateTime? toDate;
   String? selectedStatus;
 bool _popupOpened = false;
-  @override
-  void initState() {
-    super.initState();
-    _fetchRequests();
-    _fetchMaterials();
+
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   _fetchRequests();
+  //   _fetchMaterials();
+  // }
+@override
+void initState() {
+  super.initState();
+  _initialize();
+}
+
+Future<void> _initialize() async {
+  await _fetchRequests();
+  await _fetchMaterials();
+}
+void _showCreateFromStockRequestDialog(
+  Map<String, dynamic> data,
+) {
+  final stock = data["stock_request"];
+  final items = data["stock_request_items"] as List;
+
+  final remarksController = TextEditingController(
+    text: stock["remarks"] ?? "",
+  );
+
+  List<CartItem> cartItems = [];
+
+  for (var item in items) {
+    final material = materials.firstWhere(
+      (e) =>
+          e.materialId.toString() ==
+          item["product_id"].toString(),
+      orElse: () => MaterialData(
+        materialId: item["product_id"],
+        materialName: item["product_name"],
+        unitName: item["unit_name"],
+      ),
+    );
+
+    cartItems.add(
+      CartItem(
+        material: material,
+
+        // Ordered quantity (editable)
+        quantity:
+            double.tryParse(item["remaining_qty"]?.toString() ?? "0") ?? 0,
+
+        // Purchase price
+        unitPrice:
+            double.tryParse(item["purchase_price"]?.toString() ?? "0") ?? 0,
+
+        // Description
+        description: item["remarks"] ?? "",
+
+        // Stock Request Details
+        stockRequestQty: item["quantity"]?.toString() ?? "0",
+        alreadyPrQty:
+            item["purchase_request_qty"]?.toString() ?? "0",
+        remainingQty:
+            item["remaining_qty"]?.toString() ?? "0",
+        stockRequestItemId:
+            item["id"]?.toString() ?? "",
+        isFromStockRequest: true,
+      ),
+    );
   }
 
-  Future<void> _fetchMaterials() async {
-    try {
-      final response = await HttpService.getMaterials();
-      if (response != null && response.data != null) {
-        setState(() {
-          materials = response.data!;
+  _showRequestDialog(
+    requestId: data["new_request_id"]?.toString() ?? "",
+    requestDate: DateTime.now(),
+    cartItems: cartItems,
+    remarksController: remarksController,
+    stockRequestId: stock["id"]?.toString(),
+  );
+}
+
+Future<void> _fetchMaterials() async {
+  try {
+    final response = await HttpService.getMaterials();
+
+    if (response != null && response.data != null) {
+      setState(() {
+        materials = response.data!;
+      });
+
+      if (widget.prefillData != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showCreateFromStockRequestDialog(widget.prefillData!);
         });
       }
-    } catch (e) {
-      print("Error fetching materials: $e");
     }
+  } catch (e) {
+    print(e);
   }
-
+}
 Future<void> _fetchRequests() async {
   setState(() => isLoading = true);
 
@@ -125,7 +245,9 @@ Future<void> _fetchRequests() async {
       });
 
       // Auto open newly created Purchase Request
-      _openRequestedPurchaseView();
+      if (widget.prefillData == null) {
+        _openRequestedPurchaseView();
+      }
     } else {
       setState(() {
         requests = [];
@@ -235,57 +357,138 @@ Future<void> _fetchRequests() async {
     );
   }
 
-  Future<void> _submitRequest(BuildContext dialogContext,
-      List<CartItem> cartItems, DateTime date, String remarks,
-      {String? editId}) async {
-    if (cartItems.isEmpty) {
-      Common.toastMessaage(
-          "Please add at least one item to the cart", Colors.red);
-      return;
-    }
-    Common.showProgressDialog(
-        dialogContext, editId == null ? "Submitting..." : "Updating...");
-    try {
-      List<Map<String, dynamic>> itemsList = cartItems.map((item) {
-        return {
-          "material_id": item.material.materialId,
-          "unit_amount": item.material.unitPrice,
-          "quantity": item.quantity.toString(),
-          "description": item.descriptionController.text,
-        };
-      }).toList();
-      Map<String, dynamic> data = {
-        "request_date": DateFormat('yyyy-MM-dd').format(date),
-        "remarks": remarks,
-        "items": itemsList,
-      };
-      dynamic response;
-      if (editId != null) {
-        data['id'] = editId;
-        response = await HttpService.updatePurchaseRequest(data);
-      } else {
-        response = await HttpService.postPurchaseRequest(data);
-      }
-      Navigator.pop(dialogContext);
-      if (response != null && response['status'] == true) {
-        Common.toastMessaage(
-            response['message'] ??
-                (editId == null
-                    ? "Request submitted successfully"
-                    : "Request updated successfully"),
-            Colors.green);
-        Navigator.pop(dialogContext);
-        _fetchRequests();
-      } else {
-        Common.toastMessaage(
-            response?['message'] ?? "Operation failed", Colors.red);
-      }
-    } catch (e) {
-      Navigator.pop(dialogContext);
-      Common.toastMessaage("Error: $e", Colors.red);
-    }
+  // Future<void> _submitRequest(BuildContext dialogContext,
+  //     List<CartItem> cartItems, DateTime date, String remarks,String? stockRequestId,
+  //     {String? editId},String? stockRequestId,) async {
+  //   if (cartItems.isEmpty) {
+  //     Common.toastMessaage(
+  //         "Please add at least one item to the cart", Colors.red);
+  //     return;
+  //   }
+  //   Common.showProgressDialog(
+  //       dialogContext, editId == null ? "Submitting..." : "Updating...");
+  //   try {
+  //     List<Map<String, dynamic>> itemsList = cartItems.map((item) {
+  //       return {
+  //         "material_id": item.material.materialId,
+  //         "unit_amount": item.material.unitPrice,
+  //         "quantity": item.quantity.toString(),
+  //         "description": item.descriptionController.text,
+  //       };
+  //     }).toList();
+  //     Map<String, dynamic> data = {
+  //       "request_date": DateFormat('yyyy-MM-dd').format(date),
+  //       "remarks": remarks,
+  //       "items": itemsList,
+  //     };
+  //     dynamic response;
+  //     if (editId != null) {
+  //       data['id'] = editId;
+  //       response = await HttpService.updatePurchaseRequest(data);
+  //     } else {
+  //       response = await HttpService.postPurchaseRequest(data);
+  //     }
+  //     Navigator.pop(dialogContext);
+  //     if (response != null && response['status'] == true) {
+  //       Common.toastMessaage(
+  //           response['message'] ??
+  //               (editId == null
+  //                   ? "Request submitted successfully"
+  //                   : "Request updated successfully"),
+  //           Colors.green);
+  //       Navigator.pop(dialogContext);
+  //       _fetchRequests();
+  //     } else {
+  //       Common.toastMessaage(
+  //           response?['message'] ?? "Operation failed", Colors.red);
+  //     }
+  //   } catch (e) {
+  //     Navigator.pop(dialogContext);
+  //     Common.toastMessaage("Error: $e", Colors.red);
+  //   }
+  // }
+Future<void> _submitRequest(
+  BuildContext dialogContext,
+  List<CartItem> cartItems,
+  DateTime date,
+  String remarks, {
+  String? editId,
+  String? stockRequestId,
+}) async {
+  if (cartItems.isEmpty) {
+    Common.toastMessaage(
+      "Please add at least one item to the cart",
+      Colors.red,
+    );
+    return;
   }
 
+  Common.showProgressDialog(
+    dialogContext,
+    editId == null ? "Submitting..." : "Updating...",
+  );
+
+  try {
+    List<Map<String, dynamic>> itemsList = cartItems.map((item) {
+      final map = <String, dynamic>{
+        "material_id": item.material.materialId,
+        "unit_amount": item.material.unitPrice,
+        "quantity": item.quantity.toString(),
+        "description": item.descriptionController.text,
+      };
+
+      // Send only for Stock Request items
+      if (item.stockRequestItemId.isNotEmpty) {
+        map["stock_request_item_id"] = item.stockRequestItemId;
+      }
+
+      return map;
+    }).toList();
+
+    Map<String, dynamic> data = {
+      "request_date": DateFormat('yyyy-MM-dd').format(date),
+      "remarks": remarks,
+      "items": itemsList,
+    };
+
+    // Add stock request id when creating from stock request
+    if (stockRequestId != null && stockRequestId.isNotEmpty) {
+      data["stock_request_id"] = stockRequestId;
+    }
+
+    dynamic response;
+
+    if (editId != null) {
+      data["id"] = editId;
+      response = await HttpService.updatePurchaseRequest(data);
+    } else {
+      response = await HttpService.postPurchaseRequest(data);
+    }
+
+    Navigator.pop(dialogContext);
+
+    if (response != null && response["status"] == true) {
+      Common.toastMessaage(
+        response["message"] ??
+            (editId == null
+                ? "Request submitted successfully"
+                : "Request updated successfully"),
+        Colors.green,
+      );
+
+      Navigator.pop(dialogContext);
+      _fetchRequests();
+    } else {
+      Common.toastMessaage(
+        response?["message"] ?? "Operation failed",
+        Colors.red,
+      );
+    }
+  } catch (e) {
+    Navigator.pop(dialogContext);
+    Common.toastMessaage("Error: $e", Colors.red);
+  }
+}
   void _showEditRequestDialog(PurchaseRequestData request) async {
     Common.showProgressDialog(context, "Fetching details...");
     final detailsResponse =
@@ -378,6 +581,7 @@ void _openRequestedPurchaseView() {
     required TextEditingController remarksController,
     bool isEdit = false,
     String? editId,
+    String? stockRequestId,
   }) {
     MaterialData? selectedMaterial;
     DateTime internalRequestDate = requestDate;
@@ -770,6 +974,7 @@ void _openRequestedPurchaseView() {
                                 internalRequestDate,
                                 remarksController.text,
                                 editId: editId,
+                                stockRequestId: stockRequestId,
                               ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF2a86c9),
@@ -786,7 +991,9 @@ void _openRequestedPurchaseView() {
                                   Text(
                                     isEdit
                                         ? "UPDATE REQUEST"
-                                        : "SUBMIT REQUEST",
+                                        : (stockRequestId != null && stockRequestId.isNotEmpty)
+                                            ? "APPROVE & SUBMIT"
+                                            : "SUBMIT REQUEST",
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
@@ -1017,58 +1224,133 @@ void _openRequestedPurchaseView() {
               ],
             ),
             const Divider(height: 24),
-            Row(
-              children: [
-                const Text("Quantity:",
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                const Spacer(),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildStepperBtn(Icons.remove, () {
-                        if (item.quantity > 1) {
-                          setDialogState(() {
-                            item.quantity--;
-                            item.quantityController.text = item.quantity == item.quantity.toInt() ? item.quantity.toInt().toString() : item.quantity.toString();
-                          });
-                        }
-                      }),
-                      SizedBox(
-                        width: 45,
-                        child: TextField(
-                          controller: item.quantityController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          textAlign: TextAlign.center,
-                          onChanged: (v) {
-                            setDialogState(() {
-                              item.quantity = double.tryParse(v) ?? 1.0;
-                            });
-                          },
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(vertical: 4),
-                            border: InputBorder.none,
-                          ),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                        ),
-                      ),
-                      _buildStepperBtn(Icons.add, () {
-                        setDialogState(() {
-                          item.quantity++;
-                          item.quantityController.text = item.quantity == item.quantity.toInt() ? item.quantity.toInt().toString() : item.quantity.toString();
-                        });
-                      }),
-                    ],
-                  ),
+
+if (item.isFromStockRequest) ...[
+  Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.blue.shade50,
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Stock Request Qty",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
                 ),
-              ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                item.stockRequestQty,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Already PR Qty",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                item.alreadyPrQty,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  ),
+],
+
+Row(
+  children: [
+    const Text(
+      "Quantity:",
+      style: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 13,
+      ),
+    ),
+    const Spacer(),
+    Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildStepperBtn(Icons.remove, () {
+            if (item.quantity > 1) {
+              setDialogState(() {
+                item.quantity--;
+                item.quantityController.text =
+                    item.quantity == item.quantity.toInt()
+                        ? item.quantity.toInt().toString()
+                        : item.quantity.toString();
+              });
+            }
+          }),
+          SizedBox(
+            width: 45,
+            child: TextField(
+              controller: item.quantityController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              textAlign: TextAlign.center,
+              onChanged: (v) {
+                setDialogState(() {
+                  item.quantity = double.tryParse(v) ?? 1.0;
+                });
+              },
+              decoration: const InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 4),
+                border: InputBorder.none,
+              ),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
             ),
+          ),
+          _buildStepperBtn(Icons.add, () {
+            setDialogState(() {
+              item.quantity++;
+              item.quantityController.text =
+                  item.quantity == item.quantity.toInt()
+                      ? item.quantity.toInt().toString()
+                      : item.quantity.toString();
+            });
+          }),
+        ],
+      ),
+    ),
+  ],
+),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1253,8 +1535,8 @@ void _openRequestedPurchaseView() {
                               ),
                             Row(
                               children: [
-                                _buildStatusBadge(
-                                    request.requestStatus ?? 'Pending'),
+                                // _buildStatusBadge(
+                                //     request.requestStatus ?? 'Pending'),
                                 PopupMenuButton<String>(
                                   icon: const Icon(Icons.more_vert,
                                       size: 20, color: Colors.grey),
@@ -1290,9 +1572,9 @@ void _openRequestedPurchaseView() {
                                         ],
                                       ),
                                     ),
-                                    if (request.orderStatus ==
-                                            "Order Not Created" &&
-                                        request.requestStatus != "Pending")
+                                    // if (request.orderStatus ==
+                                    //         "Order Not Created" &&
+                                    //     request.requestStatus != "Pending")
                                       PopupMenuItem(
                                         value: 'create_order',
                                         child: Row(
@@ -1507,31 +1789,35 @@ void _openRequestedPurchaseView() {
     }
   }
 
-  Future<void> _createOrderFromRequest(PurchaseRequestData request) async {
-    Common.showProgressDialog(context, "Fetching request details...");
-    final detailsResponse =
-        await HttpService.getPurchaseRequestDetails(request.id ?? "");
-    Navigator.pop(context);
+Future<void> _createOrderFromRequest(PurchaseRequestData request) async {
+  Common.showProgressDialog(context, "Fetching request details...");
 
-    if (detailsResponse == null || !detailsResponse.status) {
-      Common.toastMessaage("Failed to fetch request details", Colors.red);
-      return;
-    }
+  final detailsResponse =
+      await HttpService.getPurchaseRequestDetails(request.id ?? "");
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PurchaseOrderPage(
-          token: widget.token,
-          name: widget.name,
-          userId: widget.userId,
-          createFromRequestItems: detailsResponse.data,
-          createFromRequestRemarks: request.remarks,
-        ),
-      ),
+  Navigator.pop(context);
+
+  if (detailsResponse == null || !detailsResponse.status) {
+    Common.toastMessaage(
+      "Failed to fetch request details",
+      Colors.red,
     );
+    return;
   }
 
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => PurchaseOrderPage(
+        token: widget.token,
+        name: widget.name,
+        userId: widget.userId,
+        createFromRequestItems: detailsResponse.data,
+        createFromRequestRemarks: request.remarks,
+      ),
+    ),
+  );
+}
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -1857,7 +2143,7 @@ class _RequestDetailsDrawer extends StatelessWidget {
                           ],
                         ),
                       ),
-                      _buildStatusBadge(request.requestStatus ?? 'Pending'),
+                      // _buildStatusBadge(request.requestStatus ?? 'Pending'),
                     ],
                   ),
                   const SizedBox(height: 25),
@@ -2002,32 +2288,32 @@ class _RequestDetailsDrawer extends StatelessWidget {
                                   color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
                       ),
-                       const SizedBox(width: 15),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              barrierDismissible: false,
-                              builder: (BuildContext context) {
-                                return ApprovalDialog(
-                                  request: request,
-                                  onRefresh: onRefresh,
-                                );
-                              },
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            padding: const EdgeInsets.symmetric(vertical: 15),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(15)),
-                          ),
-                          child: const Text('Approve / Reject',
-                              style: TextStyle(
-                                  color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
+                      //  const SizedBox(width: 15),
+                      // Expanded(
+                      //   child: ElevatedButton(
+                      //     onPressed: () {
+                      //       showDialog(
+                      //         context: context,
+                      //         barrierDismissible: false,
+                      //         builder: (BuildContext context) {
+                      //           return ApprovalDialog(
+                      //             request: request,
+                      //             onRefresh: onRefresh,
+                      //           );
+                      //         },
+                      //       );
+                      //     },
+                      //     style: ElevatedButton.styleFrom(
+                      //       backgroundColor: Colors.green,
+                      //       padding: const EdgeInsets.symmetric(vertical: 15),
+                      //       shape: RoundedRectangleBorder(
+                      //           borderRadius: BorderRadius.circular(15)),
+                      //     ),
+                      //     child: const Text('Approve / Reject',
+                      //         style: TextStyle(
+                      //             color: Colors.white, fontWeight: FontWeight.bold)),
+                      //   ),
+                      // ),
                      
                     ],
                   ),

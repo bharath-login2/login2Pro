@@ -32,6 +32,7 @@ class StockRequestData {
   final String locationId;
   final String locationName;
   final String requiredDate;
+  final String requestedDate;
   final String requestedBy;
   final String createdAt;
   final String priority;
@@ -46,6 +47,7 @@ class StockRequestData {
     required this.locationId,
     required this.locationName,
     required this.requiredDate,
+    required this.requestedDate,
     required this.requestedBy,
     required this.createdAt,
     required this.priority,
@@ -63,6 +65,7 @@ class StockRequestData {
           json['location_id']?.toString() ?? '',
       locationName: json['location_name'] ?? '',
       requiredDate: json['required_date'] ?? '',
+      requestedDate: json['requested_date'] ?? '',
       requestedBy: json['requested_by'] ?? '',
       createdAt: json['created_at'] ?? '',
       priority: json['priority'] ?? 'Normal',

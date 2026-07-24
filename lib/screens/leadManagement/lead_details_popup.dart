@@ -169,6 +169,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
   TextEditingController folderName = TextEditingController();
   TextEditingController fileName = TextEditingController();
   TextEditingController fileNameEdit = TextEditingController();
+  final TextEditingController expectedClosingDate = TextEditingController();
 LeadWorkDetailsModel? workDetails;
 bool isLoadingWorkDetails = false;
   final AudioRecordController audioCreateController =
@@ -1714,13 +1715,10 @@ Widget _buildWorkDetailsTab() {
     .expand((work) => work.tasks)
     .toList();
 
-final allReports = workDetails!.data
-    .expand((work) => work.workReport)
-    .toList();
 
-final overallProgress = workDetails!.data.isNotEmpty
-    ? workDetails!.data.first.progress
-    : null;
+// final overallProgress = workDetails!.data.isNotEmpty
+//     ? workDetails!.data.first.progress
+//     : null;
 final allProgress = workDetails!.data
     .map((work) => work.progress)
     .toList();
@@ -1782,7 +1780,7 @@ return SingleChildScrollView(
                         CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Staff :',
+                        'Assigned Staff :',
                         style: TextStyle(
                           fontWeight:
                               FontWeight.w600,
@@ -1802,44 +1800,67 @@ return SingleChildScrollView(
                 Expanded(
                   flex: 4,
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Uploaded Documents :',
+                        'Documents :',
                         style: TextStyle(
-                          fontWeight:
-                              FontWeight.w600,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 5),
+                      const SizedBox(height: 8),
 
                       if (task.documents.isEmpty)
-                        const Text(
-                          'No files uploaded',
-                        )
+                        const Text('No files uploaded')
                       else
                         ...task.documents.map(
-                          (doc) => InkWell(
-                            onTap: () {
-                              launchUrl(
-                                Uri.parse(
-                                  doc.fileUrl,
-                                ),
-                              );
-                            },
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.only(
-                                bottom: 4,
+                          (doc) => Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.grey.shade300,
                               ),
-                              child: Text(
-                                doc.fileId,
-                                style:
-                                    const TextStyle(
-                                  color: Colors.blue,
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.insert_drive_file,
+                                  color: Colors.red,
                                 ),
-                              ),
+                                const SizedBox(width: 10),
+
+                                Expanded(
+                                  child: Text(
+                                    doc.fileId, // or doc.documentName if available
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.download,
+                                    color: Colors.blue,
+                                  ),
+                                  onPressed: () async {
+                                    final uri = Uri.parse(doc.fileUrl);
+                                    if (await canLaunchUrl(uri)) {
+                                      await launchUrl(
+                                        uri,
+                                        mode: LaunchMode.externalApplication,
+                                      );
+                                    }
+                                  },
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -1891,12 +1912,20 @@ const SizedBox(height: 15),
         const SizedBox(height: 8),
 
         ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: LinearProgressIndicator(
-            value: progress.percentage / 100,
-            minHeight: 10,
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: progress.percentage / 100,
+              minHeight: 10,
+              backgroundColor: Colors.grey.shade300,
+              color: progress.percentage >= 100
+                  ? Colors.green
+                  : progress.percentage >= 75
+                      ? Colors.lightGreen
+                      : progress.percentage >= 50
+                          ? Colors.orange
+                          : Colors.red,
+            ),
           ),
-        ),
       ],
     ),
   );
@@ -1904,56 +1933,139 @@ const SizedBox(height: 15),
 
         const SizedBox(height: 20),
 
-        /// WORK REPORT
-        ExpansionTile(
-          tilePadding: EdgeInsets.zero,
-          title: const Text(
-            'Work Report',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-            ),
+ExpansionTile(
+  tilePadding: EdgeInsets.zero,
+  title: const Text(
+    'Work Log',
+    style: TextStyle(
+      fontWeight: FontWeight.bold,
+    ),
+  ),
+  children: [
+    if (allTasks.every((task) => task.workLog.isEmpty))
+      const Padding(
+        padding: EdgeInsets.all(12),
+        child: Text('No work logs available'),
+      ),
+
+    ...allTasks.expand((task) {
+      return task.workLog.map(
+        (log) => Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade50,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.orange.shade100),
           ),
-          children: [
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
 
-            if (allReports.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  'No work reports available',
+              Text(
+                "Task : ${task.taskName}",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
                 ),
               ),
 
-            ...allReports.map(
-              (report) => Container(
-                width: double.infinity,
-                margin:
-                    const EdgeInsets.only(
-                        bottom: 10),
-                padding:
-                    const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius:
-                      BorderRadius.circular(
-                          10),
+              const SizedBox(height: 6),
+
+              Text("Staff : ${task.staffName ?? '-'}"),
+
+              const Divider(),
+
+              Text("Date : ${log.createdAt}"),
+
+              const SizedBox(height: 5),
+
+              Text("Start : ${log.startTime}"),
+
+              const SizedBox(height: 5),
+
+              Text("End : ${log.endTime}"),
+
+              const SizedBox(height: 5),
+
+              Text("Duration : ${log.timeTaken}"),
+
+              if (log.remarks.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text("Remark : ${log.remarks}"),
+              ],
+
+              if (log.logDocuments.isNotEmpty) ...[
+                const SizedBox(height: 12),
+
+                const Text(
+                  "Files",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Completed Date : ${report.completedDate}",
+
+                const SizedBox(height: 8),
+
+                ...log.logDocuments.map(
+                  (doc) => Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
                     ),
-                    const SizedBox(height: 5),
-                    Text(
-                      "Time Taken : ${report.timeTaken}",
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.grey.shade300,
+                      ),
                     ),
-                  ],
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.insert_drive_file,
+                          color: Colors.red,
+                        ),
+
+                        const SizedBox(width: 10),
+
+                        Expanded(
+                          child: Text(
+                            doc.logFileId,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+
+                        IconButton(
+                          icon: const Icon(
+                            Icons.download,
+                            color: Colors.blue,
+                          ),
+                          onPressed: () async {
+                            final uri =
+                                Uri.parse(doc.logFileUrl);
+
+                            if (await canLaunchUrl(uri)) {
+                              await launchUrl(
+                                uri,
+                                mode: LaunchMode.externalApplication,
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            ],
+          ),
         ),
+      );
+    }).toList(),
+  ],
+),
       ],
     ),
   
@@ -3034,7 +3146,10 @@ const SizedBox(height: 15),
       Common.toastMessaage('Select Next Followup Date', Colors.red);
       return;
     }
-
+    if (isFollowup && expectedClosingDate.text.isEmpty) {
+      Common.toastMessaage('Select Expected Closing Date', Colors.red);
+      return;
+    }
     bool isReasonReq = leadSettings?.isReasonRequiredBool ?? false;
     if (isReasonReq &&
         (callResultReasonId.isEmpty ||
@@ -3043,7 +3158,26 @@ const SizedBox(height: 15),
       Common.toastMessaage('Select Tags', Colors.red);
       return;
     }
+  if (cost.text.trim().isEmpty ||
+    (double.tryParse(cost.text.trim()) ?? 0) <= 0) {
+  Common.toastMessaage('Enter Cost', Colors.red);
+  return;
+}
 
+if (leadTypeId.isEmpty || leadTypeId == "0") {
+  Common.toastMessaage('Select Category', Colors.red);
+  return;
+}
+
+if (remarks.text.trim().isEmpty) {
+  Common.toastMessaage('Enter Remarks', Colors.red);
+  return;
+}
+
+if (createOrder == true && products.isEmpty) {
+  Common.toastMessaage('Choose at least one product', Colors.red);
+  return;
+}
     if (createOrder == true && products.isEmpty) {
       Common.toastMessaage('Choose at least one product', Colors.red);
       return;
@@ -3118,48 +3252,51 @@ const SizedBox(height: 15),
     try {
       String productIds = _selectedProducts.map((p) => p.id).join(',');
 
-      final result = await HttpService.addLeadsFollowupUpdated(
-          widget.token,
-          callResultId,
-          nextFollowupDate1.text,
-          cost.text,
-          address.text,
-          leadTypeId,
-          leadSubTypeId,
-          remarks.text,
-          callMasterId ?? (callMasterId ?? widget.callMasterId),
-          calledDate1.text,
-          '', 
-          priorityId,
-          checked,
-          timeBefore.text,
-          callResponseId,
-          callResultReasonId,
-          createOrder,
-          createRenewal ? "renewal" : "invoice",
-          detailsResponse?.data.checkId ?? '',
-          invoiceDate,
-          products,
-          reminderTemplate.text,
-          allTotal,
-          startDate.text,
-          endDate.text,
-          paymentStatus,
-          subTotal,
-          totalTaxAmount,
-          discount.text,
-          shippingCharge.text,
-          paymentMethod,
-          paidAmount.text,
-          staffId,
-          isDifrent,
-          renProducts,
-          targetGroups,
-          _additionalValues,
-          products: productIds,
-          createCustomer: createCustomer,
-          whatsappLead: whatsappLead.text,
-          emailLead: emailLead.text);
+      // final result = await HttpService.addLeadsFollowupUpdated(
+          final result = await HttpService.addLeadsFollowupUpdated(
+  widget.token,
+  callResultId,
+  nextFollowupDate1.text,
+  cost.text,
+  address.text,
+  leadTypeId,
+  leadSubTypeId,
+  remarks.text,
+  callMasterId ?? widget.callMasterId,
+  calledDate1.text,
+  expectedClosingDate.text, // <-- Correct
+  '',                       // <-- callHistoryId
+  priorityId,
+  checked,
+  timeBefore.text,
+  callResponseId,
+  callResultReasonId,
+  createOrder,
+  createRenewal ? "renewal" : "invoice",
+  detailsResponse?.data.checkId ?? '',
+  invoiceDate,
+  products,
+  reminderTemplate.text,
+  allTotal,
+  startDate.text,
+  endDate.text,
+  paymentStatus,
+  subTotal,
+  totalTaxAmount,
+  discount.text,
+  shippingCharge.text,
+  paymentMethod,
+  paidAmount.text,
+  staffId,
+  isDifrent,
+  renProducts,
+  targetGroups,
+  _additionalValues,
+  products: productIds,
+  createCustomer: createCustomer,
+  whatsappLead: whatsappLead.text,
+  emailLead: emailLead.text,
+);
       if (context.mounted) {
         Navigator.pop(context);
         // if (result.status == true) {
@@ -3768,6 +3905,61 @@ child: Row(
                         ),
                         const SizedBox(height: 12),
 
+                          RichText(
+                            text: const TextSpan(
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black,
+                              ),
+                              children: [
+                                TextSpan(text: 'Expected Closing Date '),
+                                TextSpan(
+                                  text: '*',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+
+                          InkWell(
+                            onTap: () async {
+                              DateTime now = DateTime.now();
+
+                              DateTime? pickedDate = await showDatePicker(
+                                context: context,
+                                initialDate: now,
+                                firstDate: now,
+                                lastDate: DateTime(2101),
+                              );
+
+                              if (pickedDate != null) {
+                                setState(() {
+                                  expectedClosingDate.text =
+                                      DateFormat('dd-MM-yyyy').format(pickedDate);
+                                });
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade400),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    expectedClosingDate.text.isEmpty
+                                        ? 'Select Date'
+                                        : expectedClosingDate.text,
+                                  ),
+                                  const Icon(Icons.calendar_month, size: 18),
+                                ],
+                              ),
+                            ),
+                          ),
                         // Reminder
                         CheckboxListTile(
                           contentPadding: EdgeInsets.zero,
@@ -3897,224 +4089,256 @@ child: Row(
                       ],
                     ),
 
-                  const Text(
-                    'Products',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => _showProductPopup(),
-                          child: AbsorbPointer(
-                            child: TextFormField(
-                              key: ValueKey(_selectedProducts.length),
-                              initialValue: _selectedProducts.isEmpty
-                                  ? ''
-                                  : "${_selectedProducts.length} Product(s) Selected",
-                              decoration: InputDecoration(
-                                hintText: 'Select Products',
-                                prefixIcon:
-                                    const Icon(Icons.shopping_cart, size: 20),
-                                isDense: true,
-                                filled: true,
-                                fillColor: Colors.grey.shade50,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide:
-                                      BorderSide(color: Colors.grey.shade300),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide:
-                                      BorderSide(color: Colors.grey.shade200),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const AddProducts(),
-                              )).then((_) {
-                            _fetchProductSection();
-                          });
-                        },
-                        child: Container(
-                          height: 42,
-                          width: 42,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                                colors: [Color(0xFF2a86c9), Color(0xFF406dbe)]),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.add,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  if (_selectedProducts.isNotEmpty)
-                    Column(
-                      children: _selectedProducts.map((p) {
-                        bool isExpanded = _expandedProductId == p.id;
-                        return Column(
-                          children: [
-                            InkWell(
-                              onTap: () {
-                                setState(() {
-                                  if (_expandedProductId == p.id) {
-                                    _expandedProductId = null;
-                                  } else {
-                                    _expandedProductId = p.id;
-                                    if (p.id != null) {
-                                      _fetchProductDescription(p.id!);
-                                    }
-                                  }
-                                });
-                              },
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border:
-                                      Border.all(color: Colors.blue.shade100),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        "${p.productName} - Rs ${p.totalAmount}",
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            color: Color(0xFF2a86c9)),
-                                      ),
-                                    ),
-                                    GestureDetector(
-                                      onTap: () => _removeFollowupProduct(p),
-                                      child: const Icon(Icons.cancel,
-                                          size: 20, color: Colors.red),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            if (isExpanded &&
-                                (_descriptionLoading[p.id] == true ||
-                                    (_productDescriptions[p.id]?.isNotEmpty ??
-                                        false)))
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(12),
-                                margin: const EdgeInsets.only(
-                                    bottom: 12, left: 4, right: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border:
-                                      Border.all(color: Colors.grey.shade200),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      "Product Description",
-                                      style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black87),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    _descriptionLoading[p.id] == true
-                                        ? const Center(
-                                            child: Padding(
-                                              padding: EdgeInsets.all(8.0),
-                                              child: SizedBox(
-                                                height: 20,
-                                                width: 20,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                ),
-                                              ),
-                                            ),
-                                          )
-                                        : Text(
-                                            _productDescriptions[p.id] ?? "",
-                                            style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey),
-                                          ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        );
-                      }).toList(),
-                    ),
+                  // const Text(
+                  //   'Products',
+                  //   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  // ),
+                  // const SizedBox(height: 8),
+                  // Row(
+                  //   children: [
+                  //     Expanded(
+                  //       child: GestureDetector(
+                  //         onTap: () => _showProductPopup(),
+                  //         child: AbsorbPointer(
+                  //           child: TextFormField(
+                  //             key: ValueKey(_selectedProducts.length),
+                  //             initialValue: _selectedProducts.isEmpty
+                  //                 ? ''
+                  //                 : "${_selectedProducts.length} Product(s) Selected",
+                  //             decoration: InputDecoration(
+                  //               hintText: 'Select Products',
+                  //               prefixIcon:
+                  //                   const Icon(Icons.shopping_cart, size: 20),
+                  //               isDense: true,
+                  //               filled: true,
+                  //               fillColor: Colors.grey.shade50,
+                  //               border: OutlineInputBorder(
+                  //                 borderRadius: BorderRadius.circular(8),
+                  //                 borderSide:
+                  //                     BorderSide(color: Colors.grey.shade300),
+                  //               ),
+                  //               enabledBorder: OutlineInputBorder(
+                  //                 borderRadius: BorderRadius.circular(8),
+                  //                 borderSide:
+                  //                     BorderSide(color: Colors.grey.shade200),
+                  //               ),
+                  //             ),
+                  //           ),
+                  //         ),
+                  //       ),
+                  //     ),
+                  //     const SizedBox(width: 8),
+                  //     GestureDetector(
+                  //       onTap: () {
+                  //         Navigator.push(
+                  //             context,
+                  //             MaterialPageRoute(
+                  //               builder: (context) => const AddProducts(),
+                  //             )).then((_) {
+                  //           _fetchProductSection();
+                  //         });
+                  //       },
+                  //       child: Container(
+                  //         height: 42,
+                  //         width: 42,
+                  //         decoration: BoxDecoration(
+                  //           gradient: const LinearGradient(
+                  //               colors: [Color(0xFF2a86c9), Color(0xFF406dbe)]),
+                  //           borderRadius: BorderRadius.circular(10),
+                  //         ),
+                  //         child: const Icon(
+                  //           Icons.add,
+                  //           color: Colors.white,
+                  //         ),
+                  //       ),
+                  //     ),
+                  //   ],
+                  // ),
+                  // const SizedBox(height: 12),
+                  // if (_selectedProducts.isNotEmpty)
+                  //   Column(
+                  //     children: _selectedProducts.map((p) {
+                  //       bool isExpanded = _expandedProductId == p.id;
+                  //       return Column(
+                  //         children: [
+                  //           InkWell(
+                  //             onTap: () {
+                  //               setState(() {
+                  //                 if (_expandedProductId == p.id) {
+                  //                   _expandedProductId = null;
+                  //                 } else {
+                  //                   _expandedProductId = p.id;
+                  //                   if (p.id != null) {
+                  //                     _fetchProductDescription(p.id!);
+                  //                   }
+                  //                 }
+                  //               });
+                  //             },
+                  //             child: Container(
+                  //               margin: const EdgeInsets.only(bottom: 8),
+                  //               padding: const EdgeInsets.symmetric(
+                  //                   horizontal: 12, vertical: 8),
+                  //               decoration: BoxDecoration(
+                  //                 color: Colors.blue.shade50,
+                  //                 borderRadius: BorderRadius.circular(8),
+                  //                 border:
+                  //                     Border.all(color: Colors.blue.shade100),
+                  //               ),
+                  //               child: Row(
+                  //                 children: [
+                  //                   Expanded(
+                  //                     child: Text(
+                  //                       "${p.productName} - Rs ${p.totalAmount}",
+                  //                       style: const TextStyle(
+                  //                           fontWeight: FontWeight.w500,
+                  //                           color: Color(0xFF2a86c9)),
+                  //                     ),
+                  //                   ),
+                  //                   GestureDetector(
+                  //                     onTap: () => _removeFollowupProduct(p),
+                  //                     child: const Icon(Icons.cancel,
+                  //                         size: 20, color: Colors.red),
+                  //                   ),
+                  //                 ],
+                  //               ),
+                  //             ),
+                  //           ),
+                  //           if (isExpanded &&
+                  //               (_descriptionLoading[p.id] == true ||
+                  //                   (_productDescriptions[p.id]?.isNotEmpty ??
+                  //                       false)))
+                  //             Container(
+                  //               width: double.infinity,
+                  //               padding: const EdgeInsets.all(12),
+                  //               margin: const EdgeInsets.only(
+                  //                   bottom: 12, left: 4, right: 4),
+                  //               decoration: BoxDecoration(
+                  //                 color: Colors.grey.shade50,
+                  //                 borderRadius: BorderRadius.circular(8),
+                  //                 border:
+                  //                     Border.all(color: Colors.grey.shade200),
+                  //               ),
+                  //               child: Column(
+                  //                 crossAxisAlignment: CrossAxisAlignment.start,
+                  //                 children: [
+                  //                   const Text(
+                  //                     "Product Description",
+                  //                     style: TextStyle(
+                  //                         fontSize: 13,
+                  //                         fontWeight: FontWeight.bold,
+                  //                         color: Colors.black87),
+                  //                   ),
+                  //                   const SizedBox(height: 4),
+                  //                   _descriptionLoading[p.id] == true
+                  //                       ? const Center(
+                  //                           child: Padding(
+                  //                             padding: EdgeInsets.all(8.0),
+                  //                             child: SizedBox(
+                  //                               height: 20,
+                  //                               width: 20,
+                  //                               child:
+                  //                                   CircularProgressIndicator(
+                  //                                 strokeWidth: 2,
+                  //                               ),
+                  //                             ),
+                  //                           ),
+                  //                         )
+                  //                       : Text(
+                  //                           _productDescriptions[p.id] ?? "",
+                  //                           style: const TextStyle(
+                  //                               fontSize: 12,
+                  //                               color: Colors.grey),
+                  //                         ),
+                  //                 ],
+                  //               ),
+                  //             ),
+                  //         ],
+                  //       );
+                  //     }).toList(),
+                  //   ),
+                 
                   const SizedBox(height: 12),
 
                   Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: cost,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Cost',
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.all(12),
-                            prefixIcon: Icon(Icons.currency_rupee, size: 18),
-                          ),
-                        ),
-                      ),
-                      // const SizedBox(width: 12),
-                      // Expanded(
-                      //   child: TextField(
-                      //     controller: address,
-                      //     decoration: const InputDecoration(
-                      //       labelText: 'Address',
-                      //       border: OutlineInputBorder(),
-                      //       contentPadding: EdgeInsets.all(12),
-                      //       prefixIcon: Icon(Icons.home, size: 18),
-                      //     ),
-                      //   ),
-                      // ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDropdown(
-                    label: 'Category',
-                    value: leadTypeId.isEmpty ? null : leadTypeId,
-                    items: commonDetails!.data.leadCategory.map((item) {
-                      return DropdownMenuItem(
-                        value: item.leadCategoryId.toString(),
-                        child: Text(item.leadCategory),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        leadTypeId = value!;
-                        leadType = commonDetails!.data.leadCategory
-                            .firstWhere((element) =>
-                                element.leadCategoryId.toString() == value)
-                            .leadCategory;
-                        _fetchLeadSubType();
-                      });
-                    },
-                  ),
+  children: [
+    Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RichText(
+            text: const TextSpan(
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Colors.black,
+              ),
+              children: [
+                TextSpan(text: 'Cost '),
+                TextSpan(
+                  text: '*',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: cost,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.all(12),
+              prefixIcon: Icon(Icons.currency_rupee, size: 18),
+            ),
+          ),
+        ],
+      ),
+    ),
+  ],
+),
+const SizedBox(height: 12),
+                  Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    RichText(
+      text: const TextSpan(
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: Colors.black,
+        ),
+        children: [
+          TextSpan(text: 'Lead Category '),
+          TextSpan(
+            text: '*',
+            style: TextStyle(color: Colors.red),
+          ),
+        ],
+      ),
+    ),
+    const SizedBox(height: 6),
+    _buildDropdown(
+      label: '',
+      value: leadTypeId.isEmpty ? null : leadTypeId,
+      items: commonDetails!.data.leadCategory.map((item) {
+        return DropdownMenuItem(
+          value: item.leadCategoryId.toString(),
+          child: Text(item.leadCategory),
+        );
+      }).toList(),
+      onChanged: (value) {
+        setState(() {
+          leadTypeId = value!;
+          leadType = commonDetails!.data.leadCategory
+              .firstWhere((element) =>
+                  element.leadCategoryId.toString() == value)
+              .leadCategory;
+          _fetchLeadSubType();
+        });
+      },
+    ),
+  ],
+),
                   //  const SizedBox(height:12),
                   _buildDropdown(
                     label: 'Sub Category',
@@ -4501,15 +4725,36 @@ child: Row(
                         const SizedBox(height: 8),
 
                         // Remarks
-                        TextField(
-                          controller: remarks,
-                          maxLines: 2,
-                          decoration: const InputDecoration(
-                            labelText: 'Remarks',
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.all(12),
-                          ),
-                        ),
+                        Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    RichText(
+      text: const TextSpan(
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: Colors.black,
+        ),
+        children: [
+          TextSpan(text: 'Remarks '),
+          TextSpan(
+            text: '*',
+            style: TextStyle(color: Colors.red),
+          ),
+        ],
+      ),
+    ),
+    const SizedBox(height: 6),
+    TextField(
+      controller: remarks,
+      maxLines: 2,
+      decoration: const InputDecoration(
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.all(12),
+      ),
+    ),
+  ],
+),
                         const SizedBox(height: 12),
 
                         if (commonDetails?.data.additionalFields != null &&
@@ -4664,6 +4909,7 @@ child: Row(
               ),
             ),
           ),
+      
       ],
     );
   }
@@ -4723,7 +4969,26 @@ child: Row(
         return;
       }
     }
+    // Costprint("Cost = '${cost.text}'");
+// print("LeadTypeId = '$leadTypeId'");
+// print("Remarks = '${remarks.text}'");
+if (cost.text.trim().isEmpty ||
+    (double.tryParse(cost.text.trim()) ?? 0) <= 0) {
+  Common.toastMessaage('Please enter a valid cost', Colors.red);
+  return;
+}
 
+// Category validation
+if (leadTypeId.trim().isEmpty || leadTypeId == "0") {
+  Common.toastMessaage('Please select category', Colors.red);
+  return;
+}
+
+// Remarks validation
+if (remarks.text.trim().isEmpty) {
+  Common.toastMessaage('Please enter remarks', Colors.red);
+  return;
+}
     setState(() => isSavingFollowup = true);
 
     try {
@@ -5962,80 +6227,196 @@ child: Row(
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            followup.callResultId != "3" &&
-                                    followup.callResultId != "4"
-                                ? Icon(
-                                    Icons.access_time,
-                                    size: 12,
-                                    color: isLatest
-                                        ? Colors.blue.shade400
-                                        : Colors.grey.shade500,
-                                  )
-                                : SizedBox(),
-                            const SizedBox(width: 4),
-                            followup.callResultId != "3" &&
-                                    followup.callResultId != "4"
-                                ? Text(
-                                    followup.isNewCall == "Y"
-                                        ? 'Created Date: ${followup.scheduledDate}'
-                                        : 'Scheduled Date: ${followup.scheduledDate}',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold, // Added bold
-                                      color: isLatest
-                                          ? Colors.blue.shade600
-                                          : Colors.grey.shade500,
-                                      letterSpacing:
-                                          0.5, // Added for better readability
-                                      shadows: isLatest
-                                          ? [
-                                              // Added shadow effect for "showy" look
-                                              Shadow(
-                                                offset: Offset(0, 0.5),
-                                                blurRadius: 1,
-                                                color: Colors.blue.shade200
-                                                    .withOpacity(0.5),
-                                              ),
-                                            ]
-                                          : null,
-                                    ),
-                                  )
-                                : SizedBox(),
-                            // if (followup.calledDate != "") ...[
-                            //   const SizedBox(width: 4),
-                            //   Text(
-                            //     'Called Date: ${followup.calledDate}',
-                            //     style: TextStyle(
-                            //       fontSize: 11,
-                            //       fontWeight: FontWeight.bold, // Added bold
-                            //       color: isLatest
-                            //           ? Colors.blue.shade600
-                            //           : Colors.grey.shade500,
-                            //       letterSpacing:
-                            //           0.5, // Added for better readability
-                            //       shadows: isLatest
-                            //           ? [
-                            //               // Added shadow effect for "showy" look
-                            //               Shadow(
-                            //                 offset: Offset(0, 0.5),
-                            //                 blurRadius: 1,
-                            //                 color: Colors.blue.shade200
-                            //                     .withOpacity(0.5),
-                            //               ),
-                            //             ]
-                            //           : null,
-                            //     ),
-                            //   ),
-                            //],
-                          ],
-                        ),
-                      ],
-                    ),
+  //                   Row(
+  //                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //                     // children: [
+  //                     //   Row(
+  //                     //     children: [
+  //                     //       followup.callResultId != "3" &&
+  //                     //               followup.callResultId != "4"
+  //                     //           ? Icon(
+  //                     //               Icons.access_time,
+  //                     //               size: 12,
+  //                     //               color: isLatest
+  //                     //                   ? Colors.blue.shade400
+  //                     //                   : Colors.grey.shade500,
+  //                     //             )
+  //                     //           : SizedBox(),
+  //                     //       const SizedBox(width: 4),
+  //                     //       followup.callResultId != "3" &&
+  //                     //               followup.callResultId != "4"
+  //                     //           ? Text(
+  //                     //               followup.isNewCall == "Y"
+  //                     //                   ? 'Created Date: ${followup.scheduledDate}'
+  //                     //                   : 'Scheduled Date: ${followup.scheduledDate}',
+  //                     //               style: TextStyle(
+  //                     //                 fontSize: 11,
+  //                     //                 fontWeight: FontWeight.bold, // Added bold
+  //                     //                 color: isLatest
+  //                     //                     ? Colors.blue.shade600
+  //                     //                     : Colors.grey.shade500,
+  //                     //                 letterSpacing:
+  //                     //                     0.5, // Added for better readability
+  //                     //                 shadows: isLatest
+  //                     //                     ? [
+  //                     //                         // Added shadow effect for "showy" look
+  //                     //                         Shadow(
+  //                     //                           offset: Offset(0, 0.5),
+  //                     //                           blurRadius: 1,
+  //                     //                           color: Colors.blue.shade200
+  //                     //                               .withOpacity(0.5),
+  //                     //                         ),
+  //                     //                       ]
+  //                     //                     : null,
+  //                     //               ),
+  //                     //             )
+  //                     //           : SizedBox(),
+  //                     //       // if (followup.calledDate != "") ...[
+  //                     //       //   const SizedBox(width: 4),
+  //                     //       //   Text(
+  //                     //       //     'Called Date: ${followup.calledDate}',
+  //                     //       //     style: TextStyle(
+  //                     //       //       fontSize: 11,
+  //                     //       //       fontWeight: FontWeight.bold, // Added bold
+  //                     //       //       color: isLatest
+  //                     //       //           ? Colors.blue.shade600
+  //                     //       //           : Colors.grey.shade500,
+  //                     //       //       letterSpacing:
+  //                     //       //           0.5, // Added for better readability
+  //                     //       //       shadows: isLatest
+  //                     //       //           ? [
+  //                     //       //               // Added shadow effect for "showy" look
+  //                     //       //               Shadow(
+  //                     //       //                 offset: Offset(0, 0.5),
+  //                     //       //                 blurRadius: 1,
+  //                     //       //                 color: Colors.blue.shade200
+  //                     //       //                     .withOpacity(0.5),
+  //                     //       //               ),
+  //                     //       //             ]
+  //                     //       //           : null,
+  //                     //       //     ),
+  //                     //       //   ),
+  //                     //       //],
+  //                     //     ],
+  //                     //   ),
+                      
+  //                     // ],
+  //                   children: [
+  //   if (followup.callResultId != "3" && followup.callResultId != "4")
+  //     Row(
+  //       children: [
+  //         Icon(
+  //           Icons.access_time,
+  //           size: 12,
+  //           color: isLatest
+  //               ? Colors.blue.shade400
+  //               : Colors.grey.shade500,
+  //         ),
+  //         const SizedBox(width: 4),
+  //         Text(
+  //           followup.isNewCall == "Y"
+  //               ? 'Created Date: ${followup.scheduledDate}'
+  //               : 'Scheduled Date: ${followup.scheduledDate}',
+  //           style: TextStyle(
+  //             fontSize: 11,
+  //             fontWeight: FontWeight.bold,
+  //             color: isLatest
+  //                 ? Colors.blue.shade600
+  //                 : Colors.grey.shade500,
+  //             letterSpacing: 0.5,
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+
+  //   if (followup.callResultId != "3" &&
+  //       followup.callResultId != "4" &&
+  //       followup.expectedClosing.isNotEmpty) ...[
+  //     const SizedBox(height: 4),
+  //     Row(
+  //       children: [
+  //         Icon(
+  //           Icons.event_available,
+  //           size: 12,
+  //           color: Colors.green.shade600,
+  //         ),
+  //         const SizedBox(width: 4),
+  //         Text(
+  //           'Expected Closing Date: ${followup.expectedClosing}',
+  //           style: TextStyle(
+  //             fontSize: 11,
+  //             fontWeight: FontWeight.bold,
+  //             color: Colors.green.shade700,
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   ],
+  // ],
+  //                   ),
+                    const SizedBox(height: 8),
+
+Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    if (followup.callResultId != "3" &&
+        followup.callResultId != "4")
+      Row(
+        children: [
+          Icon(
+            Icons.access_time,
+            size: 12,
+            color: isLatest
+                ? Colors.blue.shade400
+                : Colors.grey.shade500,
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              followup.isNewCall == "Y"
+                  ? 'Created Date: ${followup.scheduledDate}'
+                  : 'Scheduled Date: ${followup.scheduledDate}',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: isLatest
+                    ? Colors.blue.shade600
+                    : Colors.grey.shade500,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+
+    if (followup.callResultId != "3" &&
+        followup.callResultId != "4" &&
+        (followup.expectedClosing.trim().isNotEmpty) &&
+        followup.expectedClosing != "-") ...[
+      const SizedBox(height: 4),
+      Row(
+        children: [
+          Icon(
+            Icons.event_available,
+            size: 12,
+            color: Colors.grey,
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              'Expected Closing Date: ${followup.expectedClosing}',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ],
+  ],
+),
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -7988,6 +8369,7 @@ child: Row(
         children: [
           _buildDetailSection('Client Info', [
             _buildDetailRow('Client Name', data.clientName ?? '-'),
+            _buildDetailRow('Company Name', data.companyName ?? '-'),
             _buildDetailRow('Phone', data.contactNumber1 ?? '-'),
             _buildDetailRow('WhatsApp Number', data.whatsaAppNumber ?? '-'),
             // _buildDetailRow(
@@ -10581,9 +10963,19 @@ child: Row(
       case '5':
         return const Color(0xFF9C27B0);
       case '6':
-        return Colors.pink;
+         return const Color(0xFF9C27B0);
       case '7':
-        return const Color(0xFF4CAF50);
+        return const Color(0xFF2196F3);
+      case '8':
+        return const Color(0xFF1B5E20);
+      case '9':
+        return const Color(0xFFFF6F00);
+      case '10':
+        return const Color(0xFFD32F2F);
+      case '11':
+        return const Color(0xFF1B5E20);
+      case '12':
+        return const Color(0xFF3F51B5);
     }
 
     if (s.contains('new')) return const Color(0xFF2196F3);

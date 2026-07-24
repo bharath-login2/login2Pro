@@ -73,6 +73,7 @@ class ProjectExp {
   final String customerName;
   final String? fromDate;
   final String? toDate;
+  final String? saveToLocation;
 
   ProjectExp({
     required this.id,
@@ -81,6 +82,7 @@ class ProjectExp {
     required this.customerName,
     this.fromDate,
     this.toDate,
+    this.saveToLocation,
   });
 
   factory ProjectExp.fromJson(Map<String, dynamic> json) {
@@ -91,6 +93,7 @@ class ProjectExp {
       customerName: json['customer_name'] ?? '',
       fromDate: json['from_date'],
       toDate: json['to_date'],
+      saveToLocation: json['save_to_location'],
     );
   }
 }

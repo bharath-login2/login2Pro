@@ -30,6 +30,7 @@ class _AddProjectPageState extends State<AddProjectPage> {
   DateTime? endDate;
   bool isLoading = true;
   bool hasError = false;
+  bool saveToLocation = false;
   @override
   void initState() {
     super.initState();
@@ -95,6 +96,7 @@ class _AddProjectPageState extends State<AddProjectPage> {
     endDateController.clear();
     startDate = null;
     endDate = null;
+    saveToLocation = false;
   }
 
   Future<dynamic> dropDialogExisting(BuildContext context, String title) {
@@ -165,19 +167,30 @@ class _AddProjectPageState extends State<AddProjectPage> {
 
   void showAddOrEditDialog({ProjectExp? project}) {
     if (project != null) {
-      selectedCustomerId = project.customerId;
-      selectedCustomerController.text = project.customerName;
-      projectNameController.text = project.projectName;
-      startDate = project.fromDate != null ? DateTime.tryParse(project.fromDate!) : null;
-      endDate = project.toDate != null ? DateTime.tryParse(project.toDate!) : null;
-      startDateController.text = project.fromDate ?? "";
-      endDateController.text = project.toDate ?? "";
-    } else {
-      clearForm();
-    }
-    showDialog(
-      context: context,
-      builder: (ctx) {
+  selectedCustomerId = project.customerId;
+  selectedCustomerController.text = project.customerName;
+  projectNameController.text = project.projectName;
+  startDate = project.fromDate != null
+      ? DateTime.tryParse(project.fromDate!)
+      : null;
+  endDate = project.toDate != null
+      ? DateTime.tryParse(project.toDate!)
+      : null;
+
+  startDateController.text = project.fromDate ?? "";
+  endDateController.text = project.toDate ?? "";
+
+  // Set checkbox value from project
+  saveToLocation = project.saveToLocation == "Y"; // or project.saveToLocation == true
+} else {
+  clearForm();
+  saveToLocation = false;
+}
+showDialog(
+  context: context,
+  builder: (ctx) {
+    return StatefulBuilder(
+      builder: (context, dialogSetState) {
         return AlertDialog(
           title: Text(project != null ? "Edit Project" : "Add Project"),
           content: SingleChildScrollView(
@@ -191,7 +204,7 @@ class _AddProjectPageState extends State<AddProjectPage> {
                     final selected =
                         await dropDialogExisting(context, "Customers");
                     if (selected != null) {
-                      setState(() {
+                      dialogSetState(() {
                         selectedCustomerId = selected['id'];
                         selectedCustomerController.text = selected['name'];
                       });
@@ -204,6 +217,7 @@ class _AddProjectPageState extends State<AddProjectPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
+
                 TextField(
                   controller: projectNameController,
                   decoration: const InputDecoration(
@@ -212,6 +226,7 @@ class _AddProjectPageState extends State<AddProjectPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
+
                 GestureDetector(
                   onTap: () async {
                     final picked = await showDatePicker(
@@ -220,8 +235,9 @@ class _AddProjectPageState extends State<AddProjectPage> {
                       firstDate: DateTime(2020),
                       lastDate: DateTime(2100),
                     );
+
                     if (picked != null) {
-                      setState(() {
+                      dialogSetState(() {
                         startDate = picked;
                         startDateController.text =
                             DateFormat('dd-MM-yyyy').format(picked);
@@ -240,6 +256,7 @@ class _AddProjectPageState extends State<AddProjectPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
+
                 GestureDetector(
                   onTap: () async {
                     final picked = await showDatePicker(
@@ -248,8 +265,9 @@ class _AddProjectPageState extends State<AddProjectPage> {
                       firstDate: DateTime(2020),
                       lastDate: DateTime(2100),
                     );
+
                     if (picked != null) {
-                      setState(() {
+                      dialogSetState(() {
                         endDate = picked;
                         endDateController.text =
                             DateFormat('dd-MM-yyyy').format(picked);
@@ -267,6 +285,23 @@ class _AddProjectPageState extends State<AddProjectPage> {
                     ),
                   ),
                 ),
+
+                const SizedBox(height: 12),
+
+                CheckboxListTile(
+                  value: saveToLocation,
+                  onChanged: (value) {
+                    dialogSetState(() {
+                      saveToLocation = value ?? false;
+                    });
+                  },
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: const Text(
+                    "Save to location",
+                    style: TextStyle(fontSize: 14),
+                  ),
+                ),
               ],
             ),
           ),
@@ -276,66 +311,17 @@ class _AddProjectPageState extends State<AddProjectPage> {
               child: const Text("Cancel"),
             ),
             ElevatedButton(
-              // onPressed: () async {
-              //   if (startDate == null && startDateController.text.isNotEmpty) {
-              //     startDate = DateFormat('dd-MM-yyyy')
-              //         .parseStrict(startDateController.text);
-              //   }
-              //   if (endDate == null && endDateController.text.isNotEmpty) {
-              //     endDate = DateFormat('dd-MM-yyyy')
-              //         .parseStrict(endDateController.text);
-              //   }
-
-              //   if (selectedCustomerId != null &&
-              //       projectNameController.text.isNotEmpty &&
-              //       startDate != null &&
-              //       endDate != null) {
-              //     bool result;
-              //     if (project == null) {
-              //       result = await HttpService.addProjectsCustomers(
-              //         customerId: selectedCustomerId!,
-              //         projectName: projectNameController.text,
-              //         startDate: startDate!,
-              //         endDate: endDate!,
-              //       );
-              //     } else {
-              //       result = await HttpService.updateProject(
-              //         id: project.id,
-              //         customerId: selectedCustomerId!,
-              //         projectName: projectNameController.text,
-              //         startDate: startDate!,
-              //         endDate: endDate!,
-              //       );
-              //     }
-
-              //     if (result) {
-              //       Navigator.pop(ctx);
-              //       await loadInitialData();
-              //       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              //         content: Text(project == null
-              //             ? "Project added successfully"
-              //             : "Project updated successfully"),
-              //         backgroundColor: Colors.green,
-              //       ));
-              //       clearForm();
-              //     } else {
-              //       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              //         content: Text(project == null
-              //             ? "Failed to add project"
-              //             : "Failed to update project"),
-              //         backgroundColor: Colors.red,
-              //       ));
-              //     }
-              //   }
-              // },
               onPressed: () async {
-                if (startDate == null && startDateController.text.isNotEmpty) {
+                if (startDate == null &&
+                    startDateController.text.isNotEmpty) {
                   try {
                     startDate = DateFormat('dd-MM-yyyy')
                         .parseStrict(startDateController.text);
                   } catch (_) {}
                 }
-                if (endDate == null && endDateController.text.isNotEmpty) {
+
+                if (endDate == null &&
+                    endDateController.text.isNotEmpty) {
                   try {
                     endDate = DateFormat('dd-MM-yyyy')
                         .parseStrict(endDateController.text);
@@ -345,12 +331,14 @@ class _AddProjectPageState extends State<AddProjectPage> {
                 if (selectedCustomerId != null &&
                     projectNameController.text.isNotEmpty) {
                   bool result;
+
                   if (project == null) {
                     result = await HttpService.addProjectsCustomers(
                       customerId: selectedCustomerId!,
                       projectName: projectNameController.text,
                       startDate: startDate,
                       endDate: endDate,
+                      saveToLocation: saveToLocation,
                     );
                   } else {
                     result = await HttpService.updateProject(
@@ -359,36 +347,48 @@ class _AddProjectPageState extends State<AddProjectPage> {
                       projectName: projectNameController.text,
                       startDate: startDate,
                       endDate: endDate,
+                      saveToLocation: saveToLocation,
                     );
                   }
 
                   if (result) {
                     Navigator.pop(ctx);
                     await loadInitialData();
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text(project == null
-                          ? "Project added successfully"
-                          : "Project updated successfully"),
-                      backgroundColor: Colors.green,
-                    ));
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          project == null
+                              ? "Project added successfully"
+                              : "Project updated successfully",
+                        ),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+
                     clearForm();
                   } else {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text(project == null
-                          ? "Failed to add project"
-                          : "Failed to update project"),
-                      backgroundColor: Colors.red,
-                    ));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          project == null
+                              ? "Failed to add project"
+                              : "Failed to update project",
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 }
               },
-
               child: Text(project != null ? "Update" : "Add"),
             ),
           ],
         );
       },
     );
+  },
+);
   }
 
   void deleteProject(String id) async {

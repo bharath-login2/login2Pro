@@ -45,6 +45,7 @@ class _AddProductsState extends State<AddProducts> {
   TextEditingController subCategory = TextEditingController();
   TextEditingController expiryDate = TextEditingController();
   TextEditingController warrantyNumber = TextEditingController();
+  TextEditingController lowStock = TextEditingController();
   TextEditingController freeService = TextEditingController();
   TextEditingController paidService = TextEditingController();
   List<TextEditingController> complaintControllers = [TextEditingController()];
@@ -262,6 +263,7 @@ class _AddProductsState extends State<AddProducts> {
       visibility: selectedVisibility,
       expiryDate: expiryDate.text,
       warrantyNumber: warrantyNumber.text,
+      lowStock: lowStock.text,
       serviceCycle: selectedServiceCycle,
       freeService: freeService.text,
       paidService: paidService.text,
@@ -535,143 +537,164 @@ void initState() {
                           ],
                         ),
                       const SizedBox(height: 16),
+                      // Row(
+                      //   crossAxisAlignment: CrossAxisAlignment.start,
+                      //   children: [
+                      //     Expanded(
+                      //     child: Column(
+                      //     crossAxisAlignment: CrossAxisAlignment.start,
+                      //     children: [
+                      //       _buildTextField(
+                      //         controller: barcodeController,
+                      //         label: "Barcode value",
+                      //         icon: Icons.qr_code,
+                      //         onChanged: (value) async {
+                      //           if (value.trim().isEmpty) {
+                      //             setState(() {
+                      //               barcodeError = null;
+                      //             });
+                      //             return;
+                      //           }
+
+                      //           final result = await HttpService.checkBarcodeDuplicate(
+                      //             value.trim(),
+                      //             productId?.toString() ?? "0",
+                      //           );
+
+                      //           setState(() {
+                      //             if (result?.duplicate == true) {
+                      //               barcodeError = result?.message;
+                      //             } else {
+                      //               barcodeError = null;
+                      //             }
+                      //           });
+                      //         },
+                      //       ),
+
+                      //       if (barcodeError != null)
+                      //         Padding(
+                      //           padding: const EdgeInsets.only(top: 5),
+                      //           child: Text(
+                      //             barcodeError!,
+                      //             style: const TextStyle(
+                      //               color: Colors.red,
+                      //               fontSize: 12,
+                      //             ),
+                      //           ),
+                      //         ),
+                      //     ],
+                      //   )
+                      //   ),
+                      //     const SizedBox(width: 12),
+                      //     Transform.translate(
+                      //       offset: const Offset(0, 24),
+                      //       child: Container(
+                      //         height: 50,
+                      //         width: 50,
+                      //         decoration: BoxDecoration(
+                      //           borderRadius: BorderRadius.circular(8),
+                      //           color: const Color(0xFF2a86c9),
+                      //         ),
+                      //         child: IconButton(
+                      //           onPressed: () async {
+                      //             var res = await Navigator.push(
+                      //               context,
+                      //               MaterialPageRoute(
+                      //                 builder: (context) => const SimpleBarcodeScannerPage(),
+                      //               ),
+                      //             );
+
+                      //             if (res is String && res != '-1') {
+                      //             barcodeController.text = res;
+
+                      //             // print("Scanned Barcode = $res");
+
+                      //             final result = await HttpService.checkBarcodeDuplicate(
+                      //               res,
+                      //               "0",
+                      //             );
+
+                      //             // print("API Result = $result");
+                      //             // print("Duplicate = ${result?.duplicate}");
+                      //             // print("Message = ${result?.message}");
+
+                      //             setState(() {
+                      //               if (result?.duplicate == true) {
+                      //                 barcodeError = result?.message;
+                      //               } else {
+                      //                 barcodeError = null;
+                      //               }
+                      //             });
+
+                      //             print("barcodeError = $barcodeError");
+                      //           }
+                      //           },
+                      //           icon: const Icon(Icons.qr_code_scanner,
+                      //               color: Colors.white, size: 24),
+                      //           padding: EdgeInsets.zero,
+                      //           constraints: const BoxConstraints(),
+                      //           style: IconButton.styleFrom(
+                      //             backgroundColor: const Color(0xFF2a86c9),
+                      //             shape: RoundedRectangleBorder(
+                      //                 borderRadius: BorderRadius.circular(8)),
+                      //             minimumSize: const Size(50, 50),
+                      //           ),
+                      //           tooltip: "Scan Barcode",
+                      //         ),
+                      //       ),
+                      //     ),
+                      //   ],
+                      // ),
+                      // const SizedBox(height: 16),
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                          child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildTextField(
-                              controller: barcodeController,
-                              label: "Barcode value",
-                              icon: Icons.qr_code,
-                              onChanged: (value) async {
-                                if (value.trim().isEmpty) {
-                                  setState(() {
-                                    barcodeError = null;
-                                  });
-                                  return;
-                                }
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    Expanded(
+      child: _buildTextField(
+        controller: productCode,
+        label: selectedProductType == "Service"
+            ? "SAC Code"
+            : "HSN Code",
+        icon: Icons.qr_code_outlined,
+        keyboardType: TextInputType.number,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+        ],
+      ),
+    ),
+    const SizedBox(width: 12),
+    Expanded(
+      child: _buildTextField(
+        controller: brand,
+        label: "Brand *",
+        icon: Icons.branding_watermark_outlined,
+        validator: (val) =>
+          val!.isEmpty ? "Enter Brand Name" : null,
+      ),
+    ),
+  ],
+),
 
-                                final result = await HttpService.checkBarcodeDuplicate(
-                                  value.trim(),
-                                  productId?.toString() ?? "0",
-                                );
+const SizedBox(height: 16),
 
-                                setState(() {
-                                  if (result?.duplicate == true) {
-                                    barcodeError = result?.message;
-                                  } else {
-                                    barcodeError = null;
-                                  }
-                                });
-                              },
-                            ),
-
-                            if (barcodeError != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 5),
-                                child: Text(
-                                  barcodeError!,
-                                  style: const TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        )
-                        ),
-                          const SizedBox(width: 12),
-                          Transform.translate(
-                            offset: const Offset(0, 24),
-                            child: Container(
-                              height: 50,
-                              width: 50,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                color: const Color(0xFF2a86c9),
-                              ),
-                              child: IconButton(
-                                onPressed: () async {
-                                  var res = await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const SimpleBarcodeScannerPage(),
-                                    ),
-                                  );
-
-                                  if (res is String && res != '-1') {
-                                  barcodeController.text = res;
-
-                                  // print("Scanned Barcode = $res");
-
-                                  final result = await HttpService.checkBarcodeDuplicate(
-                                    res,
-                                    "0",
-                                  );
-
-                                  // print("API Result = $result");
-                                  // print("Duplicate = ${result?.duplicate}");
-                                  // print("Message = ${result?.message}");
-
-                                  setState(() {
-                                    if (result?.duplicate == true) {
-                                      barcodeError = result?.message;
-                                    } else {
-                                      barcodeError = null;
-                                    }
-                                  });
-
-                                  print("barcodeError = $barcodeError");
-                                }
-                                },
-                                icon: const Icon(Icons.qr_code_scanner,
-                                    color: Colors.white, size: 24),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                style: IconButton.styleFrom(
-                                  backgroundColor: const Color(0xFF2a86c9),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8)),
-                                  minimumSize: const Size(50, 50),
-                                ),
-                                tooltip: "Scan Barcode",
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildTextField(
-                              controller: productCode,
-                              label: selectedProductType == "Service"
-                                  ? "SAC Code"
-                                  : (selectedProductType == "Material" ||
-                                          selectedProductType == "Rental")
-                                      ? "HSN/SAC Code"
-                                      : "HSN Code",
-                              icon: Icons.qr_code_outlined,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildTextField(
-                              controller: brand,
-                              label: "Brand",
-                              icon: Icons.branding_watermark_outlined,
-                            ),
-                          ),
-                        ],
-                      ),
+Row(
+  children: [
+    Expanded(
+      child: _buildSelectField(
+        controller: unitController,
+        label: "Unit *",
+        validator: (val) =>
+          val!.isEmpty ? "Select Unit" : null,
+        onTap: () {
+          dropDialog(context, "unit");
+        },
+        actionWidget: _buildAddButton(() {
+          _showQuickAddUnitDialog();
+        }),
+      ),
+    ),
+  ],
+),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -680,47 +703,50 @@ void initState() {
                     children: [
                       Row(
                         children: [
-                          Expanded(
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _buildTextField(
-        controller: sellingPrice,
-        label: selectedProductType == "Rental"
-            ? "Rental Price *"
-            : "Selling Price *",
-        icon: Icons.currency_rupee_outlined,
-        keyboardType: TextInputType.number,
-        onChanged: (val) {
-          _updateTotalAmount();
-          formKey.currentState?.validate();
-        },
-        validator: (val) => val!.isEmpty
-            ? (selectedProductType == "Rental"
-                ? "Enter Rental Price"
-                : "Enter Selling Price")
-            : null,
-      ),
+//                           Expanded(
+//   child: Column(
+//     crossAxisAlignment: CrossAxisAlignment.start,
+//     children: [
+//       _buildTextField(
+//         controller: sellingPrice,
+//         label: selectedProductType == "Rental"
+//             ? "Rental Price *"
+//             : "Selling Price *",
+//         icon: Icons.currency_rupee_outlined,
+//         keyboardType: TextInputType.number,
+//         onChanged: (val) {
+//           _updateTotalAmount();
+//           formKey.currentState?.validate();
+//         },
+//         validator: (val) => val!.isEmpty
+//             ? (selectedProductType == "Rental"
+//                 ? "Enter Rental Price"
+//                 : "Enter Selling Price")
+//             : null,
+//       ),
 
-      if (selectedProductType != "Rental")
-        const Padding(
-          padding: EdgeInsets.only(
-            left: 4,
-            top: 4,
-          ),
-        ),
-    ],
-  ),
-),
-                          const SizedBox(width: 12),
+//       if (selectedProductType != "Rental")
+//         const Padding(
+//           padding: EdgeInsets.only(
+//             left: 4,
+//             top: 4,
+//           ),
+//         ),
+//     ],
+//   ),
+// ),
+                          // const SizedBox(width: 12),
                           Expanded(
-                            child: _buildTextField(
-                              controller: tax,
-                              label: "Tax (%)",
-                              icon: Icons.percent_outlined,
-                              keyboardType: TextInputType.number,
-                              onChanged: (val) => _updateTotalAmount(),
-                            ),
+                            child: 
+                           _buildTextField(
+                                  controller: purchasePrice,
+                                  label: "Purchase Amount",
+                                  icon: Icons.currency_rupee_outlined,
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (_) {
+                                    _updateTotalAmount();
+                                  },
+                                ),
                           ),
                         ],
                       ),
@@ -731,29 +757,15 @@ void initState() {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildTextField(
-                                  controller: purchasePrice,
-                                  label: "Purchase Amount",
-                                  icon: Icons.currency_rupee_outlined,
-                                  keyboardType: TextInputType.number,
-                                  onChanged: (val) {
-                                    formKey.currentState?.validate();
-                                  },
-                                  validator: (val) {
-                                    if (val != null &&
-                                        val.isNotEmpty &&
-                                        sellingPrice.text.isNotEmpty) {
-                                      double pPrice = double.tryParse(val) ?? 0;
-                                      double sPrice =
-                                          double.tryParse(sellingPrice.text) ??
-                                              0;
-                                      if (pPrice > sPrice) {
-                                        return "Purchase price > selling price";
-                                      }
-                                    }
-                                    return null;
-                                  },
-                                ),
+                               _buildTextField(
+                              controller: tax,
+                              label: "Tax (%)",
+                              icon: Icons.percent_outlined,
+                              keyboardType: TextInputType.number,
+                              onChanged: (val) => _updateTotalAmount(),
+                            ),
+
+
                               ],
                             ),
                           ),
@@ -770,47 +782,29 @@ void initState() {
                         ],
                       ),
                       const SizedBox(height: 16),
-                    if (selectedProductType != "Rental") ...[
-  Row(
-    children: [
-      Expanded(
-        child: _buildTextField(
-          controller: mrp,
-          label: "MRP",
-          icon: Icons.price_check_outlined,
-          keyboardType: TextInputType.number,
+                    _buildTextField(
+                      controller: mrp,
+                      label: "MRP",
+                      icon: Icons.price_check_outlined,
+                      keyboardType: TextInputType.number,
+                      onChanged: (_) {
+                        formKey.currentState?.validate();
+                      },
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return "Please enter MRP";
+                        }
 
-          onChanged: (val) {
-            formKey.currentState?.validate();
-          },
+                        double mrpValue = double.tryParse(val) ?? 0;
+                        double purchaseValue = double.tryParse(purchasePrice.text) ?? 0;
 
-         validator: (val) {
-  if (val == null || val.trim().isEmpty) {
-    return "Please enter MRP";
-  }
+                        if (mrpValue < purchaseValue) {
+                          return "MRP must be greater than Purchase Amount";
+                        }
 
-  double mrpValue =
-      double.tryParse(val) ?? 0;
-
-  double sellingValue =
-      double.tryParse(
-        sellingPrice.text,
-      ) ??
-      0;
-
-  if (mrpValue < sellingValue) {
-    return "MRP must be greater than Selling Price";
-  }
-
-  return null;
-},
-        ),
-      ),
-    ],
-  ),
-
-  const SizedBox(height: 16),
-],
+                        return null;
+                      },
+                    ),
                       const SizedBox(height: 16),
                       _buildTextField(
                         controller: totalAmount,
@@ -932,111 +926,111 @@ void initState() {
                           ),
                         ],
                       ),
-                      if (selectedProductType == "Service" && hasWarranty) ...[
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildSelectField(
-                                controller: expiryDate,
-                                label: "Expiry Date",
-                                icon: Icons.calendar_month,
-                                onTap: () async {
-                                  DateTime? pickedDate = await showDatePicker(
-                                      context: context,
-                                      initialDate: DateTime.now(),
-                                      firstDate: DateTime(2000),
-                                      lastDate: DateTime(2101));
-                                  if (pickedDate != null) {
-                                    setState(() {
-                                      expiryDate.text = DateFormat('yyyy-MM-dd')
-                                          .format(pickedDate);
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildTextField(
-                                controller: warrantyNumber,
-                                label: "Warranty Number",
-                                icon: Icons.numbers,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _buildDropdownField(
-                          label: "Service Cycle",
-                          value: selectedServiceCycle,
-                          items: serviceCycles,
-                          onChanged: (val) {
-                            setState(() {
-                              selectedServiceCycle = val;
-                            });
-                          },
-                        ),
-                        if (selectedServiceCycle == "N Days") ...[
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            controller: serviceNoOfDays,
-                            label: "No of Days",
-                            icon: Icons.calendar_today,
-                            keyboardType: TextInputType.number,
-                          ),
-                        ],
-                        if (selectedServiceCycle == "Weekly") ...[
-                          const SizedBox(height: 16),
-                          _buildDropdownField(
-                            label: "Select Week Day",
-                            value: selectedWeekDay,
-                            items: weekDays,
-                            onChanged: (val) {
-                              setState(() {
-                                selectedWeekDay = val;
-                              });
-                            },
-                          ),
-                        ],
-                        if (selectedServiceCycle == "Monthly") ...[
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            controller: serviceMonthDays,
-                            label: "No of Days",
-                            icon: Icons.calendar_today,
-                            keyboardType: TextInputType.number,
-                          ),
-                        ],
-                        if (selectedServiceCycle == "Yearly") ...[
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildTextField(
-                                  controller: serviceYearDays,
-                                  label: "No of Days",
-                                  icon: Icons.calendar_today,
-                                  keyboardType: TextInputType.number,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildDropdownField(
-                                  label: "Select Month",
-                                  value: selectedYearMonth,
-                                  items: months,
-                                  onChanged: (val) {
-                                    setState(() {
-                                      selectedYearMonth = val;
-                                    });
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
+                      // if (selectedProductType == "Service" && hasWarranty) ...[
+                        // const SizedBox(height: 16),
+                        // Row(
+                        //   children: [
+                        //     Expanded(
+                        //       child: _buildSelectField(
+                        //         controller: expiryDate,
+                        //         label: "Expiry Date",
+                        //         icon: Icons.calendar_month,
+                        //         onTap: () async {
+                        //           DateTime? pickedDate = await showDatePicker(
+                        //               context: context,
+                        //               initialDate: DateTime.now(),
+                        //               firstDate: DateTime(2000),
+                        //               lastDate: DateTime(2101));
+                        //           if (pickedDate != null) {
+                        //             setState(() {
+                        //               expiryDate.text = DateFormat('yyyy-MM-dd')
+                        //                   .format(pickedDate);
+                        //             });
+                        //           }
+                        //         },
+                        //       ),
+                        //     ),
+                        //     const SizedBox(width: 12),
+                        //     Expanded(
+                        //       child: _buildTextField(
+                        //         controller: warrantyNumber,
+                        //         label: "Warranty Number",
+                        //         icon: Icons.numbers,
+                        //       ),
+                        //     ),
+                        //   ],
+                        // ),
+                        // const SizedBox(height: 16),
+                        // _buildDropdownField(
+                        //   label: "Service Cycle",
+                        //   value: selectedServiceCycle,
+                        //   items: serviceCycles,
+                        //   onChanged: (val) {
+                        //     setState(() {
+                        //       selectedServiceCycle = val;
+                        //     });
+                        //   },
+                        // ),
+                        // if (selectedServiceCycle == "N Days") ...[
+                        //   const SizedBox(height: 16),
+                        //   _buildTextField(
+                        //     controller: serviceNoOfDays,
+                        //     label: "No of Days",
+                        //     icon: Icons.calendar_today,
+                        //     keyboardType: TextInputType.number,
+                        //   ),
+                        // ],
+                        // if (selectedServiceCycle == "Weekly") ...[
+                        //   const SizedBox(height: 16),
+                        //   _buildDropdownField(
+                        //     label: "Select Week Day",
+                        //     value: selectedWeekDay,
+                        //     items: weekDays,
+                        //     onChanged: (val) {
+                        //       setState(() {
+                        //         selectedWeekDay = val;
+                        //       });
+                        //     },
+                        //   ),
+                        // ],
+                        // if (selectedServiceCycle == "Monthly") ...[
+                        //   const SizedBox(height: 16),
+                        //   _buildTextField(
+                        //     controller: serviceMonthDays,
+                        //     label: "No of Days",
+                        //     icon: Icons.calendar_today,
+                        //     keyboardType: TextInputType.number,
+                        //   ),
+                        // ],
+                        // if (selectedServiceCycle == "Yearly") ...[
+                        //   const SizedBox(height: 16),
+                        //   Row(
+                        //     children: [
+                        //       Expanded(
+                        //         child: _buildTextField(
+                        //           controller: serviceYearDays,
+                        //           label: "No of Days",
+                        //           icon: Icons.calendar_today,
+                        //           keyboardType: TextInputType.number,
+                        //         ),
+                        //       ),
+                        //       const SizedBox(width: 12),
+                        //       Expanded(
+                        //         child: _buildDropdownField(
+                        //           label: "Select Month",
+                        //           value: selectedYearMonth,
+                        //           items: months,
+                        //           onChanged: (val) {
+                        //             setState(() {
+                        //               selectedYearMonth = val;
+                        //             });
+                        //           },
+                        //         ),
+                        //       ),
+                            // ],
+                          // ),
+                        // ],
+                      // ],
                       const SizedBox(height: 16),
                       _buildTextField(
                         controller: description,
@@ -1148,6 +1142,17 @@ void initState() {
                                             addStock && val!.isEmpty
                                                 ? "Enter Opening Stock"
                                                 : null,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                 Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildTextField(
+                                        controller: lowStock,
+                                        label: "Low Stock Limit",
+                                        icon: Icons.numbers,
                                       ),
                                     ),
                                   ],
@@ -1310,33 +1315,37 @@ void initState() {
   //   });
   // }
 void _updateTotalAmount() {
-  double selling =
-      double.tryParse(sellingPrice.text) ?? 0;
+  double purchase =
+      double.tryParse(purchasePrice.text) ?? 0;
 
-  double taxVal =
+  double taxValue =
       double.tryParse(tax.text) ?? 0;
 
-  double discVal =
+  double discountValue =
       double.tryParse(discount.text) ?? 0;
 
-  double amountWithTax =
-      selling + (selling * taxVal / 100);
+  // Tax amount
+  double taxAmount =
+      purchase * taxValue / 100;
 
+  // MRP = Purchase + Tax
+  double mrpAmount =
+      purchase + taxAmount;
+
+  // Discount on MRP
   double discountAmount =
-      amountWithTax * discVal / 100;
+      mrpAmount * discountValue / 100;
 
+  // Total Amount
   double total =
-      amountWithTax - discountAmount;
+      mrpAmount - discountAmount;
 
   setState(() {
-    totalAmount.text =
-        total.toStringAsFixed(2);
-
-    // Always update MRP from total
     if (selectedProductType != "Rental") {
-      mrp.text =
-          total.toStringAsFixed(2);
+      mrp.text = mrpAmount.toStringAsFixed(2);
     }
+
+    totalAmount.text = total.toStringAsFixed(2);
   });
 
   formKey.currentState?.validate();
@@ -1367,60 +1376,78 @@ void _updateTotalAmount() {
     );
   }
 
-  Widget _buildDynamicExpiryField() {
-    if (selectedProductType == "Service") {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+Widget _buildDynamicExpiryField() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 8.0),
+        child: _buildLabel("Warranty *"),
+      ),
+      Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 0.0, bottom: 8.0),
-            child: _buildLabel("Warranty *"),
+          Radio<bool>(
+            value: true,
+            groupValue: hasWarranty,
+            onChanged: (val) {
+              setState(() {
+                hasWarranty = val!;
+              });
+            },
+            activeColor: const Color(0xFF2a86c9),
           ),
-          Row(
-            children: [
-              Radio<bool>(
-                value: true,
-                groupValue: hasWarranty,
-                onChanged: (val) => setState(() => hasWarranty = val!),
-                activeColor: const Color(0xFF2a86c9),
-              ),
-              const Text("Yes", style: TextStyle(fontSize: 14)),
-              const SizedBox(width: 16),
-              Radio<bool>(
-                value: false,
-                groupValue: hasWarranty,
-                onChanged: (val) => setState(() => hasWarranty = val!),
-                activeColor: const Color(0xFF2a86c9),
-              ),
-              const Text("No", style: TextStyle(fontSize: 14)),
-            ],
-          ),
-        ],
-      );
-    } else if (selectedProductType == "Ecommerce" ||
-        selectedProductType == "Material" ||
-        selectedProductType == "Rental") {
-      return _buildSelectField(
-        controller: unitController,
-        label: "Unit",
-        //icon: Icons.scale_outlined,
-        onTap: () {
-          dropDialog(context, "unit");
-        },
-        actionWidget: _buildAddButton(() {
-          _showQuickAddUnitDialog();
-        }),
-      );
-    } else {
-      return _buildTextField(
-        controller: expiryDays,
-        label: "Expiry Days",
-        icon: Icons.event_busy_outlined,
-        keyboardType: TextInputType.number,
-      );
-    }
-  }
+          const Text("Yes"),
 
+          const SizedBox(width: 16),
+
+          Radio<bool>(
+            value: false,
+            groupValue: hasWarranty,
+            onChanged: (val) {
+              setState(() {
+                hasWarranty = val!;
+              });
+            },
+            activeColor: const Color(0xFF2a86c9),
+          ),
+          const Text("No"),
+        ],
+      ),
+
+      if (hasWarranty) ...[
+        const SizedBox(height: 16),
+
+        _buildTextField(
+          controller: warrantyNumber,
+          label: "Warranty Number",
+          icon: Icons.confirmation_number_outlined,
+        ),
+
+        const SizedBox(height: 16),
+
+        _buildTextField(
+  controller: expiryDate,
+  label: "Warranty Expiry Date",
+  icon: Icons.calendar_today_outlined,
+  readOnly: true,
+  onTap: () async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+
+    if (pickedDate != null) {
+      expiryDate.text =
+          DateFormat('dd-MM-yyyy').format(pickedDate);
+    }
+  },
+),
+      ],
+    ],
+  );
+}
   Widget _buildPipelineSection() {
     return _buildSectionCard(
       title: "Add Pipeline",
@@ -1630,7 +1657,8 @@ void _updateTotalAmount() {
     ValueChanged<String>? onChanged,
     FormFieldValidator<String>? validator,
     Widget? actionWidget,
-    List<TextInputFormatter>? inputFormatters, // Add this parameter
+    List<TextInputFormatter>? inputFormatters, 
+    VoidCallback? onTap,// Add this parameter
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1647,6 +1675,7 @@ void _updateTotalAmount() {
                 maxLines: maxLines,
                 readOnly: readOnly,
                 onChanged: onChanged,
+                onTap: onTap, 
                 validator: validator,
                 inputFormatters: inputFormatters, // Add this line
                 decoration: InputDecoration(

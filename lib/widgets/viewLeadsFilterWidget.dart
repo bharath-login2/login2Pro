@@ -62,6 +62,12 @@ String? selectedDateType;
     // } else {
     //   status = selectedStatusIds.isNotEmpty ? selectedStatusIds.first : null;
     // }
+    final now = DateTime.now();
+
+  fromDateUpdated ??= DateTime(now.year, now.month, 1);
+  toDateUpdated ??= DateTime(now.year, now.month + 1, 0);
+
+  isDateFilteredUpdated = true;
     _fetchActiveStatus();
     selectedDateType =
       widget.initialFilters?['dateType'] ?? 'created';
@@ -117,66 +123,143 @@ String? selectedDateType;
     }
   }
 
-  void _loadInitialFilters() {
-    if (widget.initialFilters != null) {
-      final filters = widget.initialFilters!;
-      isDateFiltered = filters['isDateFiltered'] ?? false;
-      isDateFilteredUpdated = filters['isDateFilteredUpdated'] ?? false;
-      if (filters['fromDate'] != null) {
-        fromDate = filters['fromDate'] is DateTime
-            ? filters['fromDate']
-            : DateTime.tryParse(filters['fromDate'].toString());
-      }
-      if (filters['toDate'] != null) {
-        toDate = filters['toDate'] is DateTime
-            ? filters['toDate']
-            : DateTime.tryParse(filters['toDate'].toString());
-      }
+  // void _loadInitialFilters() {
+  //   if (widget.initialFilters != null) {
+  //     final filters = widget.initialFilters!;
+  //     isDateFiltered = filters['isDateFiltered'] ?? false;
+  //     isDateFilteredUpdated = filters['isDateFilteredUpdated'] ?? false;
+  //     if (filters['fromDate'] != null) {
+  //       fromDate = filters['fromDate'] is DateTime
+  //           ? filters['fromDate']
+  //           : DateTime.tryParse(filters['fromDate'].toString());
+  //     }
+  //     if (filters['toDate'] != null) {
+  //       toDate = filters['toDate'] is DateTime
+  //           ? filters['toDate']
+  //           : DateTime.tryParse(filters['toDate'].toString());
+  //     }
 
-      if (filters['fromDateUpdated'] != null) {
-        fromDate = filters['fromDateUpdated'] is DateTime
-            ? filters['fromDateUpdated']
-            : DateTime.tryParse(filters['fromDateUpdated'].toString());
-      }
-      if (filters['toDateUpdated'] != null) {
-        toDate = filters['toDateUpdated'] is DateTime
-            ? filters['toDateUpdated']
-            : DateTime.tryParse(filters['toDateUpdated'].toString());
-      }
+  //     if (filters['fromDateUpdated'] != null) {
+  //       fromDate = filters['fromDateUpdated'] is DateTime
+  //           ? filters['fromDateUpdated']
+  //           : DateTime.tryParse(filters['fromDateUpdated'].toString());
+  //     }
+  //     if (filters['toDateUpdated'] != null) {
+  //       toDate = filters['toDateUpdated'] is DateTime
+  //           ? filters['toDateUpdated']
+  //           : DateTime.tryParse(filters['toDateUpdated'].toString());
+  //     }
 
-      if (filters['statusIds'] != null) {
-        selectedStatusIds = Set<String>.from(filters['statusIds']);
-      }
-      if (filters['staffIds'] != null) {
-        selectedStaffIds = Set<String>.from(filters['staffIds']);
-      }
-      if (filters['categoryIds'] != null) {
-        selectedCategoryIds = Set<String>.from(filters['categoryIds']);
-      }
-      if (filters['priorityIds'] != null) {
-        selectedPriorityIds = Set<String>.from(filters['priorityIds']);
-      }
-      if (filters['productIds'] != null) {
-        selectedProductIds = Set<String>.from(filters['productIds']);
-      }
-      if (filters['tagIds'] != null) {
-        selectedTagIds = Set<String>.from(filters['tagIds']);
-      }
-      if (filters['call_result_reason'] != null) {
-        selectedTagIds = Set<String>.from(filters['call_result_reason']);
-      }
-      if (filters['dateType'] != null) {
-        selectedDateType = filters['dateType'];
-        // Set selectedCategory based on dateType
-        if (selectedDateType == 'created') {
-          selectedCategory = 'Leads Date';
-        } else if (selectedDateType == 'updated') {
-          selectedCategory = 'Updated Date';
-        }
+  //     if (filters['statusIds'] != null) {
+  //       selectedStatusIds = Set<String>.from(filters['statusIds']);
+  //     }
+  //     if (filters['staffIds'] != null) {
+  //       selectedStaffIds = Set<String>.from(filters['staffIds']);
+  //     }
+  //     if (filters['categoryIds'] != null) {
+  //       selectedCategoryIds = Set<String>.from(filters['categoryIds']);
+  //     }
+  //     if (filters['priorityIds'] != null) {
+  //       selectedPriorityIds = Set<String>.from(filters['priorityIds']);
+  //     }
+  //     if (filters['productIds'] != null) {
+  //       selectedProductIds = Set<String>.from(filters['productIds']);
+  //     }
+  //     if (filters['tagIds'] != null) {
+  //       selectedTagIds = Set<String>.from(filters['tagIds']);
+  //     }
+  //     if (filters['call_result_reason'] != null) {
+  //       selectedTagIds = Set<String>.from(filters['call_result_reason']);
+  //     }
+  //     if (filters['dateType'] != null) {
+  //       selectedDateType = filters['dateType'];
+  //       // Set selectedCategory based on dateType
+  //       if (selectedDateType == 'created') {
+  //         selectedCategory = 'Leads Date';
+  //       } else if (selectedDateType == 'updated') {
+  //         selectedCategory = 'Updated Date';
+  //       }
+  //     }
+  //   }
+  // }
+void _loadInitialFilters() {
+  if (widget.initialFilters != null) {
+    final filters = widget.initialFilters!;
+
+    isDateFiltered = filters['isDateFiltered'] ?? false;
+    isDateFilteredUpdated = filters['isDateFilteredUpdated'] ?? false;
+
+    if (filters['fromDate'] != null) {
+      fromDate = filters['fromDate'] is DateTime
+          ? filters['fromDate']
+          : DateTime.tryParse(filters['fromDate'].toString());
+    }
+
+    if (filters['toDate'] != null) {
+      toDate = filters['toDate'] is DateTime
+          ? filters['toDate']
+          : DateTime.tryParse(filters['toDate'].toString());
+    }
+
+    if (filters['fromDateUpdated'] != null) {
+      fromDateUpdated = filters['fromDateUpdated'] is DateTime
+          ? filters['fromDateUpdated']
+          : DateTime.tryParse(filters['fromDateUpdated'].toString());
+    }
+
+    if (filters['toDateUpdated'] != null) {
+      toDateUpdated = filters['toDateUpdated'] is DateTime
+          ? filters['toDateUpdated']
+          : DateTime.tryParse(filters['toDateUpdated'].toString());
+    }
+
+    if (filters['statusIds'] != null) {
+      selectedStatusIds = Set<String>.from(filters['statusIds']);
+    }
+
+    if (filters['staffIds'] != null) {
+      selectedStaffIds = Set<String>.from(filters['staffIds']);
+    }
+
+    if (filters['categoryIds'] != null) {
+      selectedCategoryIds = Set<String>.from(filters['categoryIds']);
+    }
+
+    if (filters['priorityIds'] != null) {
+      selectedPriorityIds = Set<String>.from(filters['priorityIds']);
+    }
+
+    if (filters['productIds'] != null) {
+      selectedProductIds = Set<String>.from(filters['productIds']);
+    }
+
+    if (filters['tagIds'] != null) {
+      selectedTagIds = Set<String>.from(filters['tagIds']);
+    }
+
+    if (filters['call_result_reason'] != null) {
+      selectedTagIds = Set<String>.from(filters['call_result_reason']);
+    }
+
+    if (filters['dateType'] != null) {
+      selectedDateType = filters['dateType'];
+
+      if (selectedDateType == 'created') {
+        selectedCategory = 'Leads Date';
+      } else if (selectedDateType == 'updated') {
+        selectedCategory = 'Updated Date';
       }
     }
   }
 
+  // Default to current month if no dates are available
+  if (fromDate == null && toDate == null) {
+    final now = DateTime.now();
+    fromDate = DateTime(now.year, now.month, 1);
+    toDate = DateTime(now.year, now.month + 1, 0);
+    isDateFiltered = true;
+  }
+}
   @override
   Widget build(BuildContext context) {
     return Container(

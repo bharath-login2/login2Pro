@@ -1416,6 +1416,10 @@ class _ViewWorkPageState extends State<ViewWorkPage> {
         return const Color.fromARGB(255, 226, 117, 15);
       case 'cancelled':
         return const Color.fromARGB(255, 164, 21, 19);
+      case 'Approval Pending':
+        return const Color(0xFFFF9800);
+      case 'Approved':
+        return const Color(0xFF2196F3);
       default:
         return const Color.fromARGB(255, 42, 188, 251);
     }

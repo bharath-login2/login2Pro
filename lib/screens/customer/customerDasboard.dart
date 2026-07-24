@@ -404,11 +404,11 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
                           if (dashboardData?.data.proformaInvoices != null)
                             _buildProformaInvoices(),
                           const SizedBox(height: 20),
-                          if (dashboardData?.data.renewalList != null)
-                            _buildUpcomingRenewals(),
-                          const SizedBox(height: 20),
-                          if (dashboardData?.data.rentalList != null)
-                            _buildRentalSection(),
+                          // if (dashboardData?.data.renewalList != null)
+                          //   _buildUpcomingRenewals(),
+                          // const SizedBox(height: 20),
+                          // if (dashboardData?.data.rentalList != null)
+                            // _buildRentalSection(),
                           // const SizedBox(height: 80),
                         ],
                       ),
@@ -1495,33 +1495,33 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CustomerQuotationPage(
-                        customerId: widget.custId ?? '',
-                        customerName:
-                            dashboardData?.data.customerDetails.name ?? '',
-                      ),
-                    ),
-                  );
-                },
-                child: SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.50,
-                  child: _statCard(
-                    title: 'Quotations',
-                    total: quotations?.total ?? '0',
-                    totalLabel: 'Total',
-                    sub: 'Approved',
-                    subValue: quotations?.approved ?? '0',
-                    icon: Icons.description_outlined,
-                    color: const Color(0xFF43e97b),
-                  ),
-                ),
-              ),
+              // const SizedBox(width: 12),
+              // GestureDetector(
+              //   onTap: () {
+              //     Navigator.push(
+              //       context,
+              //       MaterialPageRoute(
+              //         builder: (context) => CustomerQuotationPage(
+              //           customerId: widget.custId ?? '',
+              //           customerName:
+              //               dashboardData?.data.customerDetails.name ?? '',
+              //         ),
+              //       ),
+              //     );
+              //   },
+              //   child: SizedBox(
+              //     width: MediaQuery.of(context).size.width * 0.50,
+              //     child: _statCard(
+              //       title: 'Quotations',
+              //       total: quotations?.total ?? '0',
+              //       totalLabel: 'Total',
+              //       sub: 'Approved',
+              //       subValue: quotations?.approved ?? '0',
+              //       icon: Icons.description_outlined,
+              //       color: const Color(0xFF43e97b),
+              //     ),
+              //   ),
+              // ),
               const SizedBox(width: 12),
               GestureDetector(
                 onTap: () {

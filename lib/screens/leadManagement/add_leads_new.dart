@@ -143,7 +143,7 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
   final TextEditingController callResponseCtrl = TextEditingController();
   final TextEditingController whatsappNoCtrl = TextEditingController();
   final TextEditingController emailCtrl = TextEditingController();
-
+final TextEditingController companyNameCtrl = TextEditingController();
   // Additional Fields
   final List<TextEditingController> _additionalCtrls = [];
   final List<Map<String, dynamic>> _additionalValues = [];
@@ -334,12 +334,12 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
     createLeadCategory = await Common.getSharedPref("createLeadCategory");
     addLeadSource = await Common.getSharedPref("addLeadSource");
 
-    if (assignStaff == 'Assign Staff' || assignStaff.isEmpty) {
-      assignStaff = await Common.getSharedPref("name") ?? 'Assign Staff';
-    }
-    if (assignStaffId.isEmpty) {
-      assignStaffId = await Common.getSharedPref("userId") ?? '';
-    }
+    // if (assignStaff == 'Assign Staff' || assignStaff.isEmpty) {
+    //   assignStaff = await Common.getSharedPref("name") ?? 'Assign Staff';
+    // }
+    // if (assignStaffId.isEmpty) {
+    //   assignStaffId = await Common.getSharedPref("userId") ?? '';
+    // }
 
     roleId = await Common.getSharedPref("roleId") ?? '';
     multiBranch = await Common.getSharedPref("multiBranch") ?? '';
@@ -507,7 +507,9 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
               icon: Icons.person_outline,
               children: [
                 const SizedBox(height: 12),
-                _buildCustomerRow(),
+                _buildCustomerRow(), 
+                 const SizedBox(height: 12),
+                _buildCompanyNameField(),
                 const SizedBox(height: 12),
                 _buildPhoneField(),
                 const SizedBox(height: 12),
@@ -564,19 +566,20 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
                 //         callResultId == '4'))
                 //   _buildCallResponseField(),
                 if (callResultId != '1') _buildCallResponseField(),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _buildSectionCard(
-              title: 'Product Info',
-              icon: Icons.shopping_bag_outlined,
-              children: [
-                const SizedBox(height: 12),
-                _buildProductSelection(),
+                
                 const SizedBox(height: 12),
                 _buildCostField(),
               ],
             ),
+            const SizedBox(height: 12),
+            // _buildSectionCard(
+            //   title: 'Product Info',
+            //   icon: Icons.shopping_bag_outlined,
+            //   children: [
+            //     // const SizedBox(height: 12),
+            //     // _buildProductSelection(),
+            //   ],
+            // ),
             if (commonDetails?.data.additionalFields != null &&
                 commonDetails!.data.additionalFields.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -650,7 +653,14 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
       ],
     );
   }
-
+Widget _buildCompanyNameField() {
+  return TextFormField(
+    controller: companyNameCtrl,
+    decoration: _inputDecoration('Company Name *', Icons.business),
+    validator: (v) =>
+        v == null || v.trim().isEmpty ? 'Required' : null,
+  );
+}
   Widget _buildPhoneField() {
     return TextFormField(
       controller: contactNoCtrl,
@@ -756,17 +766,22 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
     );
   }
 
-  Widget _buildStaffField() {
-    return GestureDetector(
-      onTap: () => _showStaffDialog(),
-      child: AbsorbPointer(
-        child: TextFormField(
-          controller: TextEditingController(text: assignStaff),
-          decoration: _inputDecoration('Assign Staff', Icons.person),
+Widget _buildStaffField() {
+  return GestureDetector(
+    onTap: () => _showStaffDialog(),
+    child: AbsorbPointer(
+      child: TextFormField(
+        controller: assignStaffCtrl,
+        validator: (v) =>
+            v == null || v.trim().isEmpty ? 'Required' : null,
+        decoration: _inputDecoration(
+          'Assign Staff *',
+          Icons.person,
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildLeadCategoryField() {
     return Stack(
@@ -1495,10 +1510,13 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
                         return ListTile(
                           title: Text(staff.staffName),
                           onTap: () {
-                            assignStaff = staff.staffName;
-                            assignStaffId = staff.userId;
+                            setState(() {
+                              assignStaff = staff.staffName;
+                              assignStaffId = staff.userId;
+                              assignStaffCtrl.text = staff.staffName;
+                            });
+
                             Navigator.pop(context);
-                            setState(() {});
                           },
                         );
                       },
@@ -2104,7 +2122,14 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
       Common.toastMessaage('Select call response', Colors.red);
       return;
     }
-
+    if (companyNameCtrl.text.trim().isEmpty) {
+  Common.toastMessaage('Enter Company Name', Colors.red);
+  return;
+}
+if (assignStaffId.isEmpty) {
+  Common.toastMessaage('Select Assign Staff', Colors.red);
+  return;
+}
     Common.showProgressDialog(context, 'Loading...');
     final check = await HttpService.checkLeadPhoneNumber(
         widget.token, contactNoCtrl.text, code);
@@ -2149,6 +2174,7 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
       widget.token,
       branch,
       clientNameCtrl.text,
+      companyNameCtrl.text,
       leadTypeId,
       leadSubTypeId,
       contactNoCtrl.text,
@@ -2174,7 +2200,7 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
       whatsappnumber_country_code: whatsappCode,
       email: emailCtrl.text,
     );
-
+    // print("Add Lead Result: ${result.toJson()}");
     Navigator.pop(context);
     if (result.status == true) {
       Common.toastMessaage(result.message, Colors.green);
@@ -2183,4 +2209,6 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
       Common.toastMessaage(result.message, Colors.red);
     }
   }
+
 }
+   

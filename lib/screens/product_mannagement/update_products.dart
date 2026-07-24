@@ -46,6 +46,7 @@ class _UpdateProductsState extends State<UpdateProducts> {
   TextEditingController expiryDays = TextEditingController();
   TextEditingController openingStock = TextEditingController();
   TextEditingController currentStock = TextEditingController();
+  TextEditingController lowStock = TextEditingController();
   TextEditingController unitController = TextEditingController();
   String selectedUnitId = "";
   TextEditingController expiryDate = TextEditingController();
@@ -156,9 +157,10 @@ class _UpdateProductsState extends State<UpdateProducts> {
       discount.text = d.discountPercent;
       openingStock.text = d.openingStock;
       currentStock.text = d.currentStock;
+      lowStock.text = d.lowStockLimit;
       selectedStockStatus =
           d.stockStatus.isNotEmpty ? d.stockStatus : "In Stock";
-      addStock = d.openingStock.isNotEmpty || d.currentStock.isNotEmpty;
+      addStock = d.openingStock.isNotEmpty || d.currentStock.isNotEmpty || d.lowStockLimit.isNotEmpty;
       checkStock = d.checkStock == "1";
       selectedUnitId = d.unitId;
       unitController.text = d.unitName.isNotEmpty ? d.unitName : d.unitId;
@@ -307,7 +309,77 @@ class _UpdateProductsState extends State<UpdateProducts> {
     }
   }
 
-  updateProduct() async {
+  // updateProduct() async {
+  //   postResponse = await HttpService.updateProduct(
+  //     contentId.text,
+  //     categoryId,
+  //     subCategoryId,
+  //     productName.text,
+  //     productCode.text,
+  //     productUCode.text,
+  //     mrp.text,
+  //     noOfDays.text,
+  //     remindBefore.text,
+  //     sellingPrice.text,
+  //     purchasePrice.text,
+  //     barcodeController.text,
+  //     tax.text,
+  //     totalAmount.text,
+  //     description.text,
+  //     productImage,
+  //     widget.productId,
+  //     productType: selectedProductType ?? "",
+  //     brand: brand.text,
+  //     discount: discount.text,
+  //     expiryDays: expiryDays.text,
+  //     addStock: addStock ? "1" : "0",
+  //     checkStock: checkStock ? "1" : "0",
+  //     openingStock: openingStock.text,
+  //     currentStock: currentStock.text,
+  //     stockStatus: selectedStockStatus,
+  //     unit: selectedUnitId,
+  //     unitId: selectedUnitId,
+  //     hasWarranty: hasWarranty,
+  //     pipelines: pipelineControllers
+  //         .map((e) => e.text)
+  //         .where((text) => text.isNotEmpty)
+  //         .toList(),
+  //     addPublish: addPublish,
+  //     publishStatus: selectedStatus,
+  //     visibility: selectedVisibility,
+  //     expiryDate: expiryDate.text,
+  //     warrantyNumber: warrantyNumber.text,
+  //     lowStock: lowStock.text,
+  //     serviceCycle: selectedServiceCycle,
+  //     freeService: freeService.text,
+  //     paidService: paidService.text,
+  //     serviceNoOfDays: serviceNoOfDays.text,
+  //     serviceWeeks: selectedWeekDay,
+  //     serviceMonthDays: serviceMonthDays.text,
+  //     serviceYearDays: serviceYearDays.text,
+  //     serviceYearMonth: selectedYearMonth,
+  //     complaints: List.generate(complaintControllers.length, (index) {
+  //       return {
+  //         "type": selectedComplaintTypes[index],
+  //         "remark": complaintControllers[index].text
+  //       };
+  //     }).where((element) => element["remark"]!.isNotEmpty).toList(),
+  //   );
+  //   print(postResponse);
+  //   if (postResponse != null && postResponse!.status == true) {
+  //     Navigator.pop(context);
+  //     Navigator.pop(context, true);
+  //     Common.toastMessaage(postResponse!.message, Colors.green);
+  //   } else {
+  //     Navigator.pop(context);
+  //     Common.toastMessaage(postResponse!.message, Colors.red);
+  //   }
+  // }
+Future<void> updateProduct() async {
+  try {
+    // Hide keyboard before submitting
+    FocusScope.of(context).unfocus();
+
     postResponse = await HttpService.updateProduct(
       contentId.text,
       categoryId,
@@ -318,7 +390,7 @@ class _UpdateProductsState extends State<UpdateProducts> {
       mrp.text,
       noOfDays.text,
       remindBefore.text,
-      sellingPrice.text,
+      mrp.text, // Use MRP if Selling Price is removed
       purchasePrice.text,
       barcodeController.text,
       tax.text,
@@ -347,6 +419,7 @@ class _UpdateProductsState extends State<UpdateProducts> {
       visibility: selectedVisibility,
       expiryDate: expiryDate.text,
       warrantyNumber: warrantyNumber.text,
+      lowStock: lowStock.text,
       serviceCycle: selectedServiceCycle,
       freeService: freeService.text,
       paidService: paidService.text,
@@ -355,23 +428,47 @@ class _UpdateProductsState extends State<UpdateProducts> {
       serviceMonthDays: serviceMonthDays.text,
       serviceYearDays: serviceYearDays.text,
       serviceYearMonth: selectedYearMonth,
-      complaints: List.generate(complaintControllers.length, (index) {
-        return {
+      complaints: List.generate(
+        complaintControllers.length,
+        (index) => {
           "type": selectedComplaintTypes[index],
-          "remark": complaintControllers[index].text
-        };
-      }).where((element) => element["remark"]!.isNotEmpty).toList(),
+          "remark": complaintControllers[index].text,
+        },
+      ).where((e) => (e["remark"] as String).isNotEmpty).toList(),
     );
-    if (postResponse != null && postResponse!.status == true) {
-      Navigator.pop(context);
-      Navigator.pop(context, true);
-      Common.toastMessaage(postResponse!.message, Colors.green);
-    } else {
-      Navigator.pop(context);
-      Common.toastMessaage(postResponse!.message, Colors.red);
-    }
-  }
 
+    if (mounted) {
+      Navigator.pop(context); // Close progress dialog
+    }
+
+    if (postResponse?.status == true) {
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
+      Common.toastMessaage(
+        postResponse?.message ?? "Product updated successfully",
+        Colors.green,
+      );
+    } else {
+      Common.toastMessaage(
+        postResponse?.message ?? "Failed to update product",
+        Colors.red,
+      );
+    }
+  } catch (e, s) {
+    if (mounted && Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+
+    debugPrint("Update Product Error: $e");
+    debugPrintStack(stackTrace: s);
+
+    Common.toastMessaage(
+      "Something went wrong. Please try again.",
+      Colors.red,
+    );
+  }
+}
   getUnitsList() async {
     setState(() {
       isUnitsLoading = true;
@@ -611,145 +708,171 @@ class _UpdateProductsState extends State<UpdateProducts> {
                             ),
                           ],
                         ),
-                             const SizedBox(height: 16),
-                        Row(
-  crossAxisAlignment: CrossAxisAlignment.start,
+//                              const SizedBox(height: 16),
+//                         Row(
+//   crossAxisAlignment: CrossAxisAlignment.start,
+//   children: [
+//     Expanded(
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           _buildTextField(
+//   controller: barcodeController,
+//   label: "Barcode value",
+//   icon: Icons.qr_code,
+//   onChanged: (value) async {
+//     if (value.trim().isEmpty) {
+//       setState(() {
+//         barcodeError = null;
+//       });
+//       return;
+//     }
+
+//     final result = await HttpService.checkBarcodeDuplicate(
+//       value.trim(),
+//       productId?.toString() ?? "0",
+//     );
+
+//     setState(() {
+//       if (result?.duplicate == true) {
+//         barcodeError = result?.message;
+//       } else {
+//         barcodeError = null;
+//       }
+//     });
+//   },
+// ),
+
+//           if (barcodeError != null)
+//             Padding(
+//               padding: const EdgeInsets.only(top: 5),
+//               child: Text(
+//                 barcodeError!,
+//                 style: const TextStyle(
+//                   color: Colors.red,
+//                   fontSize: 12,
+//                 ),
+//               ),
+//             ),
+//         ],
+//       ),
+//     ),
+//     const SizedBox(width: 12),
+//     Transform.translate(
+//       offset: const Offset(0, 24),
+//       child: Container(
+//         height: 50,
+//         width: 50,
+//         decoration: BoxDecoration(
+//           borderRadius: BorderRadius.circular(8),
+//           color: const Color(0xFF2a86c9),
+//         ),
+//         child: IconButton(
+//           onPressed: () async {
+//             var res = await Navigator.push(
+//               context,
+//               MaterialPageRoute(
+//                 builder: (context) =>
+//                     const SimpleBarcodeScannerPage(),
+//               ),
+//             );
+
+//             if (res is String && res != '-1') {
+//               barcodeController.text = res;
+
+//               final result =
+//                   await HttpService.checkBarcodeDuplicate(
+//                 res,
+//                 productId?.toString() ?? "0", // Current Product ID
+//               );
+
+//               setState(() {
+//                 if (result?.duplicate == true) {
+//                   barcodeError = result?.message;
+//                   isBarcodeDuplicate = true;
+//                 } else {
+//                   barcodeError = null;
+//                   isBarcodeDuplicate = false;
+//                 }
+//               });
+//             }
+//           },
+//           icon: const Icon(
+//             Icons.qr_code_scanner,
+//             color: Colors.white,
+//             size: 24,
+//           ),
+//           padding: EdgeInsets.zero,
+//           constraints: const BoxConstraints(),
+//           style: IconButton.styleFrom(
+//             backgroundColor: const Color(0xFF2a86c9),
+//             shape: RoundedRectangleBorder(
+//               borderRadius: BorderRadius.circular(8),
+//             ),
+//             minimumSize: const Size(50, 50),
+//           ),
+//           tooltip: "Scan Barcode",
+//         ),
+//       ),
+//     ),
+//   ],
+// ),
+                            const SizedBox(height: 16),
+
+Row(
   children: [
     Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildTextField(
-  controller: barcodeController,
-  label: "Barcode value",
-  icon: Icons.qr_code,
-  onChanged: (value) async {
-    if (value.trim().isEmpty) {
-      setState(() {
-        barcodeError = null;
-      });
-      return;
-    }
-
-    final result = await HttpService.checkBarcodeDuplicate(
-      value.trim(),
-      productId?.toString() ?? "0",
-    );
-
-    setState(() {
-      if (result?.duplicate == true) {
-        barcodeError = result?.message;
-      } else {
-        barcodeError = null;
-      }
-    });
-  },
-),
-
-          if (barcodeError != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 5),
-              child: Text(
-                barcodeError!,
-                style: const TextStyle(
-                  color: Colors.red,
-                  fontSize: 12,
-                ),
-              ),
-            ),
+      child: _buildTextField(
+        controller: productCode,
+        label: selectedProductType == "Service"
+            ? "SAC Code"
+            : (selectedProductType == "Material" ||
+                    selectedProductType == "Rental")
+                ? "HSN/SAC Code"
+                : "HSN Code",
+        icon: Icons.qr_code_outlined,
+        keyboardType: TextInputType.number,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
         ],
       ),
     ),
     const SizedBox(width: 12),
-    Transform.translate(
-      offset: const Offset(0, 24),
-      child: Container(
-        height: 50,
-        width: 50,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          color: const Color(0xFF2a86c9),
-        ),
-        child: IconButton(
-          onPressed: () async {
-            var res = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    const SimpleBarcodeScannerPage(),
-              ),
-            );
-
-            if (res is String && res != '-1') {
-              barcodeController.text = res;
-
-              final result =
-                  await HttpService.checkBarcodeDuplicate(
-                res,
-                productId?.toString() ?? "0", // Current Product ID
-              );
-
-              setState(() {
-                if (result?.duplicate == true) {
-                  barcodeError = result?.message;
-                  isBarcodeDuplicate = true;
-                } else {
-                  barcodeError = null;
-                  isBarcodeDuplicate = false;
-                }
-              });
-            }
-          },
-          icon: const Icon(
-            Icons.qr_code_scanner,
-            color: Colors.white,
-            size: 24,
-          ),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-          style: IconButton.styleFrom(
-            backgroundColor: const Color(0xFF2a86c9),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            minimumSize: const Size(50, 50),
-          ),
-          tooltip: "Scan Barcode",
-        ),
+    Expanded(
+      child: _buildTextField(
+        controller: brand,
+        label: "Brand *",
+        icon: Icons.branding_watermark_outlined,
+        validator: (val) => val!.isEmpty
+          ? "Enter Brand Name"
+          : null,
       ),
     ),
   ],
 ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildTextField(
-                                    controller: productCode,
-                                    label: selectedProductType == "Service"
-                                        ? "SAC Code"
-                                        : (selectedProductType == "Material" ||
-                                                selectedProductType == "Rental")
-                                            ? "HSN/SAC Code"
-                                            : "HSN Code",
-                                    icon: Icons.qr_code_outlined,
-                                     keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter
-                                    .digitsOnly, 
-                              ]
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _buildTextField(
-                                    controller: brand,
-                                    label: "Brand",
-                                    icon: Icons.branding_watermark_outlined,
-                                  ),
-                                ),
-                              ],
-                            ),
+
+const SizedBox(height: 16),
+
+Row(
+  children: [
+    Expanded(
+      child: _buildSelectField(
+        controller: unitController,
+        label: "Unit *",
+        icon: Icons.scale_outlined,
+        validator: (val) => val!.isEmpty
+          ? "Select Unit"
+          : null,
+        onTap: () {
+          dropDialog(context, "unit *");
+        },
+        actionWidget: _buildAddButton(() {
+          _showQuickAddUnitDialog();
+        }),
+      ),
+    ),
+  ],
+),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -760,80 +883,30 @@ _buildSectionCard(
       children: [
         Expanded(
           child: _buildTextField(
-            controller: sellingPrice,
-            label: selectedProductType == "Rental"
-                ? "Rental Price *"
-                : "Selling Price *",
+            controller: purchasePrice,
+            label: "Purchase Amount",
             icon: Icons.currency_rupee_outlined,
-            keyboardType:
-                const TextInputType.numberWithOptions(
-              decimal: true,
-            ),
-            onChanged: (val) {
-              _updateTotalAmount();
-              formKey.currentState?.validate();
-            },
-            validator: (val) {
-              if (val == null || val.trim().isEmpty) {
-                return selectedProductType == "Rental"
-                    ? "Enter Rental Price"
-                    : "Enter Selling Price";
-              }
-              return null;
-            },
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildTextField(
-            controller: tax,
-            label: "Tax (%)",
-            icon: Icons.percent_outlined,
             keyboardType: TextInputType.number,
-            onChanged: (val) {
+            onChanged: (_) {
               _updateTotalAmount();
             },
           ),
         ),
       ],
     ),
-
     const SizedBox(height: 16),
-
     Row(
       children: [
         Expanded(
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildTextField(
-                controller: purchasePrice,
-                label: "Purchase Amount",
-                icon: Icons.currency_rupee_outlined,
+                controller: tax,
+                label: "Tax (%)",
+                icon: Icons.percent_outlined,
                 keyboardType: TextInputType.number,
-                onChanged: (val) {
-                  formKey.currentState?.validate();
-                },
-                validator: (val) {
-                  if (val != null &&
-                      val.isNotEmpty &&
-                      sellingPrice.text.isNotEmpty) {
-                    double pPrice =
-                        double.tryParse(val) ?? 0;
-
-                    double sPrice =
-                        double.tryParse(
-                              sellingPrice.text,
-                            ) ??
-                            0;
-
-                    if (pPrice > sPrice) {
-                      return "Purchase price > selling price";
-                    }
-                  }
-                  return null;
-                },
+                onChanged: (val) => _updateTotalAmount(),
               ),
             ],
           ),
@@ -845,62 +918,40 @@ _buildSectionCard(
             label: "Discount (%)",
             icon: Icons.discount_outlined,
             keyboardType: TextInputType.number,
-            onChanged: (val) {
-              _updateTotalAmount();
-            },
+            onChanged: (val) => _updateTotalAmount(),
           ),
         ),
       ],
     ),
-
     const SizedBox(height: 16),
+    _buildTextField(
+      controller: mrp,
+      label: "MRP",
+      icon: Icons.price_check_outlined,
+      keyboardType: TextInputType.number,
+      onChanged: (_) {
+        formKey.currentState?.validate();
+      },
+      validator: (val) {
+        if (val == null || val.trim().isEmpty) {
+          return "Please enter MRP";
+        }
 
-    if (selectedProductType != "Rental") ...[
-      Row(
-        children: [
-          Expanded(
-            child: _buildTextField(
-              controller: mrp,
-              label: "MRP",
-              icon: Icons.price_check_outlined,
-              keyboardType: TextInputType.number,
-              onChanged: (val) {
-                formKey.currentState?.validate();
-              },
-              validator: (val) {
-                if (val == null ||
-                    val.trim().isEmpty) {
-                  return "Please enter MRP";
-                }
+        double mrpValue = double.tryParse(val) ?? 0;
+        double purchaseValue = double.tryParse(purchasePrice.text) ?? 0;
 
-                double mrpValue =
-                    double.tryParse(val) ?? 0;
+        if (mrpValue < purchaseValue) {
+          return "MRP must be greater than Purchase Amount";
+        }
 
-                double sellingValue =
-                    double.tryParse(
-                          sellingPrice.text,
-                        ) ??
-                        0;
-
-                if (mrpValue < sellingValue) {
-                  return "MRP must be greater than Selling Price";
-                }
-
-                return null;
-              },
-            ),
-          ),
-        ],
-      ),
-
-      const SizedBox(height: 16),
-    ],
-
+        return null;
+      },
+    ),
+    const SizedBox(height: 16),
     _buildTextField(
       controller: totalAmount,
       label: "Total Amount",
-      icon:
-          Icons.account_balance_wallet_outlined,
+      icon: Icons.account_balance_wallet_outlined,
       readOnly: true,
       fillColor: Colors.grey[100],
     ),
@@ -929,8 +980,8 @@ _buildSectionCard(
                                 ),
                               ],
                             ),
-                            if (selectedProductType == "Service" &&
-                                hasWarranty) ...[
+                            // if (selectedProductType == "Service" &&
+                            //     hasWarranty) ...[
                               const SizedBox(height: 16),
                               Row(
                                 children: [
@@ -967,76 +1018,76 @@ _buildSectionCard(
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              _buildDropdownField(
-                                label: "Service Cycle",
-                                value: selectedServiceCycle,
-                                items: serviceCycles,
-                                onChanged: (val) {
-                                  setState(() {
-                                    selectedServiceCycle = val;
-                                  });
-                                },
-                              ),
-                              if (selectedServiceCycle == "N Days") ...[
-                                const SizedBox(height: 16),
-                                _buildTextField(
-                                  controller: serviceNoOfDays,
-                                  label: "No of Days",
-                                  icon: Icons.calendar_today,
-                                  keyboardType: TextInputType.number,
-                                ),
-                              ],
-                              if (selectedServiceCycle == "Weekly") ...[
-                                const SizedBox(height: 16),
-                                _buildDropdownField(
-                                  label: "Select Week Day",
-                                  value: selectedWeekDay,
-                                  items: weekDays,
-                                  onChanged: (val) {
-                                    setState(() {
-                                      selectedWeekDay = val;
-                                    });
-                                  },
-                                ),
-                              ],
-                              if (selectedServiceCycle == "Monthly") ...[
-                                const SizedBox(height: 16),
-                                _buildTextField(
-                                  controller: serviceMonthDays,
-                                  label: "No of Days",
-                                  icon: Icons.calendar_today,
-                                  keyboardType: TextInputType.number,
-                                ),
-                              ],
-                              if (selectedServiceCycle == "Yearly") ...[
-                                const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildTextField(
-                                        controller: serviceYearDays,
-                                        label: "No of Days",
-                                        icon: Icons.calendar_today,
-                                        keyboardType: TextInputType.number,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: _buildDropdownField(
-                                        label: "Select Month",
-                                        value: selectedYearMonth,
-                                        items: months,
-                                        onChanged: (val) {
-                                          setState(() {
-                                            selectedYearMonth = val;
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ],
+                              // _buildDropdownField(
+                              //   label: "Service Cycle",
+                              //   value: selectedServiceCycle,
+                              //   items: serviceCycles,
+                              //   onChanged: (val) {
+                              //     setState(() {
+                              //       selectedServiceCycle = val;
+                              //     });
+                              //   },
+                              // ),
+                              // if (selectedServiceCycle == "N Days") ...[
+                              //   const SizedBox(height: 16),
+                              //   _buildTextField(
+                              //     controller: serviceNoOfDays,
+                              //     label: "No of Days",
+                              //     icon: Icons.calendar_today,
+                              //     keyboardType: TextInputType.number,
+                              //   ),
+                              // ],
+                              // if (selectedServiceCycle == "Weekly") ...[
+                              //   const SizedBox(height: 16),
+                              //   _buildDropdownField(
+                              //     label: "Select Week Day",
+                              //     value: selectedWeekDay,
+                              //     items: weekDays,
+                              //     onChanged: (val) {
+                              //       setState(() {
+                              //         selectedWeekDay = val;
+                              //       });
+                              //     },
+                              //   ),
+                              // ],
+                              // if (selectedServiceCycle == "Monthly") ...[
+                              //   const SizedBox(height: 16),
+                              //   _buildTextField(
+                              //     controller: serviceMonthDays,
+                              //     label: "No of Days",
+                              //     icon: Icons.calendar_today,
+                              //     keyboardType: TextInputType.number,
+                              //   ),
+                              // ],
+                              // if (selectedServiceCycle == "Yearly") ...[
+                              //   const SizedBox(height: 16),
+                              //   Row(
+                              //     children: [
+                              //       Expanded(
+                              //         child: _buildTextField(
+                              //           controller: serviceYearDays,
+                              //           label: "No of Days",
+                              //           icon: Icons.calendar_today,
+                              //           keyboardType: TextInputType.number,
+                              //         ),
+                              //       ),
+                              //       const SizedBox(width: 12),
+                              //       Expanded(
+                              //         child: _buildDropdownField(
+                              //           label: "Select Month",
+                              //           value: selectedYearMonth,
+                              //           items: months,
+                              //           onChanged: (val) {
+                              //             setState(() {
+                              //               selectedYearMonth = val;
+                              //             });
+                              //           },
+                              //         ),
+                              //       ),
+                              //     ],
+                              //   ),
+                              // ],
+                            // ],
                             const SizedBox(height: 16),
                             _buildTextField(
                               controller: description,
@@ -1109,6 +1160,7 @@ _buildSectionCard(
                                 if (!addStock) {
                                   openingStock.clear();
                                   currentStock.clear();
+                                  lowStock.clear();
                                   selectedStockStatus = "In Stock";
                                   checkStock = false;
                                 }
@@ -1118,78 +1170,70 @@ _buildSectionCard(
                           children: !addStock
                               ? []
                               : [
-                                  Row(
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Expanded(
-                                        child: _buildTextField(
-                                          controller: openingStock,
-                                          label: "Opening Stock *",
-                                          icon: Icons.inventory_2_outlined,
-                                          keyboardType: TextInputType.number,
-                                          validator: (val) =>
-                                              addStock && val!.isEmpty
-                                                  ? "Enter Opening Stock"
-                                                  : null,
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _buildTextField(
+                                              controller: openingStock,
+                                              label: "Opening Stock *",
+                                              icon: Icons.inventory_2_outlined,
+                                              keyboardType: TextInputType.number,
+                                              validator: (val) =>
+                                                  addStock && val!.isEmpty
+                                                      ? "Enter Opening Stock"
+                                                      : null,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _buildTextField(
+                                              controller: lowStock,
+                                              label: "Low Stock Limit",
+                                              icon: Icons.numbers,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Row(
+                                        children: [
+                                          Checkbox(
+                                            value: checkStock,
+                                            onChanged: (val) {
+                                              setState(() {
+                                                checkStock = val!;
+                                              });
+                                            },
+                                            activeColor: const Color(0xFF2a86c9),
+                                          ),
+                                          const Text(
+                                            "Check Stock",
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                            left: 12, right: 12, top: 2),
+                                        child: Text(
+                                          "Enable this checkbox to check inventory stock. If disabled, unlimited sales are allowed.",
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey.shade600,
+                                            height: 1.4,
+                                          ),
                                         ),
                                       ),
-                                      // const SizedBox(width: 12),
-                                      // Expanded(
-                                      //   child: _buildTextField(
-                                      //     controller: currentStock,
-                                      //     label: "Current Stock *",
-                                      //     icon: Icons.inventory_outlined,
-                                      //     keyboardType: TextInputType.number,
-                                      //     validator: (val) =>
-                                      //         addStock && val!.isEmpty
-                                      //             ? "Enter Current Stock"
-                                      //             : null,
-                                      //   ),
-                                      // ),
                                     ],
                                   ),
-                                  const SizedBox(height: 16),
-                                  Row(
-                                    children: [
-                                      Checkbox(
-                                        value: checkStock,
-                                        onChanged: (val) {
-                                          setState(() {
-                                            checkStock = val!;
-                                          });
-                                        },
-                                        activeColor: const Color(0xFF2a86c9),
-                                      ),
-                                      const Text("Check Stock"),
-                                    ],
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.only(
-                                        left: 12, right: 12, top: 2),
-                                    child: Text(
-                                      "Enable this checkbox to check inventory stock. If disabled, unlimited sales are allowed.",
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ),
-
-                                  // const SizedBox(height: 16),
-                                  // _buildDropdownField(
-                                  //   label: "Stock Status",
-                                  //   value: selectedStockStatus,
-                                  //   items: [
-                                  //     "In Stock",
-                                  //     "Low Stock",
-                                  //     "Out of Stock"
-                                  //   ],
-                                  //   onChanged: (val) {
-                                  //     setState(() {
-                                  //       selectedStockStatus = val!;
-                                  //     });
-                                  //   },
-                                  // ),
                                 ],
                         ),
                         if (selectedProductType == "Service" &&
@@ -1311,32 +1355,39 @@ _buildSectionCard(
   }
 
  void _updateTotalAmount() {
-  double selling =
-      double.tryParse(sellingPrice.text) ?? 0;
+  double purchase =
+      double.tryParse(purchasePrice.text) ?? 0;
 
-  double taxVal =
+  double taxValue =
       double.tryParse(tax.text) ?? 0;
 
-  double discVal =
+  double discountValue =
       double.tryParse(discount.text) ?? 0;
 
-  double amountWithTax =
-      selling + (selling * taxVal / 100);
+  // Tax amount
+  double taxAmount =
+      purchase * taxValue / 100;
 
+  // MRP = Purchase + Tax
+  double mrpAmount =
+      purchase + taxAmount;
+
+  // Discount on MRP
   double discountAmount =
-      amountWithTax * discVal / 100;
+      mrpAmount * discountValue / 100;
 
+  // Total Amount
   double total =
-      amountWithTax - discountAmount;
+      mrpAmount - discountAmount;
 
   setState(() {
-    totalAmount.text =
-        total.toStringAsFixed(2);
-
     if (selectedProductType != "Rental") {
       mrp.text =
-          total.toStringAsFixed(2);
+          mrpAmount.toStringAsFixed(2);
     }
+
+    totalAmount.text =
+        total.toStringAsFixed(2);
   });
 
   formKey.currentState?.validate();
@@ -1397,21 +1448,23 @@ _buildSectionCard(
           ),
         ],
       );
-    } else if (selectedProductType == "Ecommerce" ||
-        selectedProductType == "Material" ||
-        selectedProductType == "Rental") {
-      return _buildSelectField(
-        controller: unitController,
-        label: "Unit",
-        icon: Icons.scale_outlined,
-        onTap: () {
-          dropDialog(context, "unit");
-        },
-        actionWidget: _buildAddButton(() {
-          _showQuickAddUnitDialog();
-        }),
-      );
-    } else {
+    } 
+    // else if (selectedProductType == "Ecommerce" ||
+    //     selectedProductType == "Material" ||
+    //     selectedProductType == "Rental") {
+    //   return _buildSelectField(
+    //     controller: unitController,
+    //     label: "Unit",
+    //     icon: Icons.scale_outlined,
+    //     onTap: () {
+    //       dropDialog(context, "unit");
+    //     },
+    //     actionWidget: _buildAddButton(() {
+    //       _showQuickAddUnitDialog();
+    //     }),
+    //   );
+    // } 
+    else {
       return _buildTextField(
         controller: expiryDays,
         label: "Expiry Days",

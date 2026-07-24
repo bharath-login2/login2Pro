@@ -81,6 +81,7 @@ class _EditLeadState extends State<EditLead> {
   TextEditingController pinCode = TextEditingController();
   TextEditingController districtVal = TextEditingController();
   TextEditingController stateVal = TextEditingController();
+  final TextEditingController companyNameCtrl = TextEditingController();
   PostalCodeModel? postalCodeModel;
   List<PostOffice> postOffices = [];
   List<DistrictList> districtList = [];
@@ -1552,6 +1553,7 @@ class _EditLeadState extends State<EditLead> {
                                         widget.callMasterId,
                                         branch,
                                         clientName.text,
+                                        companyNameCtrl.text,
                                         leadTypeId,
                                         leadSubTypeId,
                                         contactNo.text,

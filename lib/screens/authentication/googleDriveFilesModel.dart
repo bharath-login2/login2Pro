@@ -10,8 +10,14 @@ class GoogleDriveFilesResponse {
   });
 
   factory GoogleDriveFilesResponse.fromJson(Map<String, dynamic> json) {
+    final rawStatus = json['status'];
+    final bool parsedStatus = rawStatus == true ||
+        rawStatus == 1 ||
+        rawStatus == 'true' ||
+        rawStatus == 'success';
+
     return GoogleDriveFilesResponse(
-      status: json['status'] ?? false,
+      status: parsedStatus,
       message: json['message'] ?? '',
       data: (json['data'] as List<dynamic>?)
               ?.map((item) => GoogleDriveFile.fromJson(item))

@@ -12,6 +12,8 @@ import 'package:login2/models/lead_management/materialModel.dart';
 
 import 'package:login2/models/lead_management/getSupplierListMode.dart';
 
+import 'package:login2/models/rental/rentalLocationModel.dart';
+
 import 'package:login2/models/expense/account_head_model.dart';
 
 import 'package:login2/models/lead_management/getPurchaseOrderDetailsModel.dart'
@@ -51,12 +53,33 @@ class PurchaseOrderPage extends StatefulWidget {
   @override
   State<PurchaseOrderPage> createState() => _PurchaseOrderPageState();
 }
+class TermsConditionItem {
+  TextEditingController titleController;
+  TextEditingController descriptionController;
 
+  TermsConditionItem({
+    String title = "",
+    String description = "",
+  })  : titleController = TextEditingController(text: title),
+        descriptionController =
+            TextEditingController(text: description);
+}
 class _PurchaseOrderPageState extends State<PurchaseOrderPage> {
   bool isLoading = true;
 
-  List<PurchaseOrderData> orders = [];
+List<RetailLocation> _locations = [];
 
+String? locationId;
+String? locationName;
+
+String? purchaseRequestId;
+String? pmrId;
+String? alreadyOrderedQty;
+String? remainingQty;
+String? description;
+String? unitPrice;
+  List<PurchaseOrderData> orders = [];
+  
   List<PurchaseOrderData> filteredOrders = [];
 
   String searchQuery = "";
@@ -70,25 +93,83 @@ class _PurchaseOrderPageState extends State<PurchaseOrderPage> {
   Supplier? selectedSupplierFilter;
 
   List<Supplier> suppliers = [];
+String companyAddress = "";
 
+Future<void> _loadCompanyAddress() async {
+  print("Loading company address...");
+
+  final address = await HttpService.getCompanyAddress();
+
+  print("Company Address : $address");
+
+  setState(() {
+    companyAddress = address ?? "";
+  });
+}
   @override
-  void initState() {
-    super.initState();
+  // void initState() {
+  //   super.initState();
 
-    _fetchOrders();
+  //   _fetchOrders();
 
-    _fetchSuppliers();
+  //   _fetchSuppliers();
+  //   _loadCompanyAddress(); 
+  //   if (widget.createFromRequestItems != null) {
+  //     WidgetsBinding.instance.addPostFrameCallback((_) {
+  //       _showOrderDialog(
+  //         createFromRequestItems: widget.createFromRequestItems,
+  //         createFromRequestRemarks: widget.createFromRequestRemarks,
+  //       );
+  //     });
+  //   }
+  // }
+  
+@override
+void initState() {
+  super.initState();
+  _initialize();
+}
 
-    if (widget.createFromRequestItems != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showOrderDialog(
-          createFromRequestItems: widget.createFromRequestItems,
-          createFromRequestRemarks: widget.createFromRequestRemarks,
-        );
-      });
-    }
+Future<void> _initialize() async {
+  await _fetchOrders();
+  await _fetchSuppliers();
+  await _loadCompanyAddress(); // Wait for address
+await _fetchLocations();
+
+  if (widget.createFromRequestItems != null) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showOrderDialog(
+        createFromRequestItems: widget.createFromRequestItems,
+        createFromRequestRemarks: widget.createFromRequestRemarks,
+      );
+    });
   }
+}
+Future<void> _fetchLocations() async {
+  try {
+    final response = await HttpService.getRentalLocation();
 
+    if (response != null && response.status) {
+      setState(() {
+        _locations = response.data;
+      });
+
+      print("========= LOCATIONS =========");
+      print("Count : ${_locations.length}");
+
+      for (var loc in _locations) {
+        print("${loc.id} - ${loc.locationName}");
+      }
+    } else {
+      Common.toastMessaage(
+        response?.message ?? "No locations found",
+        Colors.red,
+      );
+    }
+  } catch (e) {
+    debugPrint("Location Error : $e");
+  }
+}
   Future<void> _fetchSuppliers() async {
     try {
       final response = await HttpService.getSupplierList({});
@@ -599,7 +680,12 @@ class _PurchaseOrderPageState extends State<PurchaseOrderPage> {
     String? createFromRequestRemarks,
   }) {
     List<CartItem> cartItems = [];
-
+String? purchaseRequestId;
+String? pmrId;
+String? alreadyOrderedQty;
+String? remainingQty;
+String? unitPrice;
+String? description;
     DateTime orderDate = DateTime.now();
 
     DateTime? paidDate = DateTime.now();
@@ -617,10 +703,12 @@ class _PurchaseOrderPageState extends State<PurchaseOrderPage> {
     String? paymentMode = "Cash";
 
     PlatformFile? orderCopyFile;
-
     final TextEditingController refNoController = TextEditingController();
 
-    final TextEditingController addressController = TextEditingController();
+    final TextEditingController addressController =
+        TextEditingController(
+      text: companyAddress,
+    );
 
     final TextEditingController advancePaidController = TextEditingController();
 
@@ -629,7 +717,9 @@ class _PurchaseOrderPageState extends State<PurchaseOrderPage> {
     final TextEditingController transRemarkController = TextEditingController();
 
     final TextEditingController remarksController = TextEditingController();
-
+      List<TermsConditionItem> termsList = [
+        TermsConditionItem(),
+      ];
     if (editData != null && editData.orderDetails != null) {
       var d = editData.orderDetails!;
 
@@ -682,23 +772,41 @@ class _PurchaseOrderPageState extends State<PurchaseOrderPage> {
       }).toList();
     }
 
-    if (createFromRequestItems != null) {
-      remarksController.text = createFromRequestRemarks ?? "";
+if (createFromRequestItems != null) {
+  remarksController.text = createFromRequestRemarks ?? "";
 
-      cartItems = createFromRequestItems.map((item) {
-        return CartItem(
-          material: MaterialData(
-            materialId: item.materialId,
-            materialName: item.materialName,
-            unitPrice: item.unitPrice,
-            unitName: item.unitName,
-          ),
-          quantity: double.tryParse(item.quantity) ?? 1.0,
-          unitPrice: double.tryParse(item.unitPrice) ?? 0.0,
-        );
-      }).toList();
-    }
+  cartItems = createFromRequestItems.map((item) {
+    return CartItem(
+      material: MaterialData(
+        materialId: item.materialId,
+        materialName: item.materialName,
+        unitPrice: item.unitPrice,
+        unitName: item.unitName,
+      ),
 
+      // Quantity to order (default remaining quantity)
+      quantity: double.tryParse(item.remainingQty ?? "0") ?? 1.0,
+
+      // Purchase price
+      unitPrice: double.tryParse(item.unitPrice ?? "0") ?? 0.0,
+
+      // Description
+      description: item.description,
+
+      // Purchase Request Details
+      purchaseRequestId: item.purchaseRequestId,
+      purchaseRequestItemId: item.pmrId,
+
+      requestedQty: item.quantity,
+      alreadyOrderedQty: item.alreadyOrderedQty,
+      remainingQty: item.remainingQty,
+
+      // NEW
+      taxPercent: item.taxPercent,
+      taxAmountValue: item.taxAmount,
+    );
+  }).toList();
+}
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -984,7 +1092,6 @@ class _PurchaseOrderPageState extends State<PurchaseOrderPage> {
                                         ),
                                       ),
                                     ),
-
                                     // Expanded(
 
                                     //   flex: 2,
@@ -1096,16 +1203,46 @@ class _PurchaseOrderPageState extends State<PurchaseOrderPage> {
                                     ),
                                   ],
                                 ),
-                                // const SizedBox(height: 16),
-                                // _buildInputLabelField(
-                                //   label: "Billing Address*",
-                                //   child: TextField(
-                                //     controller: addressController,
-                                //     maxLines: 2,
-                                //     decoration: _inputDecoration(
-                                //         "Enter full billing address..."),
-                                //   ),
-                                // ),
+                                
+                                const SizedBox(height: 16),
+
+                              _buildFormField(
+                                label: "Requested To *",
+                                child: _buildClickableField(
+                                  locationName ?? "Select Location",
+                                  Icons.store_rounded,
+                                  () {
+                                    if (_locations.isEmpty) {
+                                      Common.toastMessaage(
+                                        "No locations available",
+                                        Colors.red,
+                                      );
+                                      return;
+                                    }
+
+                                    _showItemPicker(
+                                      "Location",
+                                      _locations.map((e) => e.locationName).toList(),
+                                      (index) {
+                                        setDialogState(() {
+                                          locationId = _locations[index].id;
+                                          locationName = _locations[index].locationName;
+                                        });
+                                      },
+                                    );
+                                  },
+                                ),
+                              ),
+                              const Divider(height: 40),
+                                _buildInputLabelField(
+                                  label: "Billing Address*",
+                                  child: TextField(
+                                    controller: addressController,
+                                    maxLines: 2,
+                                    decoration: _inputDecoration(
+                                        "Enter full billing address..."),
+                                  ),
+                                ),
                                 const Divider(height: 40),
                                 Row(
                                   mainAxisAlignment:
@@ -1672,6 +1809,157 @@ class _PurchaseOrderPageState extends State<PurchaseOrderPage> {
                                   ),
                                 ),
                                 const SizedBox(height: 40),
+
+_buildSectionHeader(
+  "Terms & Conditions",
+  Icons.description_outlined,
+),
+
+const SizedBox(height: 15),
+
+Container(
+  decoration: BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(15),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.04),
+        blurRadius: 10,
+      ),
+    ],
+  ),
+  child: Column(
+    children: [
+
+      /// Header
+      Container(
+        padding: const EdgeInsets.symmetric(
+            horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(15),
+          ),
+        ),
+        child: Row(
+          children: [
+
+            const SizedBox(
+              width: 50,
+              child: Text(
+                "Sl.",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
+            const Expanded(
+              flex: 2,
+              child: Text(
+                "Title",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
+            const SizedBox(width: 10),
+
+            const Expanded(
+              flex: 4,
+              child: Text(
+                "Description",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
+            IconButton(
+              icon: const Icon(
+                Icons.add,
+                color: Colors.green,
+              ),
+              onPressed: () {
+                setDialogState(() {
+                  termsList.add(
+                    TermsConditionItem(),
+                  );
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+
+      ...termsList.asMap().entries.map((entry) {
+
+        int index = entry.key;
+        TermsConditionItem item = entry.value;
+
+        return Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+
+              SizedBox(
+                width: 50,
+                child: Center(
+                  child: Text(
+                    "${index + 1}",
+                  ),
+                ),
+              ),
+
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller:
+                      item.titleController,
+                  decoration:
+                      _inputDecoration("Title"),
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              Expanded(
+                flex: 4,
+                child: TextField(
+                  controller:
+                      item.descriptionController,
+                  maxLines: 2,
+                  decoration:
+                      _inputDecoration(
+                          "Description"),
+                ),
+              ),
+
+              IconButton(
+                onPressed: () {
+                  setDialogState(() {
+                    if (termsList.length > 1) {
+                      termsList.removeAt(index);
+                    }
+                  });
+                },
+                icon: const Icon(
+                  Icons.delete,
+                  color: Colors.red,
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    ],
+  ),
+),
+
+const SizedBox(height: 40),
                               ],
                             ),
                           ),
@@ -1704,7 +1992,13 @@ class _PurchaseOrderPageState extends State<PurchaseOrderPage> {
 
                                 //   return;
                                 // }
-
+                                if (locationId == null || locationId!.isEmpty) {
+                                  Common.toastMessaage(
+                                    "Please select requested location",
+                                    Colors.red,
+                                  );
+                                  return;
+                                }
                                 if (cartItems.isEmpty) {
                                   Common.toastMessaage(
                                       "Please add at least one item to cart",
@@ -1728,6 +2022,7 @@ class _PurchaseOrderPageState extends State<PurchaseOrderPage> {
                                       selectedSupplier!.supplierId;
                                   postData['ref_no'] =
                                       refNoController.text.trim();
+                                  postData['location_id'] = locationId;
                                   postData['address'] =
                                       addressController.text.trim();
                                   List<Map<String, dynamic>> itemsList = [];
@@ -1844,6 +2139,7 @@ class _PurchaseOrderPageState extends State<PurchaseOrderPage> {
                                   print("Error posting purchase order: $e");
                                 }
                               },
+                              
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF2a86c9),
                                 padding:
@@ -4499,112 +4795,412 @@ class _PurchaseOrderPageState extends State<PurchaseOrderPage> {
                 ),
             ],
           ),
-          const Divider(),
+          const Divider(height: 24),
+
+//================== First Row ==================
           Row(
             children: [
+
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Price",
-                        style: TextStyle(fontSize: 10, color: Colors.grey)),
-                    TextField(
-                      controller: item.unitPriceController,
-                      onChanged: (v) => setDialogState(
-                          () => item.unitPrice = double.tryParse(v) ?? 0),
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                          hintText: "0.00",
-                          isDense: true,
-                          border: InputBorder.none),
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 13),
+                    if (item.purchaseRequestId.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildInfoTile(
+                      "Requested Qty",
+                      item.requestedQty,
                     ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  children: [
-                    const Text("Quantity",
-                        style: TextStyle(fontSize: 10, color: Colors.grey)),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                            icon: const Icon(Icons.remove_circle_outline,
-                                size: 18),
-                            onPressed: () {
-                              if (item.quantity > 1) {
-                                setDialogState(() {
-                                  item.quantity--;
-
-                                  item.quantityController.text =
-                                      item.quantity == item.quantity.toInt()
-                                          ? item.quantity.toInt().toString()
-                                          : item.quantity.toString();
-                                });
-                              }
-                            }),
-                        SizedBox(
-                          width: 35,
-                          child: TextField(
-                            controller: item.quantityController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                            textAlign: TextAlign.center,
-                            onChanged: (v) {
-                              setDialogState(() {
-                                item.quantity = double.tryParse(v) ?? 1.0;
-                              });
-                            },
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(vertical: 4),
-                              border: InputBorder.none,
-                            ),
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
-                        ),
-                        IconButton(
-                            icon:
-                                const Icon(Icons.add_circle_outline, size: 18),
-                            onPressed: () {
-                              setDialogState(() {
-                                item.quantity++;
-
-                                item.quantityController.text =
-                                    item.quantity == item.quantity.toInt()
-                                        ? item.quantity.toInt().toString()
-                                        : item.quantity.toString();
-                              });
-                            }),
-                      ],
+                  ),
+                  Expanded(
+                    child: _buildInfoTile(
+                      "Already Ordered",
+                      item.alreadyOrderedQty,
                     ),
-                  ],
-                ),
+                  ),
+                  Expanded(
+                    child: _buildInfoTile(
+                      "Remaining Qty",
+                      item.remainingQty,
+                    ),
+                  ),
+                ],
               ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text("Amount",
-                        style: TextStyle(fontSize: 10, color: Colors.grey)),
-                    Text("₹${item.total.toStringAsFixed(2)}",
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2a86c9))),
-                  ],
-                ),
-              ),
-            ],
+            ),
+          const Text(
+            "Ordered Qty",
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey,
+            ),
           ),
+          const SizedBox(height: 6),
+
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+
+                _buildStepperBtn(Icons.remove, () {
+                  if (item.quantity > 1) {
+                    setDialogState(() {
+                      item.quantity--;
+                      item.quantityController.text =
+                          item.quantity.toString();
+                    });
+                  }
+                }),
+
+                SizedBox(
+                  width: 45,
+                  child: TextField(
+                    controller: item.quantityController,
+                    textAlign: TextAlign.center,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                    ),
+                    onChanged: (v) {
+                      setDialogState(() {
+                        item.quantity =
+                            double.tryParse(v) ?? 1;
+                      });
+                    },
+                  ),
+                ),
+
+                _buildStepperBtn(Icons.add, () {
+                  setDialogState(() {
+                    item.quantity++;
+                    item.quantityController.text =
+                        item.quantity.toString();
+                  });
+                }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+
+    const SizedBox(width: 20),
+
+    Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Purchase Price",
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 6),
+
+          TextField(
+            controller: item.unitPriceController,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              prefixText: "₹ ",
+              isDense: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onChanged: (v) {
+              setDialogState(() {
+                item.unitPrice =
+                    double.tryParse(v) ?? 0;
+              });
+            },
+          ),
+        ],
+      ),
+    ),
+  ],
+),
+
+const SizedBox(height: 18),
+
+//================== Second Row ==================
+Container(
+  padding: const EdgeInsets.all(14),
+  decoration: BoxDecoration(
+    color: Colors.blue.shade50,
+    borderRadius: BorderRadius.circular(12),
+  ),
+  child: Row(
+    children: [
+
+      Expanded(
+        child: _buildInfoTile(
+          "Unit",
+          item.material.unitName ?? "-",
+        ),
+      ),
+
+      Expanded(
+        child: _buildInfoTile(
+            "Tax %",
+            "${item.taxPercent}%",
+          ),
+      ),
+
+      Expanded(
+        child: _buildInfoTile(
+          "Tax Amount",
+          "₹${item.taxAmountValue}",
+        ),
+      ),
+
+      Expanded(
+        child: _buildInfoTile(
+          "Amount",
+          "₹${item.total.toStringAsFixed(2)}",
+          valueColor: const Color(0xFF2a86c9),
+        ),
+      ),
+    ],
+  ),
+),
+
+const SizedBox(height: 18),
+
+TextField(
+  controller: item.descriptionController,
+  maxLines: 2,
+  decoration: InputDecoration(
+    labelText: "Description",
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+    ),
+  ),
+),
         ],
       ),
     );
   }
 
+Widget _buildInfoTile(
+  String title,
+  String value, {
+  Color? valueColor,
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        title,
+        style: const TextStyle(
+          fontSize: 11,
+          color: Colors.grey,
+        ),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        value,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: valueColor,
+          fontSize: 14,
+        ),
+      ),
+    ],
+  );
+}
+void _showItemPicker(
+  String title,
+  List<String> items,
+  Function(int index) onSelected,
+) {
+  List<String> filteredItems = List.from(items);
+  final searchController = TextEditingController();
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(20),
+      ),
+    ),
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * 0.65,
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+
+                  Container(
+                    width: 50,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  Text(
+                    "Select $title",
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      controller: searchController,
+                      decoration: InputDecoration(
+                        hintText: "Search $title",
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          filteredItems = items
+                              .where(
+                                (e) => e
+                                    .toLowerCase()
+                                    .contains(value.toLowerCase()),
+                              )
+                              .toList();
+                        });
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: filteredItems.length,
+                      separatorBuilder: (_, __) =>
+                          const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        return ListTile(
+                          title: Text(filteredItems[index]),
+                          trailing: const Icon(
+                            Icons.chevron_right,
+                            size: 18,
+                          ),
+                          onTap: () {
+                            final originalIndex =
+                                items.indexOf(filteredItems[index]);
+
+                            Navigator.pop(context);
+
+                            onSelected(originalIndex);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+Widget _buildFormField({
+  required String label,
+  required Widget child,
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+      ),
+      const SizedBox(height: 8),
+      child,
+    ],
+  );
+}
+Widget _buildClickableField(
+  String text,
+  IconData icon,
+  VoidCallback onTap,
+) {
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Container(
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.shade300,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: const Color(0xFF2a86c9),
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: text.startsWith("Select")
+                    ? Colors.grey
+                    : Colors.black87,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: Colors.grey,
+          ),
+        ],
+      ),
+    ),
+  );
+}
   void _showQuickAddSupplierDialog(BuildContext context,
       {required Function(Supplier) onSupplierAdded}) {
     final TextEditingController nameCtrl = TextEditingController();
@@ -5180,7 +5776,27 @@ class _PurchaseOrderPageState extends State<PurchaseOrderPage> {
       ),
     );
   }
-
+Widget _buildStepperBtn(
+  IconData icon,
+  VoidCallback onTap,
+) {
+  return InkWell(
+    onTap: onTap,
+    child: Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Icon(
+        icon,
+        size: 16,
+        color: Colors.black87,
+      ),
+    ),
+  );
+}
   Widget _buildDetailRow(IconData icon, String label, String value) {
     return Padding(
         padding: const EdgeInsets.only(bottom: 15),
@@ -5203,37 +5819,63 @@ class CartItem {
   final MaterialData material;
 
   double quantity;
-
   double unitPrice;
-
   String? description;
 
-  late TextEditingController unitPriceController;
+  String purchaseRequestId;
+  String purchaseRequestItemId;
 
+  String requestedQty;
+  String alreadyOrderedQty;
+  String remainingQty;
+
+  // NEW
+  String taxPercent;
+  String taxAmountValue;
+
+  late TextEditingController unitPriceController;
   late TextEditingController quantityController;
+  late TextEditingController descriptionController;
 
   CartItem({
     required this.material,
     this.quantity = 1.0,
     this.unitPrice = 0.0,
     this.description,
+
+    this.purchaseRequestId = "",
+    this.purchaseRequestItemId = "",
+
+    this.requestedQty = "",
+    this.alreadyOrderedQty = "",
+    this.remainingQty = "",
+
+    // NEW
+    this.taxPercent = "0",
+    this.taxAmountValue = "0",
   }) {
     unitPriceController =
         TextEditingController(text: unitPrice > 0 ? unitPrice.toString() : "");
 
     quantityController = TextEditingController(
-        text: quantity > 0
-            ? (quantity == quantity.toInt()
-                ? quantity.toInt().toString()
-                : quantity.toString())
-            : "1");
+      text: quantity == quantity.toInt()
+          ? quantity.toInt().toString()
+          : quantity.toString(),
+    );
+
+    descriptionController =
+        TextEditingController(text: description ?? "");
   }
+
+  double get taxAmount =>
+      double.tryParse(taxAmountValue) ?? 0;
+
+  double get total =>
+      (quantity * unitPrice) + taxAmount;
 
   void dispose() {
     unitPriceController.dispose();
-
     quantityController.dispose();
+    descriptionController.dispose();
   }
-
-  double get total => quantity * unitPrice;
 }

@@ -63,6 +63,9 @@ class Leads {
   final int closedLeads;
   final int calledCount;
   final int transferLeads;
+  final int revenue;
+  final int projectPlanning;
+  final int designing;
 
   Leads({
     required this.newLeads,
@@ -71,6 +74,9 @@ class Leads {
     required this.closedLeads,
     required this.calledCount,
     required this.transferLeads,
+    required this.revenue,
+    required this.projectPlanning,
+    required this.designing,
   });
 
   factory Leads.fromJson(Map<String, dynamic> json) {
@@ -81,6 +87,9 @@ class Leads {
       closedLeads: json['closedLeads'] ?? 0,
       calledCount: json['calledCount'] ?? 0,
       transferLeads: json['transferLeads'] ?? 0,
+      revenue: json['Revenue'] ?? 0,
+      projectPlanning: json['projectPlanning'] ?? 0,
+      designing: json['designing'] ?? 0,
     );
   }
 
@@ -92,11 +101,14 @@ class Leads {
       'closedLeads': closedLeads,
       'calledCount': calledCount,
       'transferLeads': transferLeads,
+      'revenue': revenue,
+      'projectPlanning': projectPlanning,
+      'designing': designing,
     };
   }
 
   @override
   String toString() {
-    return 'Leads(newLeads: $newLeads, missedLeads: $missedLeads, followupLeads: $followupLeads, closedLeads: $closedLeads, calledCount: $calledCount, transferLeads: $transferLeads)';
+    return 'Leads(newLeads: $newLeads, missedLeads: $missedLeads, followupLeads: $followupLeads, closedLeads: $closedLeads, calledCount: $calledCount, transferLeads: $transferLeads, revenue: $revenue, projectPlanning: $projectPlanning, designing: $designing)';
   }
 }

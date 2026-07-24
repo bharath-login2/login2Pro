@@ -16,7 +16,8 @@ import '../../models/lead_management/titleListModel.dart';
 import '../../models/lead_management/workstatus_model.dart';
 import '../../service/service.dart';
 import 'package:login2/models/expense/staffListModel.dart';
-
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 class TaskForm {
   TextEditingController controller;
   String? status;
@@ -108,7 +109,7 @@ class _AddWorkPageState extends State<AddWorkPage> {
   List<TaskState> allTaskStates = [];
   List<PrioState> allPriorities = [];
   AssignedWorkStatus? assignedWorks;
-
+List<File> stopWorkAttachments = [];
   @override
   void initState() {
     super.initState();
@@ -157,7 +158,23 @@ class _AddWorkPageState extends State<AddWorkPage> {
     _loadPrioState();
     checkAssignedWorks();
   }
+Future<void> _pickStopWorkAttachments() async {
+  final result = await FilePicker.platform.pickFiles(
+    allowMultiple: true,
+    type: FileType.any,
+  );
 
+  if (result != null) {
+    setState(() {
+      stopWorkAttachments.addAll(
+        result.paths
+            .whereType<String>()
+            .map((path) => File(path))
+            .toList(),
+      );
+    });
+  }
+}
   void _initAsync() async {
     token = await Common.getSharedPref("token") ?? "";
     userId = await Common.getSharedPref("userId");
@@ -211,35 +228,52 @@ class _AddWorkPageState extends State<AddWorkPage> {
         widget.isPaused != 1;
 
     if (isSaveOrStopWork) {
-      for (int i = 0; i < tasks.length; i++) {
-        if (tasks[i].isChecked || tasks[i].status == '4') {
-          bool hasRemark = tasks[i]
-              .remarksControllers
-              .any((controller) => controller.text.trim().isNotEmpty);
-          if (!hasRemark) {
-            String label = widget.Restart == 1
-                ? 'remark'
-                : (widget.existingWork != null &&
-                        widget.isPaused != 1 &&
-                        widget.Restart != 1)
-                    ? 'remark'
-                    : 'description';
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                    'Please provide a $label for task: ${tasks[i].controller.text.isEmpty ? (i + 1) : tasks[i].controller.text}'),
-                behavior: SnackBarBehavior.floating,
-                backgroundColor: Colors.red.shade400,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            );
-            return false;
-          }
-        }
+  // Validate remarks
+  for (int i = 0; i < tasks.length; i++) {
+    if (tasks[i].isChecked || tasks[i].status == '4') {
+      bool hasRemark = tasks[i]
+          .remarksControllers
+          .any((controller) => controller.text.trim().isNotEmpty);
+
+      if (!hasRemark) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Please provide a remark for task: '
+              '${tasks[i].controller.text.isEmpty ? (i + 1) : tasks[i].controller.text}',
+            ),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.red.shade400,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+        return false;
       }
     }
+  }
+
+  // Validate attachments for Completed or Ready To Publish tasks
+  final requiresAttachment = tasks.any(
+    (task) =>
+        task.isChecked &&
+        (task.status == '3' || task.status == '6'),
+  );
+
+  if (requiresAttachment && stopWorkAttachments.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          'Please upload at least one attachment before submitting.',
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.red,
+      ),
+    );
+    return false;
+  }
+}
     return true;
   }
 
@@ -591,12 +625,16 @@ class _AddWorkPageState extends State<AddWorkPage> {
               .map((controller) => controller.text)
               .where((remark) => remark.isNotEmpty)
               .join('\n'),
+        'attachment_count':
+        task.isChecked && task.status == '3'
+            ? stopWorkAttachments.length
+            : 0,
         };
       }).toList(),
     };
     try {
       final response = widget.existingWork != null
-          ?await HttpService.saveWorkData(workData)
+          ?await HttpService.saveWorkData(workData,stopWorkAttachments)
           // await HttpService.updateWorkData(workData)
           : await HttpService.submitWorkData(workData);
 
@@ -695,7 +733,7 @@ class _AddWorkPageState extends State<AddWorkPage> {
       }).toList(),
     };
     try {
-      final response = await HttpService.saveWorkData(workData);
+      final response = await HttpService.saveWorkData(workData,stopWorkAttachments);
       if (response.status) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1118,15 +1156,20 @@ class _AddWorkPageState extends State<AddWorkPage> {
                             Expanded(
                               child: InkWell(
                                 onTap: () async {
-                                  final selected =
-                                      await dropTitleDialog(context, titleList);
-                                  if (selected != null) {
-                                    setState(() {
-                                      selectedTitleId = selected['id'];
-                                      titleController.text = selected['name']!;
-                                    });
-                                  }
-                                },
+                                  FocusScope.of(context).unfocus();
+
+                                  final selected = await dropTitleDialog(context, titleList);
+
+                                  if (selected == null) return;
+
+                                  setState(() {
+                                    selectedTitleId = selected['id'] ?? '';
+                                    titleController.text = selected['name'] ?? '';
+                                  });
+
+                                  debugPrint("Selected Module Id : $selectedTitleId");
+                                  debugPrint("Selected Module Name : ${titleController.text}");
+},
                                 child: InputDecorator(
                                   decoration: InputDecoration(
                                     labelText: 'Module',
@@ -1596,56 +1639,140 @@ class _AddWorkPageState extends State<AddWorkPage> {
                 const SizedBox(height: 12),
 
               
-                if (widget.existingWork != null &&
-                    widget.isPaused != 1 &&
-                    widget.Restart != 1) ...[
-                  if (tasks.any((task) => task.isChecked && task.status == '3'))
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red.shade600,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(double.infinity, 50),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25),
-                            ),
-                          ),
-                          onPressed: _submitWork,
-                          child: const Text(
-                            'STOP WORK',
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue.shade600,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(double.infinity, 50),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25),
-                            ),
-                          ),
-                          onPressed: _savework,
-                          child: const Text(
-                            'SAVE WORK',
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ),
+               if (widget.existingWork != null &&
+    widget.isPaused != 1 &&
+    widget.Restart != 1) ...[
+  if (tasks.any(
+    (task) =>
+        task.isChecked &&
+        (task.status == '3' || task.status == '6'),
+  )) ...[
+    Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        "Attachments",
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Colors.grey.shade700,
+        ),
+      ),
+    ),
+
+    const SizedBox(height: 8),
+
+    SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _pickStopWorkAttachments,
+        icon: const Icon(Icons.attach_file),
+        label: const Text("Upload Attachment"),
+      ),
+    ),
+
+    const SizedBox(height: 10),
+
+    if (stopWorkAttachments.isNotEmpty)
+      Column(
+        children: List.generate(
+          stopWorkAttachments.length,
+          (index) {
+            final file = stopWorkAttachments[index];
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.insert_drive_file,
+                    color: Colors.green,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      file.path.split('/').last,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                ] else
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.red,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        stopWorkAttachments.removeAt(index);
+                      });
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+
+    const SizedBox(height: 12),
+
+    Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red.shade600,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(double.infinity, 50),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25),
+            ),
+          ),
+          onPressed: _submitWork,
+          child: const Text(
+            'STOP WORK',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    ),
+  ] else ...[
+    Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue.shade600,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(double.infinity, 50),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25),
+            ),
+          ),
+          onPressed: _savework,
+          child: const Text(
+            'SAVE WORK',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    ),
+  ],
+] else
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -1686,327 +1813,435 @@ class _AddWorkPageState extends State<AddWorkPage> {
   }
 
   // Dialog Methods
-  Future<dynamic> dropDialogExisting(BuildContext context, String title) {
-    return showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                height: MediaQuery.of(context).size.height * 0.6,
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Select $title',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () {
-                            search.clear();
-                            Navigator.pop(context);
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: search,
-                      decoration: InputDecoration(
-                        hintText: 'Search...',
-                        prefixIcon: const Icon(Icons.search, size: 20),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                      ),
-                      onChanged: (value) {
-                        setState(() {
-                          if (title == "Projects") {
-                            filterProjectsDialog(value);
-                          }
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount:
-                            title == "Projects" ? filteredProjects.length : 0,
-                        itemBuilder: (context, index) {
-                          final project = filteredProjects[index];
-                          return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            leading: CircleAvatar(
-                              radius: 18,
-                              backgroundColor: Colors.blue.shade100,
-                              child: Text(
-                                project.name.substring(0, 1).toUpperCase(),
-                                style: TextStyle(
-                                  color: Colors.blue.shade700,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                            title: Text(
-                              project.name,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            onTap: () {
-                              Navigator.pop(context, {
-                                'id': project.id,
-                                'name': project.name,
-                              });
-                              search.clear();
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
+  Future<Map<String, dynamic>?> dropDialogExisting(
+    BuildContext context, String title) async {
+  search.clear();
+
+  if (title == "Projects") {
+    filterProjectsDialog("");
   }
 
-  Future<Map<String, String>?> dropTitleDialog(
-      BuildContext context, List<TitleListDet> titleList) async {
-    TextEditingController searchController = TextEditingController();
-    List<TitleListDet> filteredTitles = List.from(titleList);
+  return showDialog<Map<String, dynamic>>(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              height: MediaQuery.of(context).size.height * 0.6,
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Select $title",
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () {
+                          search.clear();
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ],
+                  ),
 
-    return showDialog<Map<String, String>>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                  const SizedBox(height: 12),
+
+                  TextField(
+                    controller: search,
+                    decoration: InputDecoration(
+                      hintText: "Search...",
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      if (title == "Projects") {
+                        setState(() {
+                          filterProjectsDialog(value);
+                        });
+                      }
+                    },
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount:
+                          title == "Projects" ? filteredProjects.length : 0,
+                      itemBuilder: (context, index) {
+                        final project = filteredProjects[index];
+
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.blue.shade100,
+                            child: Text(
+                              project.name[0].toUpperCase(),
+                              style: TextStyle(
+                                color: Colors.blue.shade700,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          title: Text(project.name),
+                          onTap: () {
+                            search.clear();
+
+                            Navigator.pop<Map<String, dynamic>>(context, {
+                              "id": project.id.toString(),
+                              "name": project.name,
+                            });
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
-              child: Container(
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+Future<Map<String, String>?> dropTitleDialog(
+  BuildContext context,
+  List<TitleListDet> titleList,
+) async {
+  final TextEditingController searchController = TextEditingController();
+  List<TitleListDet> filteredTitles = List.from(titleList);
+
+  return await showDialog<Map<String, String>>(
+    context: context,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return Dialog(
+            insetPadding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * .60,
+              child: Padding(
                 padding: const EdgeInsets.all(16),
-                height: MediaQuery.of(context).size.height * 0.5,
                 child: Column(
                   children: [
+
+                    /// Header
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Select Module',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
+                        const Expanded(
+                          child: Text(
+                            "Select Module",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         IconButton(
+                          splashRadius: 22,
+                          onPressed: () =>
+                              Navigator.pop(dialogContext),
                           icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.pop(context),
-                        ),
+                        )
                       ],
                     ),
+
                     const SizedBox(height: 12),
+
+                    /// Search
                     TextField(
                       controller: searchController,
                       decoration: InputDecoration(
-                        hintText: 'Search Modules...',
-                        prefixIcon: const Icon(Icons.search, size: 20),
+                        hintText: "Search Module",
+                        prefixIcon: const Icon(Icons.search),
+                        filled: true,
+                        fillColor: Colors.grey.shade100,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius:
+                              BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
                       ),
                       onChanged: (value) {
                         setState(() {
-                          filteredTitles = titleList
-                              .where((t) => t.name
-                                  .toLowerCase()
-                                  .contains(value.toLowerCase()))
-                              .toList();
+                          filteredTitles = titleList.where((e) {
+                            return e.name
+                                .toLowerCase()
+                                .contains(value.toLowerCase());
+                          }).toList();
                         });
                       },
                     ),
-                    const SizedBox(height: 12),
+
+                    const SizedBox(height: 15),
+
                     Expanded(
-                      child: ListView.builder(
-                        itemCount: filteredTitles.length,
-                        itemBuilder: (context, index) {
-                          final title = filteredTitles[index];
-                          return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            leading: CircleAvatar(
-                              radius: 18,
-                              backgroundColor: Colors.blue.shade100,
-                              child: Text(
-                                title.name.substring(0, 1).toUpperCase(),
-                                style: TextStyle(
-                                  color: Colors.blue.shade700,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                            title: Text(
-                              title.name,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            onTap: () {
-                              Navigator.pop(context, {
-                                'id': title.id,
-                                'name': title.name,
-                              });
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
+                      child: filteredTitles.isEmpty
+                          ? const Center(
+                              child: Text("No Modules Found"),
+                            )
+                          : ListView.separated(
+                              itemCount: filteredTitles.length,
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final title = filteredTitles[index];
 
-  Future<TitleListDet?> showProjectTitleDialog(BuildContext context) async {
-    TextEditingController titleController = TextEditingController();
-    TextEditingController projectController = TextEditingController();
-    projectController.text = selectedProjectName ?? '';
+                                return InkWell(
+                                  borderRadius:
+                                      BorderRadius.circular(12),
+                                  onTap: () {
+                                    FocusScope.of(context).unfocus();
 
-    return showDialog<TitleListDet>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Add New Module',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    InkWell(
-                      onTap: () async {
-                        await dropDialogExisting(context, "Projects");
-                        setState(() {
-                          projectController.text = selectedProjectName ?? '';
-                        });
-                      },
-                      child: InputDecorator(
-                        decoration: InputDecoration(
-                          labelText: 'Project',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          suffixIcon: const Icon(Icons.arrow_drop_down),
-                        ),
-                        child: Text(
-                          projectController.text.isEmpty
-                              ? 'Select Project'
-                              : projectController.text,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: titleController,
-                      decoration: InputDecoration(
-                        labelText: 'Module Name',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            child: const Text('Cancel'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              if (selectedProjectId == null ||
-                                  titleController.text.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: const Text(
-                                        'Please select a project and enter module name'),
-                                    behavior: SnackBarBehavior.floating,
-                                    backgroundColor: Colors.red.shade400,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                    Navigator.pop(
+                                      dialogContext,
+                                      {
+                                        "id": title.id.toString(),
+                                        "name": title.name,
+                                      },
+                                    );
+                                  },
+                                  child: Padding(
+                                    padding:
+                                        const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 10,
+                                    ),
+                                    child: Row(
+                                      children: [
+
+                                        CircleAvatar(
+                                          radius: 18,
+                                          backgroundColor:
+                                              const Color(0xff2A86C9)
+                                                  .withOpacity(.12),
+                                          child: Text(
+                                            title.name.isNotEmpty
+                                                ? title.name[0]
+                                                    .toUpperCase()
+                                                : "?",
+                                            style: const TextStyle(
+                                              color:
+                                                  Color(0xff2A86C9),
+                                              fontWeight:
+                                                  FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+
+                                        const SizedBox(width: 12),
+
+                                        Expanded(
+                                          child: Text(
+                                            title.name,
+                                            style:
+                                                const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight:
+                                                  FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+
+                                        const Icon(
+                                          Icons.chevron_right,
+                                          color: Colors.grey,
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 );
-                                return;
-                              }
-
-                              final newTitle = await HttpService.submitTitle(
-                                context: context,
-                                projectId: selectedProjectId!,
-                                title: titleController.text.trim(),
-                              );
-
-                              if (newTitle != null) {
-                                Navigator.pop(context, newTitle);
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue.shade700,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              },
                             ),
-                            child: const Text('Submit'),
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ),
               ),
-            );
-          },
-        );
-      },
-    );
-  }
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+Future<TitleListDet?> showProjectTitleDialog(BuildContext context) async {
+  final TextEditingController titleController = TextEditingController();
+  final TextEditingController projectController =
+      TextEditingController(text: selectedProjectName ?? '');
+
+  return showDialog<TitleListDet>(
+    context: context,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Add New Module',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  InkWell(
+                    onTap: () async {
+                      final selectedProject =
+                          await dropDialogExisting(context, "Projects");
+
+                      if (selectedProject != null) {
+                        setState(() {
+                          selectedProjectId = selectedProject["id"].toString();
+                          selectedProjectName = selectedProject["name"].toString();
+                          projectController.text = selectedProjectName!;
+                        });
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: 'Project',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        suffixIcon: const Icon(Icons.arrow_drop_down),
+                      ),
+                      child: Text(
+                        projectController.text.isEmpty
+                            ? "Select Project"
+                            : projectController.text,
+                        style: TextStyle(
+                          color: projectController.text.isEmpty
+                              ? Colors.grey
+                              : Colors.black,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  TextField(
+                    controller: titleController,
+                    decoration: InputDecoration(
+                      labelText: 'Module Name',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () async {
+                            if (selectedProjectId == null ||
+                                selectedProjectId!.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text(
+                                      'Please select a project'),
+                                  behavior: SnackBarBehavior.floating,
+                                  backgroundColor: Colors.red.shade400,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
+
+                            if (titleController.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text(
+                                      'Please enter module name'),
+                                  behavior: SnackBarBehavior.floating,
+                                  backgroundColor: Colors.red.shade400,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
+
+                            final newTitle =
+                                await HttpService.submitTitle(
+                              context: context,
+                              projectId: selectedProjectId!,
+                              title: titleController.text.trim(),
+                            );
+
+                            if (newTitle != null) {
+                              // Automatically select newly created module
+                              this.setState(() {
+                                selectedTitleId = newTitle.id;
+                                this.titleController.text = newTitle.name;
+                              });
+
+                              Navigator.pop(dialogContext, newTitle);
+                            }
+                          },
+                          child: const Text('Submit'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
 }

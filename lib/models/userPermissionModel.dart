@@ -72,6 +72,7 @@ class Data {
   String? downloadFile;
   String? whatsappUnofficial;
   String? whatsappOfficial;
+  String? whatsappMenu;
   String? transferLead;
   String? readRenewal;
   String? readAccount;
@@ -170,6 +171,7 @@ class Data {
     this.downloadFile,
     this.whatsappUnofficial,
     this.whatsappOfficial,
+    this.whatsappMenu,
     this.transferLead,
     this.readRenewal,
     this.readAccount,
@@ -270,6 +272,7 @@ class Data {
     downloadFile = json['download_file'];
     whatsappUnofficial = json['whatsapp_unofficial'];
     whatsappOfficial = json['whatsapp_official'];
+    whatsappMenu = json['whatsapp_menu'];
     transferLead = json['transfer_lead'];
     readRenewal = json['read_renewal'];
     readAccount = json['read_account'];
@@ -373,6 +376,7 @@ class Data {
     data['multiple_works'] = multipleWorks;
     data['whatsapp_unofficial'] = whatsappUnofficial;
     data['whatsapp_official'] = whatsappOfficial;
+    data['whatsapp_menu'] = whatsappMenu;
     data['add_work'] = addWorks;
     data['view_all_works'] = viewAllWorks;
     data['View_Work_Report'] = viewWorkReport;

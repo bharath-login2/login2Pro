@@ -36,6 +36,7 @@ class Data {
   String? callResponseId;
   String? callResponse;
   String? followupDate;
+  String? expectedClosingDate;
   String? remarks;
   String? reason;
   String? reasonId;
@@ -55,6 +56,7 @@ class Data {
       this.callResponseId,
       this.callResponse,
       this.followupDate,
+      this.expectedClosingDate,
       this.remarks,
       this.reason,
       this.reasonId,
@@ -74,6 +76,7 @@ class Data {
     callResponseId = json['call_response_id'];
     callResponse = json['call_response'];
     followupDate = json['followup_date'];
+    expectedClosingDate = json['expected_closing_date'];
     remarks = json['remarks'];
     reason = json['reason'];
     reasonId = json['reason_id'];
@@ -100,6 +103,7 @@ class Data {
     data['call_response_id'] = callResponseId;
     data['call_response'] = callResponse;
     data['followup_date'] = followupDate;
+    data['expected_closing_date'] = expectedClosingDate;
     data['remarks'] = remarks;
     data['reason'] = reason;
     data['reason_id'] = reasonId;

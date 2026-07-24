@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import 'package:login2/core/common.dart';
 import 'package:login2/models/commonConfigureModel.dart';
 import 'package:login2/models/dashboardModel.dart';
+import 'package:login2/models/departmentModel.dart';
 import 'package:login2/models/expense/expense_post.dart';
 import 'package:login2/models/lead_management/leadDashboardModel.dart';
 import 'package:login2/models/lead_management/leadProgressbarModel.dart';
@@ -136,6 +137,8 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
   LeadProgressbarModel? object1;
   bool toggle = false;
   int notificationCount = 0;
+  String? viewAttendanceForPayrollMenu;
+  String? addAttendanceForAttendanceAll;
 
   bool isLoading = false;
   Map<String, dynamic> assignedStaffData = {
@@ -145,11 +148,75 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
     'totalCompleted': 0,
   };
   bool isAssignedDataLoading = false;
+
+  List<DepartmentData> departmentsList = [];
+  DepartmentData? selectedDepartment;
+  List<DepartmentStaffData> staffList = [];
+  DepartmentStaffData? selectedStaff;
+  final DepartmentStaffData unassignedStaff =
+      DepartmentStaffData(userId: "0", staffName: "Unassigned");
+  bool isDepartmentsLoading = false;
+  bool isStaffLoading = false;
+
+  Future<void> fetchDepartments() async {
+    if (mounted) setState(() => isDepartmentsLoading = true);
+    final res = await HttpService.getDepartments();
+    if (mounted) {
+      setState(() {
+        isDepartmentsLoading = false;
+        if (res != null && res.status) {
+          departmentsList = res.data;
+        } else {
+          departmentsList = [];
+        }
+      });
+    }
+  }
+
+  Future<void> fetchStaff([String departmentId = ""]) async {
+    if (mounted) setState(() => isStaffLoading = true);
+    final res = await HttpService.getStaffByDepartment(departmentId);
+    if (mounted) {
+      setState(() {
+        isStaffLoading = false;
+        if (res != null && res.status) {
+          staffList = res.data;
+        } else {
+          staffList = [];
+        }
+      });
+    }
+  }
+
+  Future<void> onDepartmentChanged(DepartmentData? department) async {
+    setState(() {
+      selectedDepartment = department;
+      selectedStaff = null;
+    });
+    // Always fetch staff: pass department id or empty string for all staff
+    await fetchStaff(department?.id ?? "");
+    await _refetchFilteredData();
+  }
+
+  void onStaffChanged(DepartmentStaffData? staff) {
+    setState(() {
+      selectedStaff = staff;
+    });
+    _refetchFilteredData();
+  }
+
+  Future<void> _refetchFilteredData() async {
+    await dashboardCounts();
+    await loadAssignedData();
+  }
+
   @override
   void initState() {
     super.initState();
     loadPrefs();
     loginorNot();
+    fetchDepartments();
+    fetchStaff("");
     dashboardCounts();
 
     _loadWorkStatus();
@@ -168,6 +235,8 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
 
   // Refresh method for pull-to-refresh
   Future<void> _refreshDashboard() async {
+    await fetchDepartments();
+    await fetchStaff(selectedDepartment?.id ?? "");
     await loginorNot();
     await dashboardCounts();
     await checkExistingWorkStatus();
@@ -184,7 +253,15 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
 
     try {
       final httpService = HttpService();
-      final worksCountModel = await httpService.getCountsWorks();
+      // Don't send staffId=0 (Unassigned) to API — it's a UI-only filter
+      final bool isUnassignedSelected = selectedStaff?.userId == "0" ||
+          selectedStaff?.staffName.toLowerCase() == "unassigned";
+      final worksCountModel = await httpService.getCountsWorks(
+        departmentId: selectedDepartment?.id,
+        staffId: (selectedStaff != null && !isUnassignedSelected)
+            ? selectedStaff!.userId
+            : null,
+      );
 
       if (worksCountModel != null && worksCountModel.status) {
         if (mounted) {
@@ -278,6 +355,12 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
     NewleadDashboardPermission =
         await Common.getSharedPref("NewleadDashboardPermission");
     adminCheckPermission = await Common.getSharedPref("adminCheckPermission");
+
+    viewAttendanceForPayrollMenu =
+      await Common.getSharedPref("viewAttendanceForPayrollMenu");
+
+    addAttendanceForAttendanceAll =
+        await Common.getSharedPref("addAttendanceForAttendanceAll");
     setState(() {
       multipleWorksCheck = value ?? '';
     });
@@ -511,17 +594,30 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
 
   Future<void> dashboardCounts() async {
     final token = await Common.getSharedPref("token");
-    final response = await HttpService.dashboardCounts(token: token);
+    // Don't send staffId when Unassigned (userId=0) is selected — it's a UI filter only
+    final bool isUnassignedSelected = selectedStaff?.userId == "0" ||
+        selectedStaff?.staffName.toLowerCase() == "unassigned";
+    final response = await HttpService.dashboardCounts(
+      token: token,
+      departmentId: selectedDepartment?.id,
+      staffId: (selectedStaff != null && !isUnassignedSelected)
+          ? selectedStaff!.userId
+          : null,
+    );
 
     if (response != null && response.status == true) {
-      setState(() {
-        isLoggedIn = true;
-        projectCounts = response.data;
-      });
+      if (mounted) {
+        setState(() {
+          isLoggedIn = true;
+          projectCounts = response.data;
+        });
+      }
     } else {
-      setState(() {
-        isLoggedIn = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoggedIn = false;
+        });
+      }
     }
   }
 
@@ -1075,6 +1171,7 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                           ],
                         ),
                         const SizedBox(height: 16),
+                        _buildFilterSection(),
                         Wrap(
                           spacing: 29,
                           runSpacing: 12,
@@ -1097,19 +1194,41 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                                 bgColor = Colors.grey.shade200;
                             }
 
-                            return GestureDetector(
-                              onTap: () {
-                                if (countData.staffWiseCounts.isNotEmpty) {
-                                  _showStaffCountPopup(countData);
-                                } else {
-                                  _navigateToStatusPage(
-                                      countData.label, countData.id.toString());
-                                }
-                              },
-                              child: _buildStatusCard(
-                                countData.label,
-                                countData.count.toString(),
-                                bgColor,
+                            final String labelLower =
+                                countData.label.toLowerCase();
+
+                            // Unassigned card is enabled when:
+                            //   - All Staff is selected (null), OR
+                            //   - "Unassigned" option is selected.
+                            // Disabled ONLY when a specific real staff member is picked.
+                            final bool isUnassignedOrAllSelected =
+                                selectedStaff == null ||
+                                selectedStaff?.userId == "0" ||
+                                selectedStaff?.staffName.toLowerCase() ==
+                                    "unassigned";
+                            final bool isCardDisabled =
+                                labelLower == 'unassigned' &&
+                                    !isUnassignedOrAllSelected;
+
+                            return IgnorePointer(
+                              ignoring: isCardDisabled,
+                              child: Opacity(
+                                opacity: isCardDisabled ? 0.4 : 1.0,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    if (countData.staffWiseCounts.isNotEmpty) {
+                                      _showStaffCountPopup(countData);
+                                    } else {
+                                      _navigateToStatusPage(countData.label,
+                                          countData.id.toString());
+                                    }
+                                  },
+                                  child: _buildStatusCard(
+                                    countData.label,
+                                    countData.count.toString(),
+                                    bgColor,
+                                  ),
+                                ),
                               ),
                             );
                           }).toList(),
@@ -1384,17 +1503,19 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                                       ),
                                     ),
                                   ),
-                                  _buildQuickLinkCard(
-                                    "Attendance All",
-                                    Colors.purple.shade100,
-                                    () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const ViewCalendarPage(),
+                                  
+                                  if (addAttendanceForAttendanceAll == "true")
+                                    _buildQuickLinkCard(
+                                      "Attendance All",
+                                      Colors.purple.shade100,
+                                      () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const ViewCalendarPage(),
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                    if (viewAttendanceForPayrollMenu == "true")
                                   _buildQuickLinkCard("Attendance Staffwise",
                                       Colors.amber.shade100, () async {
                                     _showStaffSelectionPopup(context);
@@ -1410,6 +1531,7 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                                       ),
                                     ),
                                   ),
+                                  if (viewAttendanceForPayrollMenu == "true")
                                   _buildQuickLinkCard(
                                     "Payroll",
                                     Colors.green.shade100,
@@ -1488,6 +1610,161 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                 )
               : const SizedBox(),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFilterSection() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.15),
+            blurRadius: 6,
+            spreadRadius: 1,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Department Dropdown
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Department",
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.grey.shade50,
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<DepartmentData>(
+                      isExpanded: true,
+                      hint: const Text(
+                        "All Departments",
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      value: selectedDepartment,
+                      icon: isDepartmentsLoading
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.arrow_drop_down, size: 20),
+                      items: [
+                        const DropdownMenuItem<DepartmentData>(
+                          value: null,
+                          child: Text("All Departments",
+                              style: TextStyle(fontSize: 13)),
+                        ),
+                        ...departmentsList.map((dept) {
+                          return DropdownMenuItem<DepartmentData>(
+                            value: dept,
+                            child: Text(
+                              dept.departmentName,
+                              style: const TextStyle(fontSize: 13),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }),
+                      ],
+                      onChanged: (dept) => onDepartmentChanged(dept),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Staff Dropdown
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Staff",
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.grey.shade50,
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<DepartmentStaffData>(
+                      isExpanded: true,
+                      hint: const Text(
+                        "All Staff",
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      value: selectedStaff,
+                      icon: isStaffLoading
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.arrow_drop_down, size: 20),
+                      items: [
+                        const DropdownMenuItem<DepartmentStaffData>(
+                          value: null,
+                          child:
+                              Text("All Staff", style: TextStyle(fontSize: 13)),
+                        ),
+                        DropdownMenuItem<DepartmentStaffData>(
+                          value: unassignedStaff,
+                          child: const Text(
+                            "Unassigned",
+                            style: TextStyle(fontSize: 13),
+                          ),
+                        ),
+                        ...staffList
+                            .where((staff) =>
+                                staff.userId != "0" &&
+                                staff.staffName.toLowerCase() != "unassigned")
+                            .map((staff) {
+                          return DropdownMenuItem<DepartmentStaffData>(
+                            value: staff,
+                            child: Text(
+                              staff.staffName,
+                              style: const TextStyle(fontSize: 13),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }),
+                      ],
+                      onChanged: (staff) => onStaffChanged(staff),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

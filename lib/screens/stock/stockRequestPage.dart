@@ -103,62 +103,94 @@ Future<void> _approveRejectRequest(
   String requestId,
   String status,
 ) async {
+  print("========== APPROVE / REJECT ==========");
+  print("Request ID : $requestId");
+  print("Status     : $status");
+
   Common.showProgressDialog(
     context,
     "Please wait...",
   );
 
-  final result =
-      await HttpService.approveRejectStockRequest(
-    requestId,
-    status,
-  );
-
-  Navigator.pop(context);
-
-  if (result != null) {
-    Common.toastMessaage(
-      "Request $status Successfully",
-      Colors.green,
+  try {
+    final result = await HttpService.approveRejectStockRequest(
+      requestId,
+      status,
     );
 
-    if (status == "Approved") {
-      final token =
-          await Common.getSharedPref("token");
+    Navigator.pop(context);
 
-      final userId =
-          await Common.getSharedPref("user_id");
+    print("========== API RESULT ==========");
+    print("Result Type : ${result.runtimeType}");
+    print("Result      : $result");
 
-      final name =
-          await Common.getSharedPref("name");
-
-      final purchaseRequestDbId =
-          result['purchase_request_db_id']
-              .toString();
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => PurchaseRequestPage(
-            token: token ?? "",
-            name: name ?? "",
-            userId: userId ?? "",
-            openRequestId:
-                purchaseRequestDbId, // NEW
-          ),
-        ),
+    if (result == null) {
+      print("Result is NULL");
+      Common.toastMessaage(
+        "No response received from server",
+        Colors.red,
       );
-    } else {
-      _fetchRequests();
+      return;
     }
-  } else {
+
+    print("Status Value : ${result["status"]}");
+    print("Message      : ${result["message"]}");
+    print("Data         : ${result["data"]}");
+
+    if (result["status"] == true) {
+      print("API SUCCESS");
+
+      Common.toastMessaage(
+        result["message"] ?? "Success",
+        Colors.green,
+      );
+
+      if (status.toLowerCase() == "approved") {
+        final token = await Common.getSharedPref("token");
+        final userId = await Common.getSharedPref("user_id");
+        final name = await Common.getSharedPref("name");
+
+        print("========== NAVIGATING ==========");
+        print("Token        : $token");
+        print("User Id      : $userId");
+        print("Name         : $name");
+        print("Prefill Data : ${result["data"]}");
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PurchaseRequestPage(
+              token: token ?? "",
+              name: name ?? "",
+              userId: userId ?? "",
+              prefillData: result["data"],
+            ),
+          ),
+        );
+      } else {
+        _fetchRequests();
+      }
+    } else {
+      print("API RETURNED FALSE");
+
+      Common.toastMessaage(
+        result["message"] ?? "Failed to update request",
+        Colors.red,
+      );
+    }
+  } catch (e, stackTrace) {
+    Navigator.pop(context);
+
+    print("========== EXCEPTION ==========");
+    print(e);
+    print(stackTrace);
+
     Common.toastMessaage(
-      "Failed to update request",
+      "Error : $e",
       Colors.red,
     );
   }
 }
-
 void _filterRequests() {
   final query = _searchController.text.toLowerCase();
 
@@ -327,7 +359,10 @@ void _filterRequests() {
 
 Widget _buildRequestCard(StockRequestData item) {
     Color statusColor = const Color(0xFF2a86c9);
-
+  final String status = (item.status ?? "").toLowerCase();
+  final bool canEditDelete =
+      status != "approved" &&
+      status != "partially approved";
   switch ((item.status ?? '').toLowerCase()) {
     case 'approved':
       statusColor = Colors.green;
@@ -390,52 +425,51 @@ Widget _buildRequestCard(StockRequestData item) {
                             ),
                           ),
 
-                          PopupMenuButton<String>(
-                            icon: Icon(
-                              Icons.more_vert,
-                              color: Colors.grey[400],
-                              size: 20,
-                            ),
-                            onSelected: (value) {
-                              if (value == 'edit') {
-                                _showAddEditDialog(item: item);
-                              } else if (value == 'delete') {
-                                _deleteStockRequest(
-                                  item.id ?? "",
-                                );
-                              }
-                            },
-                            itemBuilder: (context) => [
-                              const PopupMenuItem(
-                                value: 'edit',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.edit,
-                                      size: 18,
-                                      color: Colors.blue,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text("Edit"),
-                                  ],
-                                ),
-                              ),
-                              const PopupMenuItem(
-                                value: 'delete',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.delete,
-                                      size: 18,
-                                      color: Colors.red,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text("Delete"),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
+                          if (canEditDelete)
+  PopupMenuButton<String>(
+    icon: Icon(
+      Icons.more_vert,
+      color: Colors.grey[400],
+      size: 20,
+    ),
+    onSelected: (value) {
+      if (value == 'edit') {
+        _showAddEditDialog(item: item);
+      } else if (value == 'delete') {
+        _deleteStockRequest(item.id ?? "");
+      }
+    },
+    itemBuilder: (context) => [
+      const PopupMenuItem(
+        value: 'edit',
+        child: Row(
+          children: [
+            Icon(
+              Icons.edit,
+              size: 18,
+              color: Colors.blue,
+            ),
+            SizedBox(width: 8),
+            Text("Edit"),
+          ],
+        ),
+      ),
+      const PopupMenuItem(
+        value: 'delete',
+        child: Row(
+          children: [
+            Icon(
+              Icons.delete,
+              size: 18,
+              color: Colors.red,
+            ),
+            SizedBox(width: 8),
+            Text("Delete"),
+          ],
+        ),
+      ),
+    ],
+  ),
 
                           Container(
                             padding:
@@ -484,7 +518,7 @@ Widget _buildRequestCard(StockRequestData item) {
                             child: _buildInfoRow(
                               Icons.calendar_today_outlined,
                               "Required Date",
-                              item.requiredDate ?? "-",
+                              item.requestedDate ?? "-",
                             ),
                           ),
 
@@ -632,7 +666,9 @@ void _showRequestDetails(StockRequestData item) {
                     ),
                     _infoBox(
                       "Requested Date",
-                      item.requestedDate ?? "-",
+                      (item.requestedDate != null && item.requestedDate!.trim().isNotEmpty)
+                          ? item.requestedDate!
+                          : (item.requiredDate ?? "-"),
                     ),
                     _infoBox(
                       "Priority",
@@ -1056,16 +1092,33 @@ Widget _detailRow(
     String? requestId = editData?.requestId ?? "AUTOGEN";
 
     DateTime? requiredDate;
-    if (editData != null) {
+
+    if (editData != null &&
+        editData.requiredDate.trim().isNotEmpty) {
       try {
-        requiredDate = DateFormat('dd-MM-yyyy').parse(editData.requiredDate);
-      } catch (e) {
+        requiredDate =
+            DateFormat('dd-MM-yyyy').parse(editData.requiredDate);
+      } catch (_) {
         requiredDate = DateTime.tryParse(editData.requiredDate);
       }
     } else {
-      requiredDate = DateTime.now().add(const Duration(days: 1));
+      requiredDate = DateTime.now();
     }
+    
+    DateTime? requestedDate;
 
+if (editData != null &&
+    editData.requestedDate.trim().isNotEmpty) {
+  try {
+    requestedDate =
+        DateFormat('dd-MM-yyyy').parse(editData.requestedDate);
+  } catch (_) {
+    requestedDate = DateTime.tryParse(editData.requestedDate);
+  }
+} else {
+  requestedDate = DateTime.now();
+}
+    
 String? locationId = editData?.locationId;
 String? locationName = editData?.locationName;
 
@@ -1187,22 +1240,22 @@ final TextEditingController remarkController =
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                item != null
-                                    ? Expanded(
-                                        child: _buildFormField(
-                                          label: "Request ID",
-                                          child: _buildValueField(
-                                              requestId, Icons.numbers_rounded,
-                                              isGray: true),
-                                        ),
-                                      )
-                                    : SizedBox(),
-                                item != null
-                                    ? const SizedBox(width: 16)
-                                    : SizedBox(),
+                                // item != null
+                                //     ? Expanded(
+                                //         child: _buildFormField(
+                                //           label: "Request ID",
+                                //           child: _buildValueField(
+                                //               requestId, Icons.numbers_rounded,
+                                //               isGray: true),
+                                //         ),
+                                //       )
+                                //     : SizedBox(),
+                                // item != null
+                                //     ? const SizedBox(width: 16)
+                                //     : SizedBox(),
                                 Expanded(
                                   child: _buildFormField(
-                                    label: "Required Date*",
+                                    label: "Requested Date*",
                                     child: _buildClickableField(
                                       requiredDate != null
                                           ? DateFormat('dd MMM yyyy')
@@ -1225,9 +1278,112 @@ final TextEditingController remarkController =
                                     ),
                                   ),
                                 ),
+                                
+                                Expanded(
+                                  child: _buildFormField(
+                                    label: "Stock Location",
+                                    child: _buildClickableField(
+                                        locationName ?? "Select Location",
+                                        Icons.store_rounded, () {
+                                      _showItemPicker(
+                                          "Location",
+                                          _locations
+                                              .map((l) => l.locationName)
+                                              .toList(), (index) {
+                                        setDialogState(() {
+                                          locationId = _locations[index].id;
+                                          locationName =
+                                              _locations[index].locationName;
+                                        });
+                                      });
+                                    }),
+                                  ),
+                                ),
+                                
                               ],
                             ),
                             const SizedBox(height: 20),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildFormField(
+                                    label: "Required Date*",
+                                    child: _buildClickableField(
+                                      requestedDate != null
+                                          ? DateFormat('dd MMM yyyy')
+                                              .format(requestedDate!)
+                                          : "Select Date",
+                                      Icons.calendar_today_rounded,
+                                      () async {
+                                        final date = await showDatePicker(
+                                          context: context,
+                                          initialDate:
+                                              requestedDate ?? DateTime.now(),
+                                          firstDate: DateTime.now(),
+                                          lastDate: DateTime.now()
+                                              .add(const Duration(days: 365)),
+                                        );
+                                        if (date != null)
+                                          setDialogState(
+                                              () => requestedDate = date);
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildFormField(
+                                    label: "Requested By",
+                                    child: _buildInputField(
+                                        requestedByController,
+                                        "Your Name",
+                                        Icons.person_outline_rounded,
+                                        readOnly: true),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            _buildLabel("Request Priority"),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children:
+                                  ["High", "Medium", "Low", "Normal"].map((p) {
+                                bool isSelected = priority == p;
+                                Color pColor = p == "High"
+                                    ? Colors.red
+                                    : p == "Medium"
+                                        ? Colors.orange
+                                        : p == "Low"
+                                            ? Colors.green
+                                            : const Color(0xFF2a86c9);
+                                return ChoiceChip(
+                                  label: Text(p),
+                                  selected: isSelected,
+                                  onSelected: (val) =>
+                                      setDialogState(() => priority = p),
+                                  selectedColor: pColor.withOpacity(0.1),
+                                  labelStyle: TextStyle(
+                                      color: isSelected
+                                          ? pColor
+                                          : const Color(0xFF64748B),
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal),
+                                  side: BorderSide(
+                                      color: isSelected
+                                          ? pColor
+                                          : const Color(0xFFE2E8F0)),
+                                  backgroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 8),
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(width: 16),
                             _buildSectionHeader(
   "Product Information",
   Icons.category_outlined,
@@ -1488,7 +1644,7 @@ ListView.builder(
               decoration:
                   const InputDecoration(
                 labelText:
-                    "Description / Remarks",
+                    "Description",
                 border:
                     OutlineInputBorder(),
               ),
@@ -1527,7 +1683,7 @@ ListView.builder(
                                 //         keyboardType: TextInputType.number),
                                 //   ),
                                 // ),
-                                const SizedBox(height: 20),
+                                // const SizedBox(height: 20),
 
 // _buildFormField(
 //   label: "Status",
@@ -1556,7 +1712,7 @@ ListView.builder(
 //   ),
 // ),
 
-const SizedBox(height: 20),
+// const SizedBox(height: 20),
                             // ),
                             // ),
                             // if (isSmall) ...[
@@ -1582,83 +1738,10 @@ const SizedBox(height: 20),
                             // const SizedBox(height: 20),
 
                             // Section 3: Priority
-                            _buildLabel("Request Priority"),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children:
-                                  ["High", "Medium", "Low", "Normal"].map((p) {
-                                bool isSelected = priority == p;
-                                Color pColor = p == "High"
-                                    ? Colors.red
-                                    : p == "Medium"
-                                        ? Colors.orange
-                                        : p == "Low"
-                                            ? Colors.green
-                                            : const Color(0xFF2a86c9);
-                                return ChoiceChip(
-                                  label: Text(p),
-                                  selected: isSelected,
-                                  onSelected: (val) =>
-                                      setDialogState(() => priority = p),
-                                  selectedColor: pColor.withOpacity(0.1),
-                                  labelStyle: TextStyle(
-                                      color: isSelected
-                                          ? pColor
-                                          : const Color(0xFF64748B),
-                                      fontWeight: isSelected
-                                          ? FontWeight.bold
-                                          : FontWeight.normal),
-                                  side: BorderSide(
-                                      color: isSelected
-                                          ? pColor
-                                          : const Color(0xFFE2E8F0)),
-                                  backgroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
-                                );
-                              }).toList(),
-                            ),
                             const SizedBox(height: 24),
                             _buildSectionHeader("Source & Logistics",
                                 Icons.location_on_outlined),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildFormField(
-                                    label: "Stock Location",
-                                    child: _buildClickableField(
-                                        locationName ?? "Select Location",
-                                        Icons.store_rounded, () {
-                                      _showItemPicker(
-                                          "Location",
-                                          _locations
-                                              .map((l) => l.locationName)
-                                              .toList(), (index) {
-                                        setDialogState(() {
-                                          locationId = _locations[index].id;
-                                          locationName =
-                                              _locations[index].locationName;
-                                        });
-                                      });
-                                    }),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: _buildFormField(
-                                    label: "Requested By",
-                                    child: _buildInputField(
-                                        requestedByController,
-                                        "Your Name",
-                                        Icons.person_outline_rounded,
-                                        readOnly: true),
-                                  ),
-                                ),
-                              ],
-                            ),
+                            
                             const SizedBox(height: 20),
 
                             _buildFormField(
@@ -1765,6 +1848,8 @@ for (var p in products) {
 
   "required_date":
       DateFormat('yyyy-MM-dd').format(requiredDate!),
+  "requested_date":
+      DateFormat('yyyy-MM-dd').format(requestedDate!),
   "priority": priority,
   "status": status,
   "remark": remarkController.text,

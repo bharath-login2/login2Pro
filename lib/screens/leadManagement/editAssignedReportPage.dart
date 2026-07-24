@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
@@ -11,7 +12,8 @@ import 'package:login2/models/lead_management/taskStatusModel.dart';
 import 'package:login2/models/lead_management/titleListModel.dart';
 import 'package:login2/service/service.dart';
 import 'package:login2/models/expense/staffListModel.dart';
-
+import 'package:url_launcher/url_launcher.dart';
+import 'package:file_picker/file_picker.dart';
 class EditTaskForm {
   TextEditingController controller;
   TextEditingController descriptionController;
@@ -100,7 +102,69 @@ class _EditWorkPageState extends State<EditWorkPage> {
   bool _isUpdating = false;
   bool _hasChanges = false;
   late Map<String, dynamic> _originalData;
+  List<int> deletedAttachmentIds = [];
+  List<String> deletedAttachmentFileIds = [];
+  List<File> newAttachments = [];
+Map<int, List<File>> taskAttachments = {};
+ String? whatsappMenu;
+Future<void> _openAttachment(String url) async {
+  final uri = Uri.tryParse(url);
 
+  if (uri == null) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Invalid attachment link"),
+      ),
+    );
+    return;
+  }
+
+  try {
+    final launched = await canLaunchUrl(uri);
+
+    if (!mounted) return;
+
+    if (launched) {
+      await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Unable to open attachment"),
+        ),
+      );
+    }
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Error opening attachment: $e"),
+      ),
+    );
+  }
+}
+Future<void> _pickAttachments(int taskIndex) async {
+  FilePickerResult? result = await FilePicker.platform.pickFiles(
+    allowMultiple: true,
+  );
+
+  if (result != null) {
+    setState(() {
+      taskAttachments.putIfAbsent(taskIndex, () => []);
+
+      taskAttachments[taskIndex]!.addAll(
+        result.files
+            .where((file) => file.path != null)
+            .map((file) => File(file.path!)),
+      );
+
+      _checkForChanges();
+    });
+  }
+}
   @override
   void initState() {
     super.initState();
@@ -140,15 +204,11 @@ class _EditWorkPageState extends State<EditWorkPage> {
 
     if (work.dueDate.isNotEmpty) {
       try {
-        final parsedDate = DateFormat('dd-MM-yyyy').parse(work.dueDate);
-        dueDate = parsedDate;
+        dueDate = DateFormat('dd-MM-yyyy hh:mm a').parse(work.dueDate);
+        log("Parsed Due Date: $dueDate");
       } catch (e) {
-        try {
-          final parsedDate = DateFormat('dd-MM-yyyy').parse(work.dueDate);
-          dueDate = parsedDate;
-        } catch (e) {
-          dueDate = null;
-        }
+        log("Due Date Parse Error: $e");
+        dueDate = null;
       }
     }
 
@@ -301,8 +361,24 @@ class _EditWorkPageState extends State<EditWorkPage> {
   void _initAsync() async {
     token = await Common.getSharedPref("token") ?? "";
     userId = await Common.getSharedPref("userId");
+    whatsappMenu = await Common.getSharedPref("whatsappMenu");
+    if (whatsappMenu == null && token.isNotEmpty) {
+      final object1 = await HttpService.userPermissionCheck(token);
+      if (object1 != null && object1.status == true && object1.data != null) {
+        whatsappMenu = object1.data!.whatsappMenu?.toString();
+        if (whatsappMenu != null) {
+          Common.saveSharedPref("whatsappMenu", whatsappMenu!);
+        }
+      }
+    }
+    await _loadProjectAndTitleData();
+    setState(() {});
+    // if (assignedTo == null) {
+    //   setState(() {
+    //     assignedTo = userId;
+    //   });
+    // }
   }
-
   Future<void> _loadProjectAndTitleData() async {
     try {
       final projectResponse = await HttpService.getProjectList();
@@ -578,152 +654,351 @@ class _EditWorkPageState extends State<EditWorkPage> {
     }
   }
 
-  Future<void> _updateWork() async {
-    if (_isUpdating) return;
+//   Future<void> _updateWork() async {
+//     if (_isUpdating) return;
 
-    setState(() {
-      _isUpdating = true;
-    });
+//     setState(() {
+//       _isUpdating = true;
+//     });
 
-    try {
-      if (selectedProjectId == null || selectedProjectId!.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select a project'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() => _isUpdating = false);
-        return;
-      }
+//     try {
+//       if (selectedProjectId == null || selectedProjectId!.isEmpty) {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           const SnackBar(
+//             content: Text('Please select a project'),
+//             backgroundColor: Colors.red,
+//           ),
+//         );
+//         setState(() => _isUpdating = false);
+//         return;
+//       }
 
-      if (titleController.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter a title/module'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() => _isUpdating = false);
-        return;
-      }
+//       if (titleController.text.trim().isEmpty) {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           const SnackBar(
+//             content: Text('Please enter a title/module'),
+//             backgroundColor: Colors.red,
+//           ),
+//         );
+//         setState(() => _isUpdating = false);
+//         return;
+//       }
 
-      if (tasks.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please add at least one task'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() => _isUpdating = false);
-        return;
-      }
+//       if (tasks.isEmpty) {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           const SnackBar(
+//             content: Text('Please add at least one task'),
+//             backgroundColor: Colors.red,
+//           ),
+//         );
+//         setState(() => _isUpdating = false);
+//         return;
+//       }
 
-      for (var task in tasks) {
-        if (task.controller.text.trim().isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please fill all task names'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          setState(() => _isUpdating = false);
-          return;
-        }
-      }
+//       for (var task in tasks) {
+//         if (task.controller.text.trim().isEmpty) {
+//           ScaffoldMessenger.of(context).showSnackBar(
+//             const SnackBar(
+//               content: Text('Please fill all task names'),
+//               backgroundColor: Colors.red,
+//             ),
+//           );
+//           setState(() => _isUpdating = false);
+//           return;
+//         }
+//       }
 
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+//       showDialog(
+//         context: context,
+//         barrierDismissible: false,
+//         builder: (context) => const Center(
+//           child: CircularProgressIndicator(),
+//         ),
+//       );
 
-      final updateData = {
-        'work_id': widget.assignedWork.id.toString(),
-        'project_id': selectedProjectId,
-        'project_name': selectedProjectName,
-        'title': titleController.text.trim(),
-        'title_id': selectedTitleId ?? titleController.text.trim(),
-        'due_date':
-            dueDate != null ? DateFormat('yyyy-MM-dd').format(dueDate!) : '',
-        'priority': priority ?? '1',
-        'assigned_to': assignedTo,
-        'task_type': taskType,
-        'category': category,
-        'notification': {
-          'whatsapp': whatsappNotification,
-          'push': pushNotification,
-          'notify_to_assigned': notifyToAssignedStaff,
-          'notify_on_status_change': notifyOnStatusChange,
-          'notify_other_people': notifyOtherPeople,
-          'staff_ids': [
-            if (notifyToAssignedStaff &&
-                assignedTo != null &&
-                assignedTo != "0")
-              assignedTo!,
-            if (notifyOtherPeople)
-              ...selectedStaffIds.where((id) => id != assignedTo && id != "0"),
-          ].join(','),
-          'on_start': notifyOnStart,
-          'on_complete': notifyOnComplete,
-        },
-        'tasks': tasks.asMap().entries.map((entry) {
-          final task = entry.value;
-          return {
-            'task_id': task.taskId,
-            'task_name': task.controller.text.trim(),
-            'task_description': task.descriptionController.text.trim(),
-            'status': task.status ?? '1',
-            'remarks': task.remarksControllers
-                .map((controller) => controller.text.trim())
-                .where((remark) => remark.isNotEmpty)
-                .toList(),
-            'is_existing': task.isExisting,
-          };
-        }).toList(),
-      };
+//       final updateData = {
+//         'work_id': widget.assignedWork.id.toString(),
+//         'project_id': selectedProjectId,
+//         'project_name': selectedProjectName,
+//         'title': titleController.text.trim(),
+//         'title_id': selectedTitleId ?? titleController.text.trim(),
+//         'due_date':
+//             dueDate != null ? DateFormat('yyyy-MM-dd').format(dueDate!) : '',
+//         'priority': priority ?? '1',
+//         'assigned_to': assignedTo,
+//         'task_type': taskType,
+//         'category': category,
+//         'notification': {
+//           'whatsapp': whatsappNotification,
+//           'push': pushNotification,
+//           'notify_to_assigned': notifyToAssignedStaff,
+//           'notify_on_status_change': notifyOnStatusChange,
+//           'notify_other_people': notifyOtherPeople,
+//           'staff_ids': [
+//             if (notifyToAssignedStaff &&
+//                 assignedTo != null &&
+//                 assignedTo != "0")
+//               assignedTo!,
+//             if (notifyOtherPeople)
+//               ...selectedStaffIds.where((id) => id != assignedTo && id != "0"),
+//           ].join(','),
+//           'on_start': notifyOnStart,
+//           'on_complete': notifyOnComplete,
+//         },
+        
+           
+//         'tasks': tasks.asMap().entries.map((entry) {
+//         final index = entry.key;
+//         final task = entry.value;
 
-      final response = await HttpService().updateAssignedWork(updateData);
+//         return {
+//           'task_id': task.taskId,
+//           'task_name': task.controller.text.trim(),
+//           'task_description': task.descriptionController.text.trim(),
+//           'status': task.status ?? '1',
+//           'remarks': task.remarksControllers
+//               .map((c) => c.text.trim())
+//               .where((r) => r.isNotEmpty)
+//               .toList(),
+//           'is_existing': task.isExisting,
+//           'delete_attachment_id': deletedAttachmentIds,
+//           'delete_attachment_file': deletedAttachmentFileIds,
+//           'attachment_count': taskAttachments[index]?.length ?? 0,
+//         };
+//       }).toList(),
+//       };
+// final List<File> allAttachments = taskAttachments.values
+//         .expand((files) => files)
+//         .toList();
+//       final response = await HttpService().updateAssignedWork(updateData, newAttachments);
 
-      Navigator.of(context).pop();
+//       Navigator.of(context).pop();
 
-      if (response != null && response.status == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response.message ?? 'Work updated successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+//       if (response != null && response.status == true) {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           SnackBar(
+//             content: Text(response.message ?? 'Work updated successfully!'),
+//             backgroundColor: Colors.green,
+//           ),
+//         );
 
-        widget.onSuccess();
+//         widget.onSuccess();
 
-        await Future.delayed(const Duration(seconds: 1));
-        if (context.mounted) {
-          Navigator.pop(context);
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response?.message ?? 'Failed to update work'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      Navigator.of(context).pop();
+//         await Future.delayed(const Duration(seconds: 1));
+//         if (context.mounted) {
+//           Navigator.pop(context);
+//         }
+//       } else {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           SnackBar(
+//             content: Text(response?.message ?? 'Failed to update work'),
+//             backgroundColor: Colors.red,
+//           ),
+//         );
+//       }
+//     } catch (e) {
+//       Navigator.of(context).pop();
+//       ScaffoldMessenger.of(context).showSnackBar(
+//         SnackBar(
+//           content: Text('Error: ${e.toString()}'),
+//           backgroundColor: Colors.red,
+//         ),
+//       );
+//     } finally {
+//       setState(() => _isUpdating = false);
+//     }
+//   }
+Future<void> _updateWork() async {
+  if (_isUpdating) return;
+
+  setState(() {
+    _isUpdating = true;
+  });
+
+  try {
+    if (selectedProjectId == null || selectedProjectId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
+        const SnackBar(
+          content: Text('Please select a project'),
           backgroundColor: Colors.red,
         ),
       );
-    } finally {
       setState(() => _isUpdating = false);
+      return;
     }
-  }
 
+    if (titleController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a title/module'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() => _isUpdating = false);
+      return;
+    }
+
+    if (tasks.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add at least one task'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() => _isUpdating = false);
+      return;
+    }
+// Validate tasks
+if (tasks.isEmpty ||
+    tasks.every((task) => task.controller.text.trim().isEmpty)) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Please add at least one task'),
+      backgroundColor: Colors.red,
+    ),
+  );
+  setState(() => _isUpdating = false);
+  return;
+}
+
+// Validate each task name
+for (int i = 0; i < tasks.length; i++) {
+  if (tasks[i].controller.text.trim().isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Task ${i + 1} is mandatory'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    setState(() => _isUpdating = false);
+    return;
+  }
+}
+    for (var task in tasks) {
+      if (task.controller.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please fill all task names'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => _isUpdating = false);
+        return;
+      }
+    }
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    final updateData = {
+      'work_id': widget.assignedWork.id.toString(),
+      'project_id': selectedProjectId,
+      'project_name': selectedProjectName,
+      'title': titleController.text.trim(),
+      'title_id': selectedTitleId ?? titleController.text.trim(),
+      'due_date': dueDate != null
+          ? DateFormat('yyyy-MM-dd HH:mm:ss').format(dueDate!)
+          : null,
+      'priority': priority ?? '1',
+      'assigned_to': assignedTo,
+      'task_type': taskType,
+      'category': category,
+
+      'notification': {
+        'whatsapp': whatsappNotification,
+        'push': pushNotification,
+        'notify_to_assigned': notifyToAssignedStaff,
+        'notify_on_status_change': notifyOnStatusChange,
+        'notify_other_people': notifyOtherPeople,
+        'staff_ids': [
+          if (notifyToAssignedStaff &&
+              assignedTo != null &&
+              assignedTo != "0")
+            assignedTo!,
+          if (notifyOtherPeople)
+            ...selectedStaffIds.where(
+              (id) => id != assignedTo && id != "0",
+            ),
+        ].join(','),
+        'on_start': notifyOnStart,
+        'on_complete': notifyOnComplete,
+      },
+
+      'tasks': tasks.asMap().entries.map((entry) {
+        final index = entry.key;
+        final task = entry.value;
+
+        return {
+          'task_id': task.taskId,
+          'task_name': task.controller.text.trim(),
+          'task_description': task.descriptionController.text.trim(),
+          'status': task.status ?? '1',
+          'remarks': task.remarksControllers
+              .map((c) => c.text.trim())
+              .where((r) => r.isNotEmpty)
+              .toList(),
+          'is_existing': task.isExisting,
+          'delete_attachment_id': deletedAttachmentIds,
+          'delete_attachment_file': deletedAttachmentFileIds,
+          'attachment_count': taskAttachments[index]?.length ?? 0,
+        };
+      }).toList(),
+    };
+
+    /// Flatten all task attachments into one list
+    final response = await HttpService().updateAssignedWork(
+  updateData,
+  taskAttachments,
+);
+
+    Navigator.of(context).pop();
+
+    if (response != null && response.status == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(response.message ?? 'Work updated successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      widget.onSuccess();
+
+      await Future.delayed(const Duration(seconds: 1));
+
+      if (context.mounted) {
+        Navigator.pop(context);
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(response?.message ?? 'Failed to update work'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  } catch (e) {
+    if (Navigator.canPop(context)) {
+      Navigator.of(context).pop();
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error: ${e.toString()}'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } finally {
+    setState(() {
+      _isUpdating = false;
+    });
+  }
+}
+  
   Future<void> _showDiscardDialog() async {
     if (!_hasChanges) {
       Navigator.pop(context);
@@ -1093,76 +1368,107 @@ class _EditWorkPageState extends State<EditWorkPage> {
                                 Row(
                                   children: [
                                     Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Due Date',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.grey[700],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          GestureDetector(
-                                            onTap: () async {
-                                              final picked =
-                                                  await showDatePicker(
-                                                context: context,
-                                                initialDate: dueDate ??
-                                                    DateTime
-                                                        .now(), // dueDate comes from widget.assignedWork
-                                                firstDate: DateTime(2022),
-                                                lastDate: DateTime(2100),
-                                              );
-                                              if (picked != null) {
-                                                setState(() {
-                                                  dueDate = picked;
-                                                  _checkForChanges();
-                                                });
-                                              }
-                                            },
-                                            child: Container(
-                                              padding: const EdgeInsets.all(14),
-                                              decoration: BoxDecoration(
-                                                border: Border.all(
-                                                    color:
-                                                        Colors.grey.shade300),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.calendar_today,
-                                                    size: 20,
-                                                    color: Colors.grey[600],
-                                                  ),
-                                                  const SizedBox(width: 12),
-                                                  Expanded(
-                                                    child: Text(
-                                                      dueDate != null
-                                                          ? DateFormat(
-                                                                  'dd-MM-yyyy')
-                                                              .format(
-                                                                  dueDate!) // Shows existing due date
-                                                          : 'Select',
-                                                      style: TextStyle(
-                                                        color: dueDate != null
-                                                            ? Colors.grey[800]
-                                                            : Colors.grey[500],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        'Due Date & Time',
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: Colors.grey[700],
+        ),
+      ),
+      const SizedBox(height: 6),
+      GestureDetector(
+        onTap: () async {
+  final now = DateTime.now();
+
+  // Pick Date
+  final pickedDate = await showDatePicker(
+    context: context,
+    initialDate: dueDate ?? now,
+    firstDate: now, // Prevent past dates
+    lastDate: DateTime(2100),
+  );
+
+  if (pickedDate == null) return;
+
+  // Determine initial time
+  TimeOfDay initialTime = dueDate != null
+      ? TimeOfDay.fromDateTime(dueDate!)
+      : TimeOfDay.fromDateTime(now);
+
+  // Pick Time
+  final pickedTime = await showTimePicker(
+    context: context,
+    initialTime: initialTime,
+  );
+
+  if (pickedTime == null) return;
+
+  // Create selected DateTime
+  final selectedDateTime = DateTime(
+    pickedDate.year,
+    pickedDate.month,
+    pickedDate.day,
+    pickedTime.hour,
+    pickedTime.minute,
+  );
+
+  // Prevent past date & time
+  if (selectedDateTime.isBefore(now)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          "Please select a future date and time.",
+        ),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+
+  setState(() {
+    dueDate = selectedDateTime;
+    _checkForChanges();
+  });
+},
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: Colors.grey.shade300,
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.calendar_today,
+                size: 20,
+                color: Colors.grey[600],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  dueDate != null
+                      ? DateFormat('dd-MM-yyyy hh:mm a').format(dueDate!)
+                      : 'Select Date & Time',
+                  style: TextStyle(
+                    color: dueDate != null
+                        ? Colors.grey[800]
+                        : Colors.grey[500],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  ),
+),
                                     // Expanded(
                                     //   child: Column(
                                     //     crossAxisAlignment:
@@ -1693,7 +1999,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
                                                     onChanged: (_) =>
                                                         _checkForChanges(),
                                                     decoration: InputDecoration(
-                                                      hintText: 'Task',
+                                                      hintText: 'Task *',
                                                       border:
                                                           OutlineInputBorder(
                                                         borderRadius:
@@ -1847,9 +2153,160 @@ class _EditWorkPageState extends State<EditWorkPage> {
                                                 const EdgeInsets.all(12),
                                           ),
                                         ),
+                                        const SizedBox(height: 12),
+
+if (taskIndex < widget.assignedWork.workSessions.length &&
+    widget.assignedWork.workSessions[taskIndex].attachments.isNotEmpty)
+  Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        'Attachments',
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Colors.grey[700],
+        ),
+      ),
+      const SizedBox(height: 8),
+
+      ...List.generate(
+        widget.assignedWork.workSessions[taskIndex].attachments.length,
+        (index) {
+          final attachment = widget
+              .assignedWork.workSessions[taskIndex].attachments[index];
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.attach_file,
+                  color: Colors.blue,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _openAttachment(attachment),
+                    child: Text(
+                      "Attachment ${index + 1}",
+                      style: const TextStyle(
+                        color: Colors.blue,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ),
+
+                IconButton(
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.red,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      final session = widget.assignedWork.workSessions[taskIndex];
+
+                      deletedAttachmentIds.add(session.attachmentIds[index]);
+                      deletedAttachmentFileIds.add(session.attachmentFileIds[index]);
+
+                      session.attachments.removeAt(index);
+                      session.attachmentIds.removeAt(index);
+                      session.attachmentFileIds.removeAt(index);
+
+                      _checkForChanges();
+                    });
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    ],
+  ),
+  const SizedBox(height: 12),
+
+ElevatedButton.icon(
+  onPressed: () => _pickAttachments(taskIndex),
+  icon: const Icon(Icons.attach_file),
+  label: const Text("Add Attachment"),
+),
+
+const SizedBox(height: 10),
+
+if ((taskAttachments[taskIndex] ?? []).isNotEmpty)
+  Column(
+    children: List.generate(
+      taskAttachments[taskIndex]!.length,
+      (index) {
+        final file = taskAttachments[taskIndex]![index];
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.insert_drive_file,
+                color: Colors.green,
+              ),
+              const SizedBox(width: 8),
+
+              Expanded(
+                child: Text(
+                  file.path.split('/').last,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+
+              IconButton(
+                icon: const Icon(
+                  Icons.close,
+                  color: Colors.red,
+                ),
+                onPressed: () {
+                  setState(() {
+                    taskAttachments[taskIndex]!.removeAt(index);
+
+                    if (taskAttachments[taskIndex]!.isEmpty) {
+                      taskAttachments.remove(taskIndex);
+                    }
+
+                    _checkForChanges();
+                  });
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  ),
+  
                                       ],
+                                    
                                     ),
                                   );
+                                  
+                                  
                                 }),
                                 const SizedBox(height: 8),
                                 Align(
@@ -1885,6 +2342,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
                                   ),
                                 ),
                               ],
+                            
                             ),
                           ),
                         ),
@@ -1918,18 +2376,20 @@ class _EditWorkPageState extends State<EditWorkPage> {
                                   ],
                                 ),
                                 const SizedBox(height: 16),
-                                _buildNotificationOption(
-                                  icon: FontAwesomeIcons.whatsapp,
-                                  iconColor: Colors.green,
-                                  title: 'WhatsApp Notification',
-                                  value: whatsappNotification,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      whatsappNotification = value;
-                                      _checkForChanges();
-                                    });
-                                  },
-                                ),
+                                if (whatsappMenu == "true") ...[
+                                  _buildNotificationOption(
+                                    icon: FontAwesomeIcons.whatsapp,
+                                    iconColor: Colors.green,
+                                    title: 'WhatsApp Notification',
+                                    value: whatsappNotification,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        whatsappNotification = value;
+                                        _checkForChanges();
+                                      });
+                                    },
+                                  ),
+                                ],
                                 const SizedBox(height: 12),
                                 _buildNotificationOption(
                                   icon: Icons.notifications_active_rounded,

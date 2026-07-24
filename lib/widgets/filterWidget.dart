@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:login2/models/lead_management/priorityStatusModel.dart';
 import 'package:login2/models/lead_management/taskStatusModel.dart';
+import 'package:login2/models/departmentModel.dart';
 import 'package:login2/models/expense/staffListModel.dart';
 import 'package:login2/service/service.dart';
 
@@ -38,8 +39,10 @@ class _FilterWidgetState extends State<FilterWidget> {
   List<TaskState> statusList = [];
   List<Staff> staffList = [];
   bool shouldSortSelectedFirst = false;
+  
   String? lastAppliedCategory;
-
+List<DepartmentData> departmentList = [];
+Set<String> selectedDepartmentIds = {};
   final DateFormat _formatter = DateFormat('dd-MM-yyyy');
   final TextEditingController _searchController = TextEditingController();
 
@@ -51,21 +54,44 @@ class _FilterWidgetState extends State<FilterWidget> {
     });
   }
 
-  Future<void> _loadData() async {
-    final prio = await HttpService.getPrioState();
-    final task = await HttpService.getTaskState();
-    final staff = await HttpService.getStaffs();
-    if (mounted) {
-      setState(() {
-        if (prio?.data != null) prioList = prio!.data;
-        if (task?.data != null) {
-          statusList = List<TaskState>.from(task!.data);
-        }
-        if (staff?.data != null) staffList = staff!.data;
-      });
-    }
-  }
+Future<void> _loadData() async {
+  final prio = await HttpService.getPrioState();
+  final task = await HttpService.getTaskState();
+  final staff = await HttpService.getStaffs();
+  final department = await HttpService.getDepartments();
 
+  if (mounted) {
+    setState(() {
+      if (prio?.data != null) {
+        prioList = prio!.data;
+      }
+
+      if (task?.data != null) {
+        statusList = List<TaskState>.from(task!.data);
+      }
+
+      if (staff?.data != null) {
+        staffList = staff!.data;
+      }
+
+      if (department?.data != null) {
+        departmentList = department!.data;
+      }
+    });
+  }
+}
+Future<void> _loadStaffByDepartment(String? departmentId) async {
+  final staff = await HttpService.getStaffs(
+    departmentId: departmentId,
+  );
+
+  if (!mounted) return;
+
+  setState(() {
+    staffList = staff?.data ?? [];
+    selectedAssignedToIds.clear();
+  });
+}
   void _initializeFilters() {
     if (widget.initialFilters != null) {
       print('DEBUG: Initial filters: ${widget.initialFilters}');
@@ -401,11 +427,18 @@ class _FilterWidgetState extends State<FilterWidget> {
                     children: [
                       _buildFilterCategory(
                           'Task status', Icons.star_outline_sharp),
-                      _buildFilterCategory('Assigned By', Icons.person),
-                      _buildFilterCategory('Assigned to', Icons.person_2),
-                      _buildFilterCategory('Due date', Icons.date_range),
-                      _buildFilterCategory('Priority', Icons.priority_high),
-                      _buildFilterCategory('Created time', Icons.date_range),
+                      _buildFilterCategory(
+                          'Assigned By', Icons.person),
+                      _buildFilterCategory(
+                          'Department', Icons.apartment),
+                      _buildFilterCategory(
+                          'Assigned to', Icons.person_2),
+                      _buildFilterCategory(
+                          'Due date', Icons.date_range),
+                      _buildFilterCategory(
+                          'Priority', Icons.priority_high),
+                      _buildFilterCategory(
+                          'Created time', Icons.date_range),
                     ],
                   ),
                 ),
@@ -479,6 +512,9 @@ class _FilterWidgetState extends State<FilterWidget> {
       case 'Assigned By':
         isFiltered = selectedAssignedByIds.isNotEmpty;
         break;
+      case 'Department':
+        isFiltered = selectedDepartmentIds.isNotEmpty;
+        break;
       case 'Assigned to':
         isFiltered = selectedAssignedToIds.isNotEmpty;
         break;
@@ -538,105 +574,109 @@ class _FilterWidgetState extends State<FilterWidget> {
     );
   }
 
-  Widget _buildFilterOptionsPanel() {
-    switch (selectedCategory) {
-      case 'Priority':
-        return _buildMultiSelectList(
-          items: prioList,
-          selectedIds: selectedPriorityIds,
-          displayProperty: (p) => p.priority,
-          getId: (p) => p.id,
-        );
+Widget _buildFilterOptionsPanel() {
+  switch (selectedCategory) {
+    case 'Priority':
+      return _buildMultiSelectList(
+        items: prioList,
+        selectedIds: selectedPriorityIds,
+        displayProperty: (p) => p.priority,
+        getId: (p) => p.id,
+      );
 
-      case 'Task status':
-        return _buildMultiSelectList(
-          items: statusList,
-          selectedIds: selectedStatusIds,
-          displayProperty: (s) => s.status,
-          getId: (s) => s.id,
-        );
+    case 'Task status':
+      return _buildMultiSelectList(
+        items: statusList,
+        selectedIds: selectedStatusIds,
+        displayProperty: (s) => s.status,
+        getId: (s) => s.id,
+      );
 
-      case 'Assigned By':
-        return _buildStaffSelectionList(
-          selectedIds: selectedAssignedByIds,
-        );
+    case 'Assigned By':
+      return _buildStaffSelectionList(
+        selectedIds: selectedAssignedByIds,
+      );
 
-      case 'Assigned to':
-        return _buildStaffSelectionList(
-          selectedIds: selectedAssignedToIds,
-        );
+    case 'Department':
+      return _buildDepartmentSelectionList(
+        selectedIds: selectedDepartmentIds,
+      );
 
-      case 'Due date':
-        return Column(
-          children: [
-            _buildDateField(
-              "From",
-              dueDateFrom,
-              (d) => setState(() => dueDateFrom = d),
-            ),
-            _buildDateField(
-              "To",
-              dueDateTo,
-              (d) => setState(() => dueDateTo = d),
-            ),
-            const SizedBox(height: 10),
-            _buildQuickDateFilters(
-              onToday: () {
-                final now = DateTime.now();
-                setState(() {
-                  dueDateFrom = now;
-                  dueDateTo = now;
-                });
-              },
-              onThisMonth: () {
-                final now = DateTime.now();
-                setState(() {
-                  dueDateFrom = DateTime(now.year, now.month, 1);
-                  dueDateTo = DateTime(now.year, now.month + 1, 0);
-                });
-              },
-            ),
-          ],
-        );
+    case 'Assigned to':
+      return _buildStaffSelectionList(
+        selectedIds: selectedAssignedToIds,
+      );
 
-      case 'Created time':
-        return Column(
-          children: [
-            _buildDateField(
-              "From",
-              createdFrom,
-              (d) => setState(() => createdFrom = d),
-            ),
-            _buildDateField(
-              "To",
-              createdTo,
-              (d) => setState(() => createdTo = d),
-            ),
-            const SizedBox(height: 10),
-            _buildQuickDateFilters(
-              onToday: () {
-                final now = DateTime.now();
-                setState(() {
-                  createdFrom = now;
-                  createdTo = now;
-                });
-              },
-              onThisMonth: () {
-                final now = DateTime.now();
-                setState(() {
-                  createdFrom = DateTime(now.year, now.month, 1);
-                  createdTo = DateTime(now.year, now.month + 1, 0);
-                });
-              },
-            ),
-          ],
-        );
+    case 'Due date':
+      return Column(
+        children: [
+          _buildDateField(
+            "From",
+            dueDateFrom,
+            (d) => setState(() => dueDateFrom = d),
+          ),
+          _buildDateField(
+            "To",
+            dueDateTo,
+            (d) => setState(() => dueDateTo = d),
+          ),
+          const SizedBox(height: 10),
+          _buildQuickDateFilters(
+            onToday: () {
+              final now = DateTime.now();
+              setState(() {
+                dueDateFrom = now;
+                dueDateTo = now;
+              });
+            },
+            onThisMonth: () {
+              final now = DateTime.now();
+              setState(() {
+                dueDateFrom = DateTime(now.year, now.month, 1);
+                dueDateTo = DateTime(now.year, now.month + 1, 0);
+              });
+            },
+          ),
+        ],
+      );
 
-      default:
-        return const Text("Coming soon...");
-    }
+    case 'Created time':
+      return Column(
+        children: [
+          _buildDateField(
+            "From",
+            createdFrom,
+            (d) => setState(() => createdFrom = d),
+          ),
+          _buildDateField(
+            "To",
+            createdTo,
+            (d) => setState(() => createdTo = d),
+          ),
+          const SizedBox(height: 10),
+          _buildQuickDateFilters(
+            onToday: () {
+              final now = DateTime.now();
+              setState(() {
+                createdFrom = now;
+                createdTo = now;
+              });
+            },
+            onThisMonth: () {
+              final now = DateTime.now();
+              setState(() {
+                createdFrom = DateTime(now.year, now.month, 1);
+                createdTo = DateTime(now.year, now.month + 1, 0);
+              });
+            },
+          ),
+        ],
+      );
+
+    default:
+      return const Text("Coming soon...");
   }
-
+}
   Widget _buildMultiSelectList<T>({
     required List<T> items,
     required Set<String> selectedIds,
@@ -875,6 +915,141 @@ class _FilterWidgetState extends State<FilterWidget> {
     );
   }
 
+Widget _buildDepartmentSelectionList({
+  required Set<String> selectedIds,
+}) {
+  final searchTerm = _searchController.text.toLowerCase();
+
+  var filteredDepartments = departmentList.where((department) {
+    return department.departmentName
+        .toLowerCase()
+        .contains(searchTerm);
+  }).toList();
+
+  if (shouldSortSelectedFirst) {
+    filteredDepartments.sort((a, b) {
+      final aSelected = selectedIds.contains(a.id);
+      final bSelected = selectedIds.contains(b.id);
+
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+      return a.departmentName.compareTo(b.departmentName);
+    });
+  } else {
+    filteredDepartments.sort(
+      (a, b) => a.departmentName.compareTo(b.departmentName),
+    );
+  }
+
+  return Column(
+    children: [
+      TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Search',
+          prefixIcon: const Icon(Icons.search, size: 18),
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          isDense: true,
+        ),
+        onChanged: (_) => setState(() {}),
+      ),
+      const SizedBox(height: 8),
+      Container(
+        height: 250,
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFC5CEE0)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          itemCount: filteredDepartments.length,
+          itemBuilder: (context, index) {
+  final department = filteredDepartments[index];
+  final id = department.id;
+  final selected = selectedIds.contains(id);
+
+  return GestureDetector(
+    onTap: () async {
+      if (selected) {
+        selectedIds.remove(id);
+      } else {
+        selectedIds.add(id);
+      }
+
+      final staff = await HttpService.getStaffs(
+        departmentId: selectedIds.join(','),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        staffList = staff?.data ?? [];
+        selectedAssignedToIds.clear();
+        shouldSortSelectedFirst = false;
+      });
+    },
+    child: SizedBox(
+      height: 40,
+      child: ListTile(
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        contentPadding:
+            const EdgeInsets.only(left: 4, right: 8),
+        leading: Transform.scale(
+          scale: 0.7,
+          child: Checkbox(
+            value: selected,
+            onChanged: (value) async {
+              if (value == true) {
+                selectedIds.add(id);
+              } else {
+                selectedIds.remove(id);
+              }
+
+              final staff = await HttpService.getStaffs(
+                departmentId: selectedIds.join(','),
+              );
+
+              if (!mounted) return;
+
+              setState(() {
+                staffList = staff?.data ?? [];
+                selectedAssignedToIds.clear();
+                shouldSortSelectedFirst = false;
+              });
+            },
+            materialTapTargetSize:
+                MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
+        title: Text(
+          department.departmentName,
+          style: TextStyle(
+            fontSize: 13,
+            color: selected
+                ? const Color(0xFF3366FF)
+                : const Color(0xFF2E3A59),
+            fontWeight: selected
+                ? FontWeight.bold
+                : FontWeight.normal,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        minLeadingWidth: 12,
+      ),
+    ),
+  );
+},
+        ),
+      ),
+    ],
+  );
+}
+  
   Widget _buildDateField(
     String label,
     DateTime? value,
@@ -1000,6 +1175,9 @@ class _FilterWidgetState extends State<FilterWidget> {
     } else {
       appliedFilters['status_ids'] = [];
       appliedFilters['status_names'] = [];
+    }
+    if (selectedDepartmentIds.isNotEmpty) {
+      appliedFilters['department_id'] = selectedDepartmentIds.toList();
     }
     if (selectedAssignedByIds.isNotEmpty) {
       appliedFilters['assigned_by_ids'] = selectedAssignedByIds.toList();

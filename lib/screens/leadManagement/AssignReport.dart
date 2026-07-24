@@ -16,7 +16,7 @@ import 'package:login2/widgets/blinkwidget.dart';
 import 'package:login2/widgets/filterWidget.dart';
 import 'package:login2/models/expense/staffListModel.dart';
 import 'package:login2/models/lead_management/staffwisePendingUpdatedModel.dart';
-
+import 'package:url_launcher/url_launcher.dart';
 class AssignReport extends StatefulWidget {
   final String workId;
   final String sectionId;
@@ -89,6 +89,7 @@ class _AssignReportState extends State<AssignReport> {
   Map<String, bool> _cardMinimalViews = {};
   bool _hasShownTaskDetails = false;
   bool isLoggedIn = false;
+  String? whatsappMenu;
 
   Future<void> loginorNot() async {
     final token = await Common.getSharedPref("token");
@@ -134,6 +135,7 @@ class _AssignReportState extends State<AssignReport> {
   void initState() {
     super.initState();
     loginorNot();
+    _initAsync(); 
     _loadCurrentUserId();
     _fetchStaffList();
     checkAssignedWorks();
@@ -156,7 +158,24 @@ class _AssignReportState extends State<AssignReport> {
       }
     }
   }
+void _initAsync() async {
+  final fetchedToken = await Common.getSharedPref("token") ?? "";
+  token = fetchedToken;
+  userId = await Common.getSharedPref("userId");
+  whatsappMenu = await Common.getSharedPref("whatsappMenu");
 
+  if (whatsappMenu == null && fetchedToken.isNotEmpty) {
+    final object1 = await HttpService.userPermissionCheck(fetchedToken);
+    if (object1 != null && object1.status == true && object1.data != null) {
+      whatsappMenu = object1.data!.whatsappMenu?.toString();
+      if (whatsappMenu != null) {
+        Common.saveSharedPref("whatsappMenu", whatsappMenu!);
+      }
+    }
+  }
+  if (mounted) setState(() {});
+}
+  
   Future<void> _fetchStaffList() async {
     try {
       final response = await HttpService.getStaffs();
@@ -322,7 +341,117 @@ class _AssignReportState extends State<AssignReport> {
   //     _loadData(currentFilters);
   //   });
   // }
+Future<void> _openAttachment(String url) async {
+  final Uri? uri = Uri.tryParse(url);
 
+  if (uri == null) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Invalid attachment link"),
+      ),
+    );
+    return;
+  }
+
+  try {
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+    } else {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Unable to open attachment"),
+        ),
+      );
+    }
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Error opening attachment: $e"),
+      ),
+    );
+  }
+}
+Future<void> _publishWork(
+  dynamic item,
+  String remark,
+) async {
+  final success = await HttpService.publishWork(
+    workId: item.id.toString(),
+    remark: remark,
+  );
+
+  if (!mounted) return;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        success
+            ? "Published successfully"
+            : "Failed to publish",
+      ),
+      backgroundColor:
+          success ? Colors.green : Colors.red,
+    ),
+  );
+
+  if (success) {
+    _loadData(currentFilters);
+    checkExistingWorkStatus();
+    checkAssignedWorks();
+  }
+}
+  Future<void> _showApproveDialog(AssignedWork item) async {
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text("Approve Work"),
+      content: const Text(
+        "Are you sure you want to approve this work?",
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text("Cancel"),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text("Approve"),
+        ),
+      ],
+    ),
+  );
+
+  if (confirm != true) return;
+
+  final success = await HttpService.approveWork(
+    workId: item.id.toString(),
+  );
+
+  if (!mounted) return;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        success
+            ? "Work approved successfully."
+            : "Failed to approve work.",
+      ),
+    ),
+  );
+
+  if (success) {
+    _handleRefresh(); // Refresh list so status becomes Approved
+  }
+}
   void _showSmallStaffPopup(BuildContext context) {
     final RenderBox button = context.findRenderObject() as RenderBox;
     final RenderBox overlay =
@@ -554,46 +683,59 @@ class _AssignReportState extends State<AssignReport> {
   }
 
   void _handleDeleteWork(AssignedWork item) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Work'),
-        content: Text('Are you sure you want to delete "${item.projectName}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
-            onPressed: () async {
-              final result = await HttpService().deleteWork(item.id.toString());
-              if (result != null && result.status == true) {
-                _loadData(currentFilters);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(result.message),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(result?.message ?? "Failed to delete work"),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
-          ),
-        ],
+  showDialog(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Delete Work'),
+      content: Text(
+        'Are you sure you want to delete "${item.projectName}"?',
       ),
-    );
-  }
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+          ),
+          onPressed: () async {
+            final result =
+                await HttpService().deleteWork(item.id.toString());
 
+            if (!mounted) return;
+
+            if (result != null && result.status == true) {
+              Navigator.pop(dialogContext); // Close dialog
+
+              _loadData(currentFilters);
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(result.message),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    result?.message ?? "Failed to delete work",
+                  ),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+          child: const Text(
+            'Delete',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      ],
+    ),
+  );
+}
   void _clearAllFiltersAndState() {
     setState(() {
       currentFilters.clear();
@@ -2159,6 +2301,10 @@ class _AssignReportState extends State<AssignReport> {
                           _handleEditWork(item);
                         } else if (value == 'delete') {
                           _handleDeleteWork(item);
+                        } else if (value == 'approve') {
+                          _showApproveDialog(item);
+                        } else if (value == 'publish') {
+                          _showPublishDialog(item);
                         }
                       },
                       itemBuilder: (BuildContext context) =>
@@ -2245,7 +2391,57 @@ class _AssignReportState extends State<AssignReport> {
                             ),
                           ),
                         ),
-                        ]
+                        ],
+                        if (item.status == "Approval Pending") ...[
+                            const PopupMenuDivider(),
+                            PopupMenuItem<String>(
+                              value: 'approve',
+                              child: SizedBox(
+                                width: 120,
+                                child: Row(
+                                  children: const [
+                                    Icon(
+                                      Icons.verified,
+                                      color: Colors.orange,
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Approve',
+                                        style: TextStyle(fontSize: 14),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                          if (item.status == "Approved") ...[
+                            const PopupMenuDivider(),
+                            PopupMenuItem<String>(
+                              value: 'publish',
+                              child: SizedBox(
+                                width: 120,
+                                child: Row(
+                                  children: const [
+                                    Icon(
+                                      Icons.publish,
+                                      color: Colors.green,
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Publish',
+                                        style: TextStyle(fontSize: 14),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                       ],
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -2253,6 +2449,7 @@ class _AssignReportState extends State<AssignReport> {
                       elevation: 4,
                       position: PopupMenuPosition.under,
                     ),
+                  
                   ],
                 ),
               ],
@@ -2262,7 +2459,75 @@ class _AssignReportState extends State<AssignReport> {
       ),
     );
   }
+Future<void> _showPublishDialog(dynamic item) async {
+  final remarkController = TextEditingController();
+  final formKey = GlobalKey<FormState>();
 
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        title: Row(
+          children: const [
+            Icon(Icons.publish, color: Colors.green),
+            SizedBox(width: 8),
+            Text("Publish Work"),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Are you sure you want to publish this work?",
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: remarkController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: "Remark *",
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return "Remark is required";
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(context, true);
+              }
+            },
+            child: const Text("Publish"),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (confirm != true) return;
+
+  await _publishWork(
+    item,
+    remarkController.text.trim(),
+  );
+}
   Widget _buildAssignmentCard(
       AssignedWork item, BuildContext context, bool showToggleButton) {
     return GestureDetector(
@@ -3295,6 +3560,59 @@ class _AssignReportState extends State<AssignReport> {
                               ],
                             ),
                           ],
+                          if (session.attachments.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+
+                            Text(
+                              "Attachments",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+
+                            const SizedBox(height: 8),
+
+                            ...List.generate(session.attachments.length, (index) {
+                              final attachment = session.attachments[index];
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey.shade300),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.attach_file,
+                                      color: Colors.blue,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: () => _openAttachment(attachment),
+                                        child: Text(
+                                          attachment.split('/').last,
+                                          style: const TextStyle(
+                                            color: Colors.blue,
+                                            decoration: TextDecoration.underline,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
                         ],
                       ),
                     ),
@@ -3539,62 +3857,67 @@ class _AssignReportState extends State<AssignReport> {
                           Row(
                             children: [
                               Expanded(
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 20),
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: _getStatusColor(item.status)
-                                        .withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: _getStatusColor(item.status)
-                                          .withOpacity(0.3),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        item.status == "Completed"
-                                            ? Icons.check_circle
-                                            : item.status == "To Do"
-                                                ? Icons.list_alt
-                                                : item.status == "Pending"
-                                                    ? Icons.pending_actions
-                                                    : item.status ==
-                                                            "In-Progress"
-                                                        ? Icons.timeline
-                                                        : Icons.error_outline,
-                                        color: _getStatusColor(item.status),
-                                        size: 24,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            "Status",
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade600,
-                                            ),
-                                          ),
-                                          Text(
-                                            item.status,
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              color:
-                                                  _getStatusColor(item.status),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
+  child: Container(
+    margin: const EdgeInsets.only(bottom: 20),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: _getStatusColor(item.status).withOpacity(0.1),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: _getStatusColor(item.status).withOpacity(0.3),
+        width: 1,
+      ),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          item.status == "Completed"
+              ? Icons.check_circle
+              : item.status == "To Do"
+                  ? Icons.list_alt
+                  : item.status == "Pending"
+                      ? Icons.pending_actions
+                      : item.status == "In-Progress"
+                          ? Icons.timeline
+                          : Icons.error_outline,
+          color: _getStatusColor(item.status),
+          size: 24,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Status",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Tooltip(
+                message: item.status,
+                child: Text(
+                  item.status,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: _getStatusColor(item.status),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  ),
+),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Container(
@@ -3758,6 +4081,67 @@ class _AssignReportState extends State<AssignReport> {
                       ),
                     ),
                   ),
+                  if (item.status == "Approval Pending" ||
+                      item.status == "Approved")
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                          top: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, -2),
+                          ),
+                        ],
+                      ),
+                      child: SafeArea(
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              if (item.status == "Approval Pending") {
+                                Navigator.pop(context);
+                                _showApproveDialog(item);
+                              } else if (item.status == "Approved") {
+                                Navigator.pop(context);
+                                _showPublishDialog(item);
+                              }
+                            },
+                            icon: Icon(
+                              item.status == "Approval Pending"
+                                  ? Icons.verified
+                                  : Icons.publish,
+                              color: Colors.white,
+                            ),
+                            label: Text(
+                              item.status == "Approval Pending"
+                                  ? "Approve Work"
+                                  : "Publish Work",
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: item.status == "Approval Pending"
+                                  ? Colors.orange
+                                  : Colors.green,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             );
@@ -4931,6 +5315,101 @@ class _AssignReportState extends State<AssignReport> {
                     ),
                   ),
                 ],
+
+                // Attachments section
+                if (work.logAttachments.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade100),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.attach_file,
+                                size: 13, color: Colors.blue.shade700),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Attachments (${work.logAttachments.length})',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.blue.shade800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        ...work.logAttachments.asMap().entries.map((entry) {
+                          final url = entry.value;
+                          // Extract a short display name from the URL
+                          final uri = Uri.tryParse(url);
+                          String displayName = uri?.pathSegments.isNotEmpty == true
+                              ? uri!.pathSegments.last
+                              : 'Attachment ${entry.key + 1}';
+                          if (displayName.isEmpty) {
+                            displayName = 'Attachment ${entry.key + 1}';
+                          }
+
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              bottom: entry.key == work.logAttachments.length - 1
+                                  ? 0
+                                  : 6,
+                            ),
+                            child: InkWell(
+                              onTap: () => _openAttachment(url),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border:
+                                      Border.all(color: Colors.blue.shade200),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.insert_drive_file_rounded,
+                                      size: 16,
+                                      color: Colors.blue.shade600,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        displayName,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.blue.shade700,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Icon(
+                                      Icons.open_in_new_rounded,
+                                      size: 14,
+                                      color: Colors.blue.shade400,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -5443,7 +5922,10 @@ class _AssignReportState extends State<AssignReport> {
   // }
 
   void _showShareDialog(BuildContext context, AssignedWork item) {
-    bool whatsappNotification = item.notification.whatsappNotification == "1";
+    // bool whatsappNotification = item.notification.whatsappNotification == "1";
+    bool whatsappNotification = whatsappMenu == "true"
+    ? item.notification.whatsappNotification == "1"
+    : false;
     bool pushNotification = item.notification.pushNotification == "1";
     bool notifyOnStart = item.notification.onStart == "1";
     bool notifyStatusChange = item.notification.onSave == "1";
@@ -5487,26 +5969,28 @@ class _AssignReportState extends State<AssignReport> {
                     const Text("Notification Settings",
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
-                    InkWell(
-                      onTap: () {
-                        setState(() {
-                          whatsappNotification = !whatsappNotification;
-                        });
-                      },
-                      child: Row(
-                        children: [
-                          Checkbox(
-                            value: whatsappNotification,
-                            onChanged: (value) {
-                              setState(() {
-                                whatsappNotification = value ?? false;
-                              });
-                            },
-                          ),
-                          const Text('WhatsApp Notification'),
-                        ],
+                    if (whatsappMenu == "true") ...[
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            whatsappNotification = !whatsappNotification;
+                          });
+                        },
+                        child: Row(
+                          children: [
+                            Checkbox(
+                              value: whatsappNotification,
+                              onChanged: (value) {
+                                setState(() {
+                                  whatsappNotification = value ?? false;
+                                });
+                              },
+                            ),
+                            const Text('WhatsApp Notification'),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                     InkWell(
                       onTap: () {
                         setState(() {

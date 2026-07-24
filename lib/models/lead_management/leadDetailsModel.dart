@@ -17,6 +17,7 @@ class Data {
   String? leadCategoryId;
   String? leadSubCategoryId;
   String? clientName;
+  String? companyName;
   String? address;
   String? cost;
   String? assignedUserId;
@@ -67,6 +68,7 @@ class Data {
     this.leadCategoryId,
     this.leadSubCategoryId,
     this.clientName,
+    this.companyName,
     this.address,
     this.cost,
     this.assignedUserId,
@@ -117,6 +119,7 @@ class Data {
     leadCategoryId = json['lead_category_id'] ?? "";
     leadSubCategoryId = json['lead_sub_category_id'] ?? "";
     clientName = json['client_name'] ?? "";
+    companyName = json['company_name'] ?? "";
     address = json['address'] ?? "";
     cost = json['cost'] ?? "";
     assignedUserId = json['assigned_user_id'] ?? "";

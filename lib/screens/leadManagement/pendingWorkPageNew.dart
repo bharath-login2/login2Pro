@@ -1624,13 +1624,16 @@ class _PendingWorkPageNewState extends State<PendingWorkPageNew> {
                     const SizedBox(height: 2),
 
                     // Priority and due date
-                    Row(
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         if (task.priority.isNotEmpty)
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.flag,
-                                  size: 12, color: Colors.grey),
+                              const Icon(Icons.flag, size: 12, color: Colors.grey),
                               const SizedBox(width: 4),
                               Text(
                                 'Priority: ${_getPriorityText(task.priority)}',
@@ -1641,22 +1644,29 @@ class _PendingWorkPageNewState extends State<PendingWorkPageNew> {
                               ),
                             ],
                           ),
-                        if (task.priority.isNotEmpty && task.dueDate.isNotEmpty)
-                          const SizedBox(width: 12),
+
                         if (task.dueDate.isNotEmpty)
-                          Row(
-                            children: [
-                              const Icon(Icons.calendar_today,
-                                  size: 12, color: Colors.grey),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Due: ${task.dueDate}',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: _getDueDateColor(task.dueDate),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 220),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.calendar_today,
+                                    size: 12, color: Colors.grey),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    'Due: ${task.dueDate}',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: _getDueDateColor(task.dueDate),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                       ],
                     ),
@@ -1744,6 +1754,7 @@ class _PendingWorkPageNewState extends State<PendingWorkPageNew> {
                   ],
                 ),
               ),
+            
             ],
           ),
         ],
