@@ -7226,7 +7226,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: const Color.fromARGB(255, 2, 2, 2),
+                      color: const Color.fromARGB(255, 243, 243, 243),
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
@@ -7351,10 +7351,10 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                             fontWeight: FontWeight.w700,
                                             fontSize: 14,
                                             color: Color.fromARGB(
-                                              255,
-                                              255,
-                                              255,
-                                              255,
+                                              177,
+                                              0,
+                                              0,
+                                              0,
                                             ),
                                           ),
                                         ),
@@ -7446,7 +7446,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                   ),
                             label: Text(
                               isLeadSourceExpanded ? "Show Less" : "Show More",
-                              style: const TextStyle(color: Colors.white70),
+                              style: const TextStyle(color: Colors.black),
                             ),
                           ),
                       ],
