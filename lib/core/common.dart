@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -213,6 +214,131 @@ class Common {
           ),
         ) ??
         false;
+  }
+
+  static Map<String, dynamic>? decodeJwt(String? token) {
+    if (token == null || token.isEmpty) return null;
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      String payload = parts[1];
+      switch (payload.length % 4) {
+        case 2:
+          payload += '==';
+          break;
+        case 3:
+          payload += '=';
+          break;
+      }
+      final decoded = utf8.decode(base64Url.decode(payload));
+      return jsonDecode(decoded) as Map<String, dynamic>;
+    } catch (e) {
+      if (kDebugMode) {
+        print("Error decoding JWT: $e");
+      }
+      return null;
+    }
+  }
+
+  static Future<void> saveDateFilterFromToken(String? token) async {
+    if (token == null || token.isEmpty) return;
+    try {
+      final payload = decodeJwt(token);
+      if (payload != null) {
+        dynamic val;
+        if (payload['data'] is Map<String, dynamic>) {
+          val = payload['data']['date_filter'];
+        }
+        val ??= payload['date_filter'];
+        if (val != null && val.toString().isNotEmpty) {
+          await saveSharedPref("date_filter", val.toString());
+          if (kDebugMode) {
+            print("Successfully saved date_filter from JWT token: $val");
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Error extracting date_filter from JWT token: $e");
+      }
+    }
+  }
+
+  static Future<int?> getDateFilter() async {
+    final dateFilterVal = await getSharedPref("date_filter");
+    if (dateFilterVal != null && dateFilterVal.toString().isNotEmpty) {
+      final parsed = int.tryParse(dateFilterVal.toString());
+      if (parsed != null && parsed > 0) return parsed;
+    }
+    final token = await getSharedPref("token");
+    if (token != null) {
+      final payload = decodeJwt(token.toString());
+      if (payload != null) {
+        dynamic val;
+        if (payload['data'] is Map<String, dynamic>) {
+          val = payload['data']['date_filter'];
+        }
+        val ??= payload['date_filter'];
+        if (val != null && val.toString().isNotEmpty) {
+          final parsed = int.tryParse(val.toString());
+          if (parsed != null && parsed > 0) {
+            await saveSharedPref("date_filter", parsed.toString());
+            return parsed;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  static DateTime subtractMonths(DateTime date, int months) {
+    if (months <= 0) return date;
+    int year = date.year;
+    int month = date.month - months;
+    while (month <= 0) {
+      month += 12;
+      year -= 1;
+    }
+    int day = date.day;
+    int maxDaysInMonth = DateTime(year, month + 1, 0).day;
+    if (day > maxDaysInMonth) {
+      day = maxDaysInMonth;
+    }
+    return DateTime(
+      year,
+      month,
+      day,
+      date.hour,
+      date.minute,
+      date.second,
+      date.millisecond,
+      date.microsecond,
+    );
+  }
+
+  static DateTime addMonths(DateTime date, int months) {
+    if (months <= 0) return date;
+    int year = date.year;
+    int month = date.month + months;
+    while (month > 12) {
+      month -= 12;
+      year += 1;
+    }
+    int day = date.day;
+    int maxDaysInMonth = DateTime(year, month + 1, 0).day;
+    if (day > maxDaysInMonth) {
+      day = maxDaysInMonth;
+    }
+    return DateTime(
+      year,
+      month,
+      day,
+      date.hour,
+      date.minute,
+      date.second,
+      date.millisecond,
+      date.microsecond,
+    );
   }
 }
 

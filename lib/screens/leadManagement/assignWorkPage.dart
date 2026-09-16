@@ -468,7 +468,7 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
         'title': titleController.text,
         'title_id': selectedTitleId,
         'due_date':
-            dueDate != null ? DateFormat('yyyy-MM-dd').format(dueDate!) : null,
+            dueDate != null ? DateFormat('dd-MM-yyyy hh:mm a').format(dueDate!) : null,
         'priority': priority,
         'assigned_to': assignedTo,
         'task_type': taskType,
@@ -1130,17 +1130,32 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
                                           const SizedBox(height: 6),
                                           GestureDetector(
                                             onTap: () async {
-                                              final picked =
+                                              final pickedDate =
                                                   await showDatePicker(
                                                 context: context,
-                                                initialDate: DateTime.now(),
+                                                initialDate: dueDate ?? DateTime.now(),
                                                 firstDate: DateTime(2022),
                                                 lastDate: DateTime(2100),
                                               );
-                                              if (picked != null) {
-                                                setState(() {
-                                                  dueDate = picked;
-                                                });
+                                              if (pickedDate != null) {
+                                                final pickedTime =
+                                                    await showTimePicker(
+                                                  context: context,
+                                                  initialTime: dueDate != null
+                                                      ? TimeOfDay.fromDateTime(dueDate!)
+                                                      : TimeOfDay.now(),
+                                                );
+                                                if (pickedTime != null) {
+                                                  setState(() {
+                                                    dueDate = DateTime(
+                                                      pickedDate.year,
+                                                      pickedDate.month,
+                                                      pickedDate.day,
+                                                      pickedTime.hour,
+                                                      pickedTime.minute,
+                                                    );
+                                                  });
+                                                }
                                               }
                                             },
                                             child: Container(
@@ -1164,7 +1179,7 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
                                                     child: Text(
                                                       dueDate != null
                                                           ? DateFormat(
-                                                                  'dd-MM-yyyy')
+                                                                  'dd-MM-yyyy hh:mm a')
                                                               .format(dueDate!)
                                                           : 'Select',
                                                       style: TextStyle(

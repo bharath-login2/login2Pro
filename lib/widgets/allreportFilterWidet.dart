@@ -1,6 +1,6 @@
-// Your imports here...
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:login2/core/common.dart';
 import 'package:login2/models/expense/exp_master_data.dart';
 import 'package:login2/service/service.dart';
 
@@ -60,11 +60,20 @@ void initState() {
 
   Future<void> _loadData() async {
     final masterData = await HttpService.expenseMasterData();
-    if (mounted && masterData != null && masterData.status) {
+    final dateFilterMonths = await Common.getDateFilter();
+    if (mounted) {
       setState(() {
-        allAccountHeads = masterData.data.accountHead;
-        staffs = masterData.data.staffList;
-        filteredCategories = masterData.data.expenseType;
+        if (masterData != null && masterData.status) {
+          allAccountHeads = masterData.data.accountHead;
+          staffs = masterData.data.staffList;
+          filteredCategories = masterData.data.expenseType;
+        }
+        if (dateFilterMonths != null && dateFilterMonths > 0 && createdTo != null) {
+          final minFrom = Common.subtractMonths(createdTo!, dateFilterMonths);
+          if (createdFrom != null && (createdFrom!.isBefore(minFrom) || createdFrom!.isAfter(createdTo!))) {
+            createdFrom = minFrom;
+          }
+        }
       });
     }
   }
@@ -221,9 +230,9 @@ void initState() {
       case 'Transaction Date':
         return Column(
           children: [
-            _buildDateField("From", createdFrom, (d) => setState(() => createdFrom = d)),
+            _buildDateField("From", createdFrom, true, (d) => setState(() => createdFrom = d)),
             const SizedBox(height: 18),
-            _buildDateField("To", createdTo, (d) => setState(() => createdTo = d)),
+            _buildDateField("To", createdTo, false, (d) => setState(() => createdTo = d)),
           ],
         );
 
@@ -328,17 +337,87 @@ void initState() {
     );
   }
 
-  Widget _buildDateField(String label, DateTime? value, Function(DateTime) onSelect) {
+  Widget _buildDateField(String label, DateTime? value, bool isFrom, Function(DateTime) onSelect) {
     final display = value != null ? _formatter.format(value) : 'Select';
     return GestureDetector(
       onTap: () async {
+        final dateFilterMonths = await Common.getDateFilter();
+        final DateTime now = DateTime.now();
+
+        DateTime firstDate;
+        DateTime lastDate;
+        DateTime initialDate;
+
+        if (isFrom) {
+          if (createdTo != null) {
+            lastDate = createdTo!;
+            if (dateFilterMonths != null && dateFilterMonths > 0) {
+              firstDate = Common.subtractMonths(createdTo!, dateFilterMonths);
+            } else {
+              firstDate = DateTime(2020);
+            }
+          } else {
+            firstDate = DateTime(2020);
+            lastDate = DateTime(2100);
+          }
+          initialDate = value ?? lastDate;
+          if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+          if (initialDate.isAfter(lastDate)) initialDate = lastDate;
+        } else {
+          if (createdFrom != null) {
+            firstDate = createdFrom!;
+            if (dateFilterMonths != null && dateFilterMonths > 0) {
+              lastDate = Common.addMonths(createdFrom!, dateFilterMonths);
+            } else {
+              lastDate = DateTime(2100);
+            }
+          } else {
+            firstDate = DateTime(2020);
+            lastDate = DateTime(2100);
+          }
+          initialDate = value ?? firstDate;
+          if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+          if (initialDate.isAfter(lastDate)) initialDate = lastDate;
+        }
+
         final picked = await showDatePicker(
           context: context,
-          initialDate: value ?? DateTime.now(),
-          firstDate: DateTime(2020),
-          lastDate: DateTime(2100),
+          initialDate: initialDate,
+          firstDate: firstDate,
+          lastDate: lastDate,
         );
-        if (picked != null) onSelect(picked);
+
+        if (picked != null) {
+          if (isFrom) {
+            setState(() {
+              createdFrom = picked;
+              if (dateFilterMonths != null && dateFilterMonths > 0) {
+                final maxTo = Common.addMonths(picked, dateFilterMonths);
+                if (createdTo != null &&
+                    (createdTo!.isBefore(picked) || createdTo!.isAfter(maxTo))) {
+                  createdTo = null; // Clear/reset To date if invalid
+                }
+              } else if (createdTo != null && createdTo!.isBefore(picked)) {
+                createdTo = null;
+              }
+            });
+            onSelect(picked);
+          } else {
+            setState(() {
+              createdTo = picked;
+              if (dateFilterMonths != null && dateFilterMonths > 0) {
+                final minFrom = Common.subtractMonths(picked, dateFilterMonths);
+                if (createdFrom != null &&
+                    (createdFrom!.isBefore(minFrom) || createdFrom!.isAfter(picked))) {
+                  createdFrom = null; // Clear/reset From date if invalid
+                }
+              } else if (createdFrom != null && createdFrom!.isAfter(picked)) {
+                createdFrom = null;
+              }
+            });
+            onSelect(picked);
+          }
+        }
       },
       child: Row(
         children: [

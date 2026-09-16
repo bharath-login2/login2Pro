@@ -27,6 +27,8 @@ class _EditWorkPageState extends State<EditWorkPage> {
   final TextEditingController _problemDescController = TextEditingController();
   final TextEditingController _remarksCustomerController =
       TextEditingController();
+  final TextEditingController _serviceChargeController =
+      TextEditingController();
   final TextEditingController _dealerCustomerController =
       TextEditingController();
   final TextEditingController _userPasswordController = TextEditingController();
@@ -40,6 +42,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
   String? _selectedJobType;
   String? _selectedReceivedThrough;
   String? _selectedAccessory;
+  String? _selectedServiceOption;
   String? _selectedStatus;
   DateTime? _preferredDate;
   DateTime? _estimatedDate;
@@ -322,6 +325,10 @@ class _EditWorkPageState extends State<EditWorkPage> {
     _userPasswordController.text = data.userPassword;
     _remarksController.text = data.remarks;
     _remarksCustomerController.text = data.problemReportedByCustomer;
+    if (data.serviceOption.isNotEmpty) {
+      _selectedServiceOption = data.serviceOption;
+    }
+    _serviceChargeController.text = data.serviceCharge;
     if (data.preferredDateTime.isNotEmpty) {
       _preferredDate = DateTime.tryParse(data.preferredDateTime);
     }
@@ -424,6 +431,10 @@ class _EditWorkPageState extends State<EditWorkPage> {
         "editservice_man": _selectedServiceMan,
         "editStatus": _selectedStatus ?? "New",
         "remarks_customer": _remarksCustomerController.text,
+        "editservice_option": _selectedServiceOption,
+        "service_option": _selectedServiceOption,
+        "editservice_charge": _serviceChargeController.text,
+        "service_charge": _serviceChargeController.text,
         "editDescription": _remarksController.text,
         "editjob_type": _selectedJobType ?? "New",
         "editdealer_name": _dealerCustomerController.text,
@@ -626,6 +637,23 @@ class _EditWorkPageState extends State<EditWorkPage> {
                 "Remarks About Customer",
               ),
 
+              const SizedBox(height: 8),
+              _buildDropdown(
+                "Service Option",
+                _selectedServiceOption,
+                [
+                  "Quarterwise Service",
+                  "Yearlywise Service",
+                ].map((e) => {"id": e, "name": e}).toList(),
+                (val) => setState(() => _selectedServiceOption = val),
+              ),
+              const SizedBox(height: 8),
+              _buildTextField(
+                _serviceChargeController,
+                "Service Charge",
+                keyboardType: TextInputType.number,
+              ),
+
               _buildTextField(_remarksController, "Description", maxLines: 2),
 
               _buildDropdown(
@@ -679,11 +707,11 @@ class _EditWorkPageState extends State<EditWorkPage> {
                 (val) => setState(() => _whatsappNotify = val!),
               ),
 
-              _buildCheckbox(
-                "Push Notification",
-                _pushNotify,
-                (val) => setState(() => _pushNotify = val!),
-              ),
+              // _buildCheckbox(
+              //   "Push Notification",
+              //   _pushNotify,
+              //   (val) => setState(() => _pushNotify = val!),
+              // ),
 
               const SizedBox(height: 30),
               Center(
@@ -809,6 +837,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
     String label, {
     bool obscureText = false,
     int maxLines = 1,
+    TextInputType? keyboardType,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -816,6 +845,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
         controller: controller,
         obscureText: obscureText,
         maxLines: maxLines,
+        keyboardType: keyboardType,
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),

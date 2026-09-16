@@ -514,6 +514,7 @@ class _LoginState extends State<Login> with TickerProviderStateMixin {
                   object1.data!.deleteLeaveRequest.toString());
               Common.saveSharedPref("sound", 'slow_spring_board');
               Common.saveSharedPref("token", object.data!.token.toString());
+              await Common.saveDateFilterFromToken(object.data!.token.toString());
               Common.saveSharedPref(
                   "name", object.data!.name.toString().toUpperCase());
               Common.saveSharedPref("userId", object.data!.userId.toString());

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:login2/models/expense/exp_master_data.dart';
 import 'package:login2/service/service.dart';
+import 'package:login2/core/common.dart';
 
 class ReceiptListFilterWidget extends StatefulWidget {
   final Function(Map<String, dynamic>) onApplyFilters;
@@ -270,10 +271,34 @@ class _ReceiptListFilterWidgetState extends State<ReceiptListFilterWidget> {
         return Column(
           children: [
             _buildDateField(
-                "From", createdFrom, (d) => setState(() => createdFrom = d)),
+                "From", createdFrom, true, createdTo, (d) async {
+                  final dateFilterMonths = await Common.getDateFilter();
+                  setState(() {
+                    createdFrom = d;
+                    if (dateFilterMonths != null && dateFilterMonths > 0) {
+                      final maxTo = Common.addMonths(d, dateFilterMonths);
+                      if (createdTo != null && (createdTo!.isBefore(d) || createdTo!.isAfter(maxTo))) {
+                        createdTo = null;
+                      }
+                    } else if (createdTo != null && createdTo!.isBefore(d)) {
+                      createdTo = null;
+                    }
+                  });
+                }),
             const SizedBox(height: 20),
             _buildDateField(
-                "To", createdTo, (d) => setState(() => createdTo = d)),
+                "To", createdTo, false, createdFrom, (d) async {
+                  final dateFilterMonths = await Common.getDateFilter();
+                  setState(() {
+                    createdTo = d;
+                    if (d != null && dateFilterMonths != null && dateFilterMonths > 0) {
+                      final minFrom = Common.subtractMonths(d, dateFilterMonths);
+                      if (createdFrom != null && (createdFrom!.isBefore(minFrom) || createdFrom!.isAfter(d))) {
+                        createdFrom = null;
+                      }
+                    }
+                  });
+                }),
           ],
         );
       default:
@@ -282,15 +307,54 @@ class _ReceiptListFilterWidgetState extends State<ReceiptListFilterWidget> {
   }
 
   Widget _buildDateField(
-      String label, DateTime? value, Function(DateTime) onSelect) {
+      String label, DateTime? value, bool isFrom, DateTime? otherDate, Function(DateTime) onSelect) {
     final display = value != null ? _formatter.format(value) : 'Select';
     return GestureDetector(
       onTap: () async {
+        final dateFilterMonths = await Common.getDateFilter();
+        final DateTime now = DateTime.now();
+
+        DateTime firstDate;
+        DateTime lastDate;
+        DateTime initialDate;
+
+        if (isFrom) {
+          if (otherDate != null) {
+            lastDate = otherDate;
+            if (dateFilterMonths != null && dateFilterMonths > 0) {
+              firstDate = Common.subtractMonths(otherDate, dateFilterMonths);
+            } else {
+              firstDate = DateTime(2020);
+            }
+          } else {
+            firstDate = DateTime(2020);
+            lastDate = DateTime(2100);
+          }
+          initialDate = value ?? lastDate;
+          if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+          if (initialDate.isAfter(lastDate)) initialDate = lastDate;
+        } else {
+          if (otherDate != null) {
+            firstDate = otherDate;
+            if (dateFilterMonths != null && dateFilterMonths > 0) {
+              lastDate = Common.addMonths(otherDate, dateFilterMonths);
+            } else {
+              lastDate = DateTime(2100);
+            }
+          } else {
+            firstDate = DateTime(2020);
+            lastDate = DateTime(2100);
+          }
+          initialDate = value ?? firstDate;
+          if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+          if (initialDate.isAfter(lastDate)) initialDate = lastDate;
+        }
+
         final picked = await showDatePicker(
           context: context,
-          initialDate: value ?? DateTime.now(),
-          firstDate: DateTime(2020),
-          lastDate: DateTime(2100),
+          initialDate: initialDate,
+          firstDate: firstDate,
+          lastDate: lastDate,
         );
         if (picked != null) onSelect(picked);
       },

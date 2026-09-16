@@ -29,6 +29,8 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
   final TextEditingController _problemDescController = TextEditingController();
   final TextEditingController _remarksCustomerController =
       TextEditingController();
+  final TextEditingController _serviceChargeController =
+      TextEditingController();
   final TextEditingController _dealerCustomerController =
       TextEditingController();
   final TextEditingController _userPasswordController = TextEditingController();
@@ -45,6 +47,7 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
   String? _selectedJobType;
   String? _selectedReceivedThrough;
   String? _selectedAccessory;
+  String? _selectedServiceOption;
   String? _selectedStatus = "New";
   DateTime? _preferredDate;
   DateTime? _estimatedDate;
@@ -550,6 +553,22 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
                       _remarksCustomerController,
                       "Remarks About Customer",
                     ),
+                    const SizedBox(height: 8),
+                    _buildDropdown(
+                      "Service Option",
+                      _selectedServiceOption,
+                      [
+                        "Quarterwise Service",
+                        "Yearlywise Service",
+                      ].map((e) => {"id": e, "name": e}).toList(),
+                      (val) => setState(() => _selectedServiceOption = val),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      _serviceChargeController,
+                      "Service Charge",
+                      keyboardType: TextInputType.number,
+                    ),
                     _buildTextField(
                       _remarksController,
                       "Description",
@@ -681,6 +700,8 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
                             "assigned_service_man": _selectedServiceMan,
                             "status": _selectedStatus,
                             "remarks_customer": _remarksCustomerController.text,
+                            "service_option": _selectedServiceOption,
+                            "service_charge": _serviceChargeController.text,
                             "remarks": _remarksController.text,
                             "job_type": _selectedJobType,
                             "dealer_customer": _dealerCustomerController.text,
@@ -747,6 +768,7 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
     String label, {
     bool obscureText = false,
     int maxLines = 1,
+    TextInputType? keyboardType,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -754,6 +776,7 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
         controller: controller,
         obscureText: obscureText,
         maxLines: maxLines,
+        keyboardType: keyboardType,
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),

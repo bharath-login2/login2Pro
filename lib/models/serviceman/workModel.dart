@@ -114,7 +114,7 @@ class WorkOrder {
       workOrderId: json['work_order_id'] ?? "",
       customerName: json['customer_name'] ?? "",
       custId: json['cust_id'] ?? "",
-      customerType: json['customer_type'] ?? "",
+      customerType: json['customer_type'] ?? "", 
       receivedTru: json['received_tru'] ?? "",
       workCategory: json['work_category'] ?? "",
       serialNo: json['serial_no'] ?? "",
@@ -189,28 +189,64 @@ class WorkOrder {
 }
 
 class AddProduct {
+  final String? id;
+  final String? workOrderId;
+  final String? productId;
   final String? productName;
   final String? quantity;
+  final String? consumedQty;
   final String? rate;
+  final String? unitPrice;
   final String? amount;
+  final String? currentStock;
 
-  AddProduct({this.productName, this.quantity, this.rate, this.amount});
+  AddProduct({
+    this.id,
+    this.workOrderId,
+    this.productId,
+    this.productName,
+    this.quantity,
+    this.consumedQty,
+    this.rate,
+    this.unitPrice,
+    this.amount,
+    this.currentStock,
+  });
 
   factory AddProduct.fromJson(Map<String, dynamic> json) {
+    final qty = (json['consumed_qty'] != null && json['consumed_qty'].toString().isNotEmpty)
+        ? json['consumed_qty'].toString()
+        : (json['quantity']?.toString() ?? "");
+    final price = (json['unit_price'] != null && json['unit_price'].toString().isNotEmpty)
+        ? json['unit_price'].toString()
+        : (json['rate']?.toString() ?? "");
+
     return AddProduct(
-      productName: json['product_name'] ?? "",
-      quantity: json['quantity'] ?? "",
-      rate: json['rate'] ?? "",
-      amount: json['amount'] ?? "",
+      id: json['id']?.toString() ?? "",
+      workOrderId: json['work_order_id']?.toString() ?? "",
+      productId: json['material_id']?.toString() ?? json['product_id']?.toString() ?? "",
+      productName: json['product_name']?.toString() ?? "",
+      quantity: qty,
+      consumedQty: json['consumed_qty']?.toString() ?? qty,
+      rate: price,
+      unitPrice: price,
+      amount: json['amount']?.toString() ?? "",
+      currentStock: json['current_stock']?.toString() ?? "",
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      "id": id,
+      "work_order_id": workOrderId,
+      "material_id": productId,
       "product_name": productName,
       "quantity": quantity,
+      "consumed_qty": consumedQty,
       "rate": rate,
+      "unit_price": unitPrice,
       "amount": amount,
+      "current_stock": currentStock,
     };
   }
 }

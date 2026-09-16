@@ -150,6 +150,7 @@ class _SplashScreenState extends State<SplashScreen> {
     try {
       final token = await Common.getSharedPref("token");
       if (token != null) {
+        await Common.saveDateFilterFromToken(token.toString());
         final UserPermissionModel? object1 =
             await HttpService.userPermissionCheck(token);
         if (object1 != null && object1.status == true && object1.data != null) {

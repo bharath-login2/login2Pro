@@ -40,6 +40,7 @@ class SalaryOnList {
   String monthlySalary;
   String workedDays;
   String lopDays;
+  String remarks;
   String status;
 
   SalaryOnList({
@@ -48,6 +49,7 @@ class SalaryOnList {
     required this.monthlySalary,
     required this.workedDays,
     required this.lopDays,
+    required this.remarks,
     required this.status,
   });
 
@@ -57,6 +59,7 @@ class SalaryOnList {
         monthlySalary: json["monthly_salary"] ?? "",
         workedDays: json["worked_days"] ?? "",
         lopDays: json["lop_days"] ?? "",
+        remarks: json["remarks"] ?? "",
         status: json["status"] ?? "",
       );
 
@@ -66,6 +69,7 @@ class SalaryOnList {
         "monthly_salary": monthlySalary,
         "worked_days": workedDays,
         "lop_days": lopDays,
+        "remarks": remarks,
         "status": status,
       };
 }

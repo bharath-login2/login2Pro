@@ -26,7 +26,7 @@ class _CreateReceiptPageState extends State<CreateReceiptPage> {
     'Credit Card',
     'Debit Card',
     'UPI',
-    'Bank Transfer',
+    'Bank Transfer', 
     'Net Banking',
     'Cheque'
   ];

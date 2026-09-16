@@ -163,6 +163,76 @@ class SalaryDetailPage extends StatelessWidget {
                       },
                     ],
                     Colors.purple),
+
+                // Remarks Container below Salary Details
+                Builder(builder: (context) {
+                  final remarksText = (data.remarks != null &&
+                          data.remarks!.trim().isNotEmpty &&
+                          data.remarks != "null")
+                      ? data.remarks!
+                      : ((salary.remarks != null &&
+                              salary.remarks!.trim().isNotEmpty &&
+                              salary.remarks != "null")
+                          ? salary.remarks!
+                          : null);
+
+                  if (remarksText == null) return const SizedBox.shrink();
+
+                  return Card(
+                    elevation: 4,
+                    margin: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 18,
+                                backgroundColor: Colors.teal.withOpacity(0.1),
+                                child: const Icon(LucideIcons.messageSquare,
+                                    color: Colors.teal, size: 20),
+                              ),
+                              const SizedBox(width: 10),
+                              const Text(
+                                "Remarks",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.teal,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.teal.shade50.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: Colors.teal.shade200, width: 1),
+                            ),
+                            child: Text(
+                              remarksText,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade800,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
                 const SizedBox(height: 20),
               ],
             ),

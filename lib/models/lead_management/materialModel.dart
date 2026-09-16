@@ -52,17 +52,17 @@ final String? purchasePrice;
 
   factory MaterialData.fromJson(Map<String, dynamic> json) {
     return MaterialData(
-      materialId: json['material_id'] ?? "",
-      materialName: json['material_name'] ?? "",
-      productType: json['product_type'] ?? "",
-      taxPercentage: json['tax_percentage'] ?? "",
-      discountPercentage: json['discount_percentage'] ?? "",
-      unitName: json['unit_name'] ?? "",
-      unitPrice: json['unit_price'] ?? "",
-      lastPurchasePrice: json['last_purchase_amount'] ?? "",
-      currentStock: json['current_stock'] ?? "",
-      gstPercentage: json['gst_percentage'] ?? "",
-      purchasePrice: json['purchase_price'] ?? "",
+      materialId: (json['material_id'] ?? json['id'] ?? "").toString(),
+      materialName: (json['material_name'] ?? json['product_name'] ?? json['name'] ?? "").toString(),
+      productType: (json['product_type'] ?? "").toString(),
+      taxPercentage: (json['tax_percentage'] ?? json['tax_percent'] ?? "").toString(),
+      discountPercentage: (json['discount_percentage'] ?? json['discount_percent'] ?? "").toString(),
+      unitName: (json['unit_name'] ?? json['unit'] ?? "-").toString(),
+      unitPrice: (json['unit_price'] ?? json['price'] ?? json['rate'] ?? "0").toString(),
+      lastPurchasePrice: (json['last_purchase_amount'] ?? "").toString(),
+      currentStock: (json['current_stock'] ?? json['stock'] ?? "0").toString(),
+      gstPercentage: (json['gst_percentage'] ?? "").toString(),
+      purchasePrice: (json['purchase_price'] ?? "").toString(),
     );
   }
 

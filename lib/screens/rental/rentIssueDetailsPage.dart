@@ -295,7 +295,7 @@ class _RentIssueDetailsPageState extends State<RentIssueDetailsPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text("Product ID: ${item.productId}",
+                            Text(" ${item.productName}",
                                 style: const TextStyle(
                                     fontWeight: FontWeight.bold, fontSize: 14)),
                             Text("Qty: ${item.qty} | Days: ${item.days}",

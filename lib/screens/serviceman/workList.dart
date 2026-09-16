@@ -194,7 +194,7 @@ class _WorkListPageState extends State<WorkListPage>
     WorkOrder work,
     String action,
   ) async {
-    final String? workId = work.workOrderId;
+    final String? workId = work.workOrderID;
     if (workId == null) return;
 
     String? selectedProduct;
@@ -214,19 +214,32 @@ class _WorkListPageState extends State<WorkListPage>
 
     // Initialize selectedMaterials with existing add_products if available
     List<Map<String, dynamic>> selectedMaterials =
-        work.addProducts?.map((product) {
-              return {
-                "material_id": product.productName, // Using productName as ID
+        work.addProducts?.map<Map<String, dynamic>>((product) {
+              final String qty = (product.consumedQty != null && product.consumedQty!.isNotEmpty)
+                  ? product.consumedQty!
+                  : ((product.quantity != null && product.quantity!.isNotEmpty)
+                      ? product.quantity!
+                      : "1");
+              final String rateVal = (product.unitPrice != null && product.unitPrice!.isNotEmpty)
+                  ? product.unitPrice!
+                  : ((product.rate != null && product.rate!.isNotEmpty)
+                      ? product.rate!
+                      : "0");
+              return <String, dynamic>{
+                "material_id": product.productId ?? "",
                 "material_name": product.productName ?? "",
-                "unit_price": product.rate ?? "0",
-                "quantity": product.quantity ?? "1",
+                "product_name": product.productName ?? "",
+                "unit_price": rateVal,
+                "rate": rateVal,
+                "consumed_qty": qty,
+                "quantity": qty,
                 "total_price": product.amount ?? "0",
-                "stock":
-                    "999", // Set high stock for existing materials to allow editing
+                "amount": product.amount ?? "0",
+                "stock": product.currentStock ?? "999",
                 "is_existing": true,
               };
             }).toList() ??
-            [];
+            <Map<String, dynamic>>[];
 
     bool isLoadingWorkTypes = true;
     bool isLoadingMaterials = true;
@@ -293,24 +306,8 @@ class _WorkListPageState extends State<WorkListPage>
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            void addMaterial(MaterialData material) {
-              if (!selectedMaterials.any(
-                (m) => m["material_id"] == material.materialId,
-              )) {
-                selectedMaterials.add({
-                  "material_id": material.materialId,
-                  "material_name": material.materialName,
-                  "unit_price": material.unitPrice ?? "0",
-                  "quantity": "1",
-                  "total_price": material.unitPrice ?? "0",
-                  "stock": material.currentStock ?? "0",
-                  "is_existing": false,
-                });
-              }
-              setState(() {});
-            }
-
             void updateQuantity(int index, bool increase) {
+              if (selectedMaterials[index]["is_existing"] == true) return;
               final stock =
                   int.tryParse(selectedMaterials[index]["stock"].toString()) ??
                       0;
@@ -335,11 +332,48 @@ class _WorkListPageState extends State<WorkListPage>
                 }
                 quantity++;
               } else {
-                if (quantity > 1) quantity--;
+                if (quantity > 1) {
+                  quantity--;
+                } else {
+                  return;
+                }
               }
               selectedMaterials[index]["quantity"] = quantity.toString();
               selectedMaterials[index]["total_price"] =
                   (unitPrice * quantity).toStringAsFixed(2);
+              selectedMaterials[index]["amount"] =
+                  (unitPrice * quantity).toStringAsFixed(2);
+              setState(() {});
+            }
+
+            void addMaterial(MaterialData material) {
+              final existingIndex = selectedMaterials.indexWhere(
+                (m) => m["material_id"] == material.materialId,
+              );
+              if (existingIndex != -1) {
+                updateQuantity(existingIndex, true);
+              } else {
+                final double unitPrice =
+                    double.tryParse(material.unitPrice ?? "0") ?? 0.0;
+                selectedMaterials.add(<String, dynamic>{
+                  "material_id": material.materialId,
+                  "material_name": material.materialName,
+                  "product_name": material.materialName,
+                  "unit_price": material.unitPrice ?? "0",
+                  "rate": material.unitPrice ?? "0",
+                  "quantity": "1",
+                  "total_price": unitPrice.toStringAsFixed(2),
+                  "amount": unitPrice.toStringAsFixed(2),
+                  "stock": material.currentStock ?? "0",
+                  "is_existing": false,
+                });
+                setState(() {});
+              }
+            }
+
+            void removeMaterial(int index) {
+              if (selectedMaterials[index]["is_existing"] == true) return;
+              selectedMaterials.removeAt(index);
               setState(() {});
             }
 
@@ -430,7 +464,7 @@ class _WorkListPageState extends State<WorkListPage>
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            "${work.addProducts!.length} material(s) already added - You can edit or remove them",
+                            "${work.addProducts!.length} material(s) already added",
                             style: const TextStyle(
                               color: Colors.grey,
                               fontSize: 14,
@@ -446,13 +480,15 @@ class _WorkListPageState extends State<WorkListPage>
                     ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<MaterialData>(
-                      hint: const Text("Add a Material"),
+                      value: null,
+                      hint: const Text("Select Materials"),
+                      isExpanded: true,
                       items: materialsList.map((mat) {
                         final stock =
                             int.tryParse(mat.currentStock ?? "0") ?? 0;
-                        return DropdownMenuItem(
+                        return DropdownMenuItem<MaterialData>(
                           enabled: stock > 0,
-                          value: stock > 0 ? mat : null,
+                          value: mat,
                           child: Text(
                             "${mat.materialName} (Stock: $stock)",
                             style: TextStyle(
@@ -482,167 +518,164 @@ class _WorkListPageState extends State<WorkListPage>
                               final mat = entry.value;
                               final isExisting = mat["is_existing"] == true;
 
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    margin: const EdgeInsets.symmetric(
-                                      vertical: 6,
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isExisting
+                                      ? Colors.green.shade50
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isExisting
+                                        ? Colors.green.shade200
+                                        : Colors.grey.shade200,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.03),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
                                     ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isExisting
-                                          ? Colors.green.shade50
-                                          : Colors.grey.shade50,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: isExisting
-                                            ? Colors.green.shade200
-                                            : Colors.grey.shade300,
-                                      ),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
                                       children: [
-                                        Row(
-                                          children: [
-                                            Text(
-                                              mat["material_name"] ?? "",
+                                        Expanded(
+                                          child: Text(
+                                            mat["material_name"] ?? mat["product_name"] ?? "",
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.bold,
+                                              color: isExisting
+                                                  ? Colors.green.shade900
+                                                  : Colors.black87,
+                                            ),
+                                          ),
+                                        ),
+                                        if (isExisting)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green.shade100,
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: const Text(
+                                              "Existing",
                                               style: TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w600,
-                                                color: isExisting
-                                                    ? Colors.green.shade800
-                                                    : Colors.black87,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.green,
                                               ),
                                             ),
-                                            if (isExisting) ...[
-                                              const SizedBox(width: 6),
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 6,
-                                                  vertical: 2,
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        if (isExisting)
+                                          Text(
+                                            "Qty: ${mat["consumed_qty"] ?? mat["quantity"] ?? "1"}",
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                              color: Colors.black87,
+                                            ),
+                                          )
+                                        else
+                                          Row(
+                                            children: [
+                                              InkWell(
+                                                onTap: () => updateQuantity(
+                                                  index,
+                                                  false,
                                                 ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.green.shade100,
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
-                                                ),
-                                                child: const Text(
-                                                  "Existing",
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.green,
-                                                  ),
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                                child: const Icon(
+                                                  Icons.remove_circle_outline,
+                                                  color: Color(0xFFE57373),
+                                                  size: 24,
                                                 ),
                                               ),
-                                            ],
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.remove_circle_outline,
-                                                    size: 22,
-                                                  ),
-                                                  color: Colors.redAccent,
-                                                  padding: EdgeInsets.zero,
-                                                  constraints:
-                                                      const BoxConstraints(),
-                                                  onPressed: () =>
-                                                      updateQuantity(
-                                                    index,
-                                                    false,
-                                                  ),
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 10,
                                                 ),
-                                                const SizedBox(width: 4),
-                                                Text(
+                                                child: Text(
                                                   mat["quantity"].toString(),
                                                   style: const TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 15,
                                                   ),
                                                 ),
-                                                const SizedBox(width: 4),
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.add_circle_outline,
-                                                    size: 22,
-                                                  ),
-                                                  color: Colors.green,
-                                                  padding: EdgeInsets.zero,
-                                                  constraints:
-                                                      const BoxConstraints(),
-                                                  onPressed: () =>
-                                                      updateQuantity(
-                                                    index,
-                                                    true,
-                                                  ),
+                                              ),
+                                              InkWell(
+                                                onTap: () => updateQuantity(
+                                                  index,
+                                                  true,
                                                 ),
-                                              ],
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                                child: const Icon(
+                                                  Icons.add_circle_outline,
+                                                  color: Color(0xFF81C784),
+                                                  size: 24,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              "₹${mat["total_price"] ?? mat["amount"] ?? "0"}",
+                                              style: const TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black87,
+                                              ),
                                             ),
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  "₹${mat["total_price"]}",
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: isExisting
-                                                        ? Colors.green.shade800
-                                                        : Colors.black87,
-                                                  ),
+                                            if (!isExisting) ...[
+                                              const SizedBox(width: 12),
+                                              InkWell(
+                                                onTap: () =>
+                                                    removeMaterial(index),
+                                                child: const Icon(
+                                                  Icons.delete_outline,
+                                                  color: Color(0xFFE57373),
+                                                  size: 22,
                                                 ),
-                                                const SizedBox(width: 6),
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.delete_outline,
-                                                    color: Colors.redAccent,
-                                                  ),
-                                                  padding: EdgeInsets.zero,
-                                                  constraints:
-                                                      const BoxConstraints(),
-                                                  onPressed: () {
-                                                    selectedMaterials.removeAt(
-                                                      index,
-                                                    );
-                                                    setState(() {});
-                                                  },
-                                                ),
-                                              ],
-                                            ),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  const Divider(
-                                    color: Colors.grey,
-                                    height: 10,
-                                    thickness: 0.6,
-                                  ),
-                                ],
+                                  ],
+                                ),
                               );
                             },
                           ).toList(),
                           Container(
-                            margin: const EdgeInsets.only(top: 8),
-                            padding: const EdgeInsets.all(10),
+                            margin: const EdgeInsets.only(top: 2, bottom: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(10),
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -652,14 +685,15 @@ class _WorkListPageState extends State<WorkListPage>
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 15,
+                                    color: Colors.black87,
                                   ),
                                 ),
                                 Text(
                                   "₹${selectedMaterials.fold<double>(0.0, (sum, mat) => sum + (double.tryParse(mat["total_price"].toString()) ?? 0.0)).toStringAsFixed(2)}",
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                    color: Colors.black87,
+                                    fontSize: 16,
+                                    color: Colors.black,
                                   ),
                                 ),
                               ],
@@ -757,7 +791,7 @@ class _WorkListPageState extends State<WorkListPage>
     WorkOrder work,
     String action,
   ) async {
-    final String? workId = work.workOrderId;
+    final String? workId = work.workOrderID;
     if (workId == null) return;
 
     String? selectedProduct;
@@ -776,18 +810,32 @@ class _WorkListPageState extends State<WorkListPage>
 
     // Initialize selectedMaterials with existing add_products if available
     List<Map<String, dynamic>> selectedMaterials =
-        work.addProducts?.map((product) {
-              return {
-                "material_id": product.productName,
+        work.addProducts?.map<Map<String, dynamic>>((product) {
+              final String qty = (product.consumedQty != null && product.consumedQty!.isNotEmpty)
+                  ? product.consumedQty!
+                  : ((product.quantity != null && product.quantity!.isNotEmpty)
+                      ? product.quantity!
+                      : "1");
+              final String rateVal = (product.unitPrice != null && product.unitPrice!.isNotEmpty)
+                  ? product.unitPrice!
+                  : ((product.rate != null && product.rate!.isNotEmpty)
+                      ? product.rate!
+                      : "0");
+              return <String, dynamic>{
+                "material_id": product.productId ?? "",
                 "material_name": product.productName ?? "",
-                "unit_price": product.rate ?? "0",
-                "quantity": product.quantity ?? "1",
+                "product_name": product.productName ?? "",
+                "unit_price": rateVal,
+                "rate": rateVal,
+                "consumed_qty": qty,
+                "quantity": qty,
                 "total_price": product.amount ?? "0",
-                "stock": "0",
+                "amount": product.amount ?? "0",
+                "stock": product.currentStock ?? "999",
                 "is_existing": true,
               };
             }).toList() ??
-            [];
+            <Map<String, dynamic>>[];
 
     bool isLoadingWorkTypes = true;
     bool isLoadingMaterials = true;
@@ -852,24 +900,8 @@ class _WorkListPageState extends State<WorkListPage>
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            void addMaterial(MaterialData material) {
-              if (!selectedMaterials.any(
-                (m) => m["material_id"] == material.materialId,
-              )) {
-                selectedMaterials.add({
-                  "material_id": material.materialId,
-                  "material_name": material.materialName,
-                  "unit_price": material.unitPrice ?? "0",
-                  "quantity": "1",
-                  "total_price": material.unitPrice ?? "0",
-                  "stock": material.currentStock ?? "0",
-                  "is_existing": false,
-                });
-              }
-              setState(() {});
-            }
-
             void updateQuantity(int index, bool increase) {
+              if (selectedMaterials[index]["is_existing"] == true) return;
               final stock =
                   int.tryParse(selectedMaterials[index]["stock"].toString()) ??
                       0;
@@ -894,11 +926,48 @@ class _WorkListPageState extends State<WorkListPage>
                 }
                 quantity++;
               } else {
-                if (quantity > 1) quantity--;
+                if (quantity > 1) {
+                  quantity--;
+                } else {
+                  return;
+                }
               }
               selectedMaterials[index]["quantity"] = quantity.toString();
               selectedMaterials[index]["total_price"] =
                   (unitPrice * quantity).toStringAsFixed(2);
+              selectedMaterials[index]["amount"] =
+                  (unitPrice * quantity).toStringAsFixed(2);
+              setState(() {});
+            }
+
+            void addMaterial(MaterialData material) {
+              final existingIndex = selectedMaterials.indexWhere(
+                (m) => m["material_id"] == material.materialId,
+              );
+              if (existingIndex != -1) {
+                updateQuantity(existingIndex, true);
+              } else {
+                final double unitPrice =
+                    double.tryParse(material.unitPrice ?? "0") ?? 0.0;
+                selectedMaterials.add(<String, dynamic>{
+                  "material_id": material.materialId,
+                  "material_name": material.materialName,
+                  "product_name": material.materialName,
+                  "unit_price": material.unitPrice ?? "0",
+                  "rate": material.unitPrice ?? "0",
+                  "quantity": "1",
+                  "total_price": unitPrice.toStringAsFixed(2),
+                  "amount": unitPrice.toStringAsFixed(2),
+                  "stock": material.currentStock ?? "0",
+                  "is_existing": false,
+                });
+                setState(() {});
+              }
+            }
+
+            void removeMaterial(int index) {
+              if (selectedMaterials[index]["is_existing"] == true) return;
+              selectedMaterials.removeAt(index);
               setState(() {});
             }
 
@@ -1031,13 +1100,15 @@ class _WorkListPageState extends State<WorkListPage>
                       const Center(child: CircularProgressIndicator())
                     else if (materialsList.isNotEmpty)
                       DropdownButtonFormField<MaterialData>(
-                        hint: const Text("Add a Material"),
+                        value: null,
+                        hint: const Text("Select Materials"),
+                        isExpanded: true,
                         items: materialsList.map((mat) {
                           final stock =
                               int.tryParse(mat.currentStock ?? "0") ?? 0;
-                          return DropdownMenuItem(
+                          return DropdownMenuItem<MaterialData>(
                             enabled: stock > 0,
-                            value: stock > 0 ? mat : null,
+                            value: mat,
                             child: Text(
                               "${mat.materialName} (Stock: $stock)",
                               style: TextStyle(
@@ -1073,174 +1144,164 @@ class _WorkListPageState extends State<WorkListPage>
                               final mat = entry.value;
                               final isExisting = mat["is_existing"] == true;
 
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    margin: const EdgeInsets.symmetric(
-                                      vertical: 6,
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isExisting
+                                      ? Colors.green.shade50
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isExisting
+                                        ? Colors.green.shade200
+                                        : Colors.grey.shade200,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.03),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
                                     ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isExisting
-                                          ? Colors.green.shade50
-                                          : Colors.grey.shade50,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: isExisting
-                                            ? Colors.green.shade200
-                                            : Colors.grey.shade300,
-                                      ),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
                                       children: [
-                                        Row(
-                                          children: [
-                                            Text(
-                                              mat["material_name"] ?? "",
+                                        Expanded(
+                                          child: Text(
+                                            mat["material_name"] ?? mat["product_name"] ?? "",
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.bold,
+                                              color: isExisting
+                                                  ? Colors.green.shade900
+                                                  : Colors.black87,
+                                            ),
+                                          ),
+                                        ),
+                                        if (isExisting)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green.shade100,
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: const Text(
+                                              "Existing",
                                               style: TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w600,
-                                                color: isExisting
-                                                    ? Colors.green.shade800
-                                                    : Colors.black87,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.green,
                                               ),
                                             ),
-                                            if (isExisting) ...[
-                                              const SizedBox(width: 6),
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 6,
-                                                  vertical: 2,
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        if (isExisting)
+                                          Text(
+                                            "Qty: ${mat["consumed_qty"] ?? mat["quantity"] ?? "1"}",
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                              color: Colors.black87,
+                                            ),
+                                          )
+                                        else
+                                          Row(
+                                            children: [
+                                              InkWell(
+                                                onTap: () => updateQuantity(
+                                                  index,
+                                                  false,
                                                 ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.green.shade100,
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
-                                                ),
-                                                child: const Text(
-                                                  "Existing",
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.green,
-                                                  ),
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                                child: const Icon(
+                                                  Icons.remove_circle_outline,
+                                                  color: Color(0xFFE57373),
+                                                  size: 24,
                                                 ),
                                               ),
-                                            ],
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                if (!isExisting) ...[
-                                                  IconButton(
-                                                    icon: const Icon(
-                                                      Icons
-                                                          .remove_circle_outline,
-                                                      size: 22,
-                                                    ),
-                                                    color: Colors.redAccent,
-                                                    padding: EdgeInsets.zero,
-                                                    constraints:
-                                                        const BoxConstraints(),
-                                                    onPressed: () =>
-                                                        updateQuantity(
-                                                      index,
-                                                      false,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                ],
-                                                Text(
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                ),
+                                                child: Text(
                                                   mat["quantity"].toString(),
                                                   style: const TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 15,
                                                   ),
                                                 ),
-                                                if (!isExisting) ...[
-                                                  const SizedBox(width: 4),
-                                                  IconButton(
-                                                    icon: const Icon(
-                                                      Icons.add_circle_outline,
-                                                      size: 22,
-                                                    ),
-                                                    color: Colors.green,
-                                                    padding: EdgeInsets.zero,
-                                                    constraints:
-                                                        const BoxConstraints(),
-                                                    onPressed: () =>
-                                                        updateQuantity(
-                                                      index,
-                                                      true,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  "₹${mat["total_price"]}",
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: isExisting
-                                                        ? Colors.green.shade800
-                                                        : Colors.black87,
-                                                  ),
+                                              ),
+                                              InkWell(
+                                                onTap: () => updateQuantity(
+                                                  index,
+                                                  true,
                                                 ),
-                                                const SizedBox(width: 6),
-                                                if (!isExisting)
-                                                  IconButton(
-                                                    icon: const Icon(
-                                                      Icons.delete_outline,
-                                                      color: Colors.redAccent,
-                                                    ),
-                                                    padding: EdgeInsets.zero,
-                                                    constraints:
-                                                        const BoxConstraints(),
-                                                    onPressed: () {
-                                                      selectedMaterials
-                                                          .removeAt(
-                                                        index,
-                                                      );
-                                                      setState(() {});
-                                                    },
-                                                  ),
-                                              ],
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                                child: const Icon(
+                                                  Icons.add_circle_outline,
+                                                  color: Color(0xFF81C784),
+                                                  size: 24,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              "₹${mat["total_price"] ?? mat["amount"] ?? "0"}",
+                                              style: const TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black87,
+                                              ),
                                             ),
+                                            if (!isExisting) ...[
+                                              const SizedBox(width: 12),
+                                              InkWell(
+                                                onTap: () =>
+                                                    removeMaterial(index),
+                                                child: const Icon(
+                                                  Icons.delete_outline,
+                                                  color: Color(0xFFE57373),
+                                                  size: 22,
+                                                ),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  const Divider(
-                                    color: Colors.grey,
-                                    height: 10,
-                                    thickness: 0.6,
-                                  ),
-                                ],
+                                  ],
+                                ),
                               );
                             },
                           ).toList(),
                           Container(
-                            margin: const EdgeInsets.only(top: 8),
-                            padding: const EdgeInsets.all(10),
+                            margin: const EdgeInsets.only(top: 2, bottom: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(10),
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1250,14 +1311,15 @@ class _WorkListPageState extends State<WorkListPage>
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 15,
+                                    color: Colors.black87,
                                   ),
                                 ),
                                 Text(
                                   "₹${selectedMaterials.fold<double>(0.0, (sum, mat) => sum + (double.tryParse(mat["total_price"].toString()) ?? 0.0)).toStringAsFixed(2)}",
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                    color: Colors.black87,
+                                    fontSize: 16,
+                                    color: Colors.black,
                                   ),
                                 ),
                               ],
@@ -1368,7 +1430,7 @@ class _WorkListPageState extends State<WorkListPage>
     WorkOrder work,
     String action,
   ) async {
-    final String? workId = work.workOrderId;
+    final String? workId = work.workOrderID;
     if (workId == null) return;
 
     String? selectedStatus = "On Hold";
@@ -1377,18 +1439,32 @@ class _WorkListPageState extends State<WorkListPage>
 
     // Initialize selectedMaterials with existing add_products if available
     List<Map<String, dynamic>> selectedMaterials =
-        work.addProducts?.map((product) {
-              return {
-                "material_id": product.productName,
+        work.addProducts?.map<Map<String, dynamic>>((product) {
+              final String qty = (product.consumedQty != null && product.consumedQty!.isNotEmpty)
+                  ? product.consumedQty!
+                  : ((product.quantity != null && product.quantity!.isNotEmpty)
+                      ? product.quantity!
+                      : "1");
+              final String rateVal = (product.unitPrice != null && product.unitPrice!.isNotEmpty)
+                  ? product.unitPrice!
+                  : ((product.rate != null && product.rate!.isNotEmpty)
+                      ? product.rate!
+                      : "0");
+              return <String, dynamic>{
+                "material_id": product.productId ?? "",
                 "material_name": product.productName ?? "",
-                "unit_price": product.rate ?? "0",
-                "quantity": product.quantity ?? "1",
+                "product_name": product.productName ?? "",
+                "unit_price": rateVal,
+                "rate": rateVal,
+                "consumed_qty": qty,
+                "quantity": qty,
                 "total_price": product.amount ?? "0",
-                "stock": "0",
+                "amount": product.amount ?? "0",
+                "stock": product.currentStock ?? "999",
                 "is_existing": true,
               };
             }).toList() ??
-            [];
+            <Map<String, dynamic>>[];
 
     String? selectedCustomerId;
     final List<String> statusOptions = [
@@ -1464,24 +1540,8 @@ class _WorkListPageState extends State<WorkListPage>
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            void addMaterial(MaterialData material) {
-              if (!selectedMaterials.any(
-                (m) => m["material_id"] == material.materialId,
-              )) {
-                selectedMaterials.add({
-                  "material_id": material.materialId,
-                  "material_name": material.materialName,
-                  "unit_price": material.unitPrice ?? "0",
-                  "quantity": "1",
-                  "total_price": material.unitPrice ?? "0",
-                  "stock": material.currentStock ?? "0",
-                  "is_existing": false,
-                });
-              }
-              setState(() {});
-            }
-
             void updateQuantity(int index, bool increase) {
+              if (selectedMaterials[index]["is_existing"] == true) return;
               final stock =
                   int.tryParse(selectedMaterials[index]["stock"].toString()) ??
                       0;
@@ -1506,11 +1566,48 @@ class _WorkListPageState extends State<WorkListPage>
                 }
                 quantity++;
               } else {
-                if (quantity > 1) quantity--;
+                if (quantity > 1) {
+                  quantity--;
+                } else {
+                  return;
+                }
               }
               selectedMaterials[index]["quantity"] = quantity.toString();
               selectedMaterials[index]["total_price"] =
                   (unitPrice * quantity).toStringAsFixed(2);
+              selectedMaterials[index]["amount"] =
+                  (unitPrice * quantity).toStringAsFixed(2);
+              setState(() {});
+            }
+
+            void addMaterial(MaterialData material) {
+              final existingIndex = selectedMaterials.indexWhere(
+                (m) => m["material_id"] == material.materialId,
+              );
+              if (existingIndex != -1) {
+                updateQuantity(existingIndex, true);
+              } else {
+                final double unitPrice =
+                    double.tryParse(material.unitPrice ?? "0") ?? 0.0;
+                selectedMaterials.add(<String, dynamic>{
+                  "material_id": material.materialId,
+                  "material_name": material.materialName,
+                  "product_name": material.materialName,
+                  "unit_price": material.unitPrice ?? "0",
+                  "rate": material.unitPrice ?? "0",
+                  "quantity": "1",
+                  "total_price": unitPrice.toStringAsFixed(2),
+                  "amount": unitPrice.toStringAsFixed(2),
+                  "stock": material.currentStock ?? "0",
+                  "is_existing": false,
+                });
+                setState(() {});
+              }
+            }
+
+            void removeMaterial(int index) {
+              if (selectedMaterials[index]["is_existing"] == true) return;
+              selectedMaterials.removeAt(index);
               setState(() {});
             }
 
@@ -1655,13 +1752,15 @@ class _WorkListPageState extends State<WorkListPage>
                       const Center(child: CircularProgressIndicator())
                     else if (materialsList.isNotEmpty)
                       DropdownButtonFormField<MaterialData>(
-                        hint: const Text("Add a Material"),
+                        value: null,
+                        hint: const Text("Select Materials"),
+                        isExpanded: true,
                         items: materialsList.map((mat) {
                           final stock =
                               int.tryParse(mat.currentStock ?? "0") ?? 0;
-                          return DropdownMenuItem(
+                          return DropdownMenuItem<MaterialData>(
                             enabled: stock > 0,
-                            value: stock > 0 ? mat : null,
+                            value: mat,
                             child: Text(
                               "${mat.materialName} (Stock: $stock)",
                               style: TextStyle(
@@ -1695,174 +1794,164 @@ class _WorkListPageState extends State<WorkListPage>
                               final mat = entry.value;
                               final isExisting = mat["is_existing"] == true;
 
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    margin: const EdgeInsets.symmetric(
-                                      vertical: 6,
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isExisting
+                                      ? Colors.green.shade50
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isExisting
+                                        ? Colors.green.shade200
+                                        : Colors.grey.shade200,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.03),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
                                     ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isExisting
-                                          ? Colors.green.shade50
-                                          : Colors.grey.shade50,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: isExisting
-                                            ? Colors.green.shade200
-                                            : Colors.grey.shade300,
-                                      ),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
                                       children: [
-                                        Row(
-                                          children: [
-                                            Text(
-                                              mat["material_name"] ?? "",
+                                        Expanded(
+                                          child: Text(
+                                            mat["material_name"] ?? mat["product_name"] ?? "",
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.bold,
+                                              color: isExisting
+                                                  ? Colors.green.shade900
+                                                  : Colors.black87,
+                                            ),
+                                          ),
+                                        ),
+                                        if (isExisting)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green.shade100,
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: const Text(
+                                              "Existing",
                                               style: TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w600,
-                                                color: isExisting
-                                                    ? Colors.green.shade800
-                                                    : Colors.black87,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.green,
                                               ),
                                             ),
-                                            if (isExisting) ...[
-                                              const SizedBox(width: 6),
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 6,
-                                                  vertical: 2,
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        if (isExisting)
+                                          Text(
+                                            "Qty: ${mat["consumed_qty"] ?? mat["quantity"] ?? "1"}",
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                              color: Colors.black87,
+                                            ),
+                                          )
+                                        else
+                                          Row(
+                                            children: [
+                                              InkWell(
+                                                onTap: () => updateQuantity(
+                                                  index,
+                                                  false,
                                                 ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.green.shade100,
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
-                                                ),
-                                                child: const Text(
-                                                  "Existing",
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.green,
-                                                  ),
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                                child: const Icon(
+                                                  Icons.remove_circle_outline,
+                                                  color: Color(0xFFE57373),
+                                                  size: 24,
                                                 ),
                                               ),
-                                            ],
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                if (!isExisting) ...[
-                                                  IconButton(
-                                                    icon: const Icon(
-                                                      Icons
-                                                          .remove_circle_outline,
-                                                      size: 22,
-                                                    ),
-                                                    color: Colors.redAccent,
-                                                    padding: EdgeInsets.zero,
-                                                    constraints:
-                                                        const BoxConstraints(),
-                                                    onPressed: () =>
-                                                        updateQuantity(
-                                                      index,
-                                                      false,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                ],
-                                                Text(
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                ),
+                                                child: Text(
                                                   mat["quantity"].toString(),
                                                   style: const TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 15,
                                                   ),
                                                 ),
-                                                if (!isExisting) ...[
-                                                  const SizedBox(width: 4),
-                                                  IconButton(
-                                                    icon: const Icon(
-                                                      Icons.add_circle_outline,
-                                                      size: 22,
-                                                    ),
-                                                    color: Colors.green,
-                                                    padding: EdgeInsets.zero,
-                                                    constraints:
-                                                        const BoxConstraints(),
-                                                    onPressed: () =>
-                                                        updateQuantity(
-                                                      index,
-                                                      true,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  "₹${mat["total_price"]}",
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: isExisting
-                                                        ? Colors.green.shade800
-                                                        : Colors.black87,
-                                                  ),
+                                              ),
+                                              InkWell(
+                                                onTap: () => updateQuantity(
+                                                  index,
+                                                  true,
                                                 ),
-                                                const SizedBox(width: 6),
-                                                if (!isExisting)
-                                                  IconButton(
-                                                    icon: const Icon(
-                                                      Icons.delete_outline,
-                                                      color: Colors.redAccent,
-                                                    ),
-                                                    padding: EdgeInsets.zero,
-                                                    constraints:
-                                                        const BoxConstraints(),
-                                                    onPressed: () {
-                                                      selectedMaterials
-                                                          .removeAt(
-                                                        index,
-                                                      );
-                                                      setState(() {});
-                                                    },
-                                                  ),
-                                              ],
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                                child: const Icon(
+                                                  Icons.add_circle_outline,
+                                                  color: Color(0xFF81C784),
+                                                  size: 24,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              "₹${mat["total_price"] ?? mat["amount"] ?? "0"}",
+                                              style: const TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black87,
+                                              ),
                                             ),
+                                            if (!isExisting) ...[
+                                              const SizedBox(width: 12),
+                                              InkWell(
+                                                onTap: () =>
+                                                    removeMaterial(index),
+                                                child: const Icon(
+                                                  Icons.delete_outline,
+                                                  color: Color(0xFFE57373),
+                                                  size: 22,
+                                                ),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  const Divider(
-                                    color: Colors.grey,
-                                    thickness: 0.6,
-                                    height: 10,
-                                  ),
-                                ],
+                                  ],
+                                ),
                               );
                             },
                           ).toList(),
                           Container(
-                            margin: const EdgeInsets.only(top: 8),
-                            padding: const EdgeInsets.all(10),
+                            margin: const EdgeInsets.only(top: 2, bottom: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(10),
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1872,14 +1961,15 @@ class _WorkListPageState extends State<WorkListPage>
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 15,
+                                    color: Colors.black87,
                                   ),
                                 ),
                                 Text(
                                   "₹${selectedMaterials.fold<double>(0.0, (sum, mat) => sum + (double.tryParse(mat["total_price"].toString()) ?? 0.0)).toStringAsFixed(2)}",
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                    color: Colors.black87,
+                                    fontSize: 16,
+                                    color: Colors.black,
                                   ),
                                 ),
                               ],

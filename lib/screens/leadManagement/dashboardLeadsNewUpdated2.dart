@@ -1978,7 +1978,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
       List<String>? categoryIds,
     ) onApply,
   }) {
-    DateTime tempFrom = initialFromDate;
+    DateTime? tempFrom = initialFromDate;
     DateTime tempTo = initialToDate;
     List<String> tempStaffIds = List.from(initialStaffIds);
     List<String> tempProductIds = List.from(initialProductIds ?? []);
@@ -2080,24 +2080,88 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
             Widget buildDateField(
               String label,
               DateTime? value,
+              bool isFrom,
               Function(DateTime) onSelect,
             ) {
               return InkWell(
                 onTap: () async {
-                  final now = DateTime.now();
-                  final firstAvailableDate = now.subtract(
-                    const Duration(days: 90),
-                  );
+                  final dateFilterMonths = await Common.getDateFilter();
+                  final DateTime now = DateTime.now();
+
+                  DateTime firstDate;
+                  DateTime lastDate;
+                  DateTime initialDate;
+
+                  if (isFrom) {
+                    if (tempTo != null) {
+                      lastDate = tempTo!;
+                      if (dateFilterMonths != null && dateFilterMonths > 0) {
+                        firstDate = Common.subtractMonths(tempTo!, dateFilterMonths);
+                      } else {
+                        firstDate = DateTime(2020);
+                      }
+                    } else {
+                      firstDate = DateTime(2020);
+                      lastDate = DateTime(2100);
+                    }
+                    initialDate = value ?? lastDate;
+                    if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+                    if (initialDate.isAfter(lastDate)) initialDate = lastDate;
+                  } else {
+                    if (tempFrom != null) {
+                      firstDate = tempFrom!;
+                      if (dateFilterMonths != null && dateFilterMonths > 0) {
+                        lastDate = Common.addMonths(tempFrom!, dateFilterMonths);
+                      } else {
+                        lastDate = DateTime(2100);
+                      }
+                    } else {
+                      firstDate = DateTime(2020);
+                      lastDate = DateTime(2100);
+                    }
+                    initialDate = value ?? firstDate;
+                    if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+                    if (initialDate.isAfter(lastDate)) initialDate = lastDate;
+                  }
+
                   final picked = await showDatePicker(
                     context: context,
-                    initialDate:
-                        value != null && value.isBefore(firstAvailableDate)
-                            ? firstAvailableDate
-                            : (value ?? now),
-                    firstDate: firstAvailableDate,
-                    lastDate: now,
+                    initialDate: initialDate,
+                    firstDate: firstDate,
+                    lastDate: lastDate,
                   );
-                  if (picked != null) onSelect(picked);
+
+                  if (picked != null) {
+                    if (isFrom) {
+                      setModalState(() {
+                        tempFrom = picked;
+                        if (dateFilterMonths != null && dateFilterMonths > 0) {
+                          final maxTo = Common.addMonths(picked, dateFilterMonths);
+                          if (tempTo != null &&
+                              (tempTo!.isBefore(picked) || tempTo!.isAfter(maxTo))) {
+                            tempTo = picked;
+                          }
+                        } else if (tempTo != null && tempTo!.isBefore(picked)) {
+                          tempTo = picked;
+                        }
+                      });
+                      onSelect(picked);
+                    } else {
+                      setModalState(() {
+                        tempTo = picked;
+                        if (dateFilterMonths != null && dateFilterMonths > 0) {
+                          final minFrom = Common.subtractMonths(picked, dateFilterMonths);
+                          if (tempFrom != null &&
+                              (tempFrom!.isBefore(minFrom) || tempFrom!.isAfter(picked))) {
+                            tempFrom = null; // Clear/reset From Date if invalid
+                          }
+                        } else if (tempFrom != null && tempFrom!.isAfter(picked)) {
+                          tempFrom = null;
+                        }
+                      });
+                      onSelect(picked);
+                    }
+                  }
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -2149,22 +2213,23 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
               required VoidCallback onThisMonth,
             }) {
               final now = DateTime.now();
-              final isTodaySelected = tempFrom.year == now.year &&
-                  tempFrom.month == now.month &&
-                  tempFrom.day == now.day &&
+              final isTodaySelected = tempFrom != null &&
+                  tempFrom!.year == now.year &&
+                  tempFrom!.month == now.month &&
+                  tempFrom!.day == now.day &&
                   tempTo.year == now.year &&
                   tempTo.month == now.month &&
                   tempTo.day == now.day;
 
               final firstDayOfMonth = DateTime(now.year, now.month, 1);
               final lastDayOfMonth = DateTime(now.year, now.month + 1, 0);
-              final isThisMonthSelected =
-                  tempFrom.year == firstDayOfMonth.year &&
-                      tempFrom.month == firstDayOfMonth.month &&
-                      tempFrom.day == firstDayOfMonth.day &&
-                      tempTo.year == lastDayOfMonth.year &&
-                      tempTo.month == lastDayOfMonth.month &&
-                      tempTo.day == lastDayOfMonth.day;
+              final isThisMonthSelected = tempFrom != null &&
+                  tempFrom!.year == firstDayOfMonth.year &&
+                  tempFrom!.month == firstDayOfMonth.month &&
+                  tempFrom!.day == firstDayOfMonth.day &&
+                  tempTo.year == lastDayOfMonth.year &&
+                  tempTo.month == lastDayOfMonth.month &&
+                  tempTo.day == lastDayOfMonth.day;
 
               return Row(
                 children: [
@@ -2236,28 +2301,47 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                   buildDateField(
                     'From Date',
                     tempFrom,
+                    true,
                     (date) => setModalState(() => tempFrom = date),
                   ),
                   const SizedBox(height: 12),
                   buildDateField(
                     'To Date',
                     tempTo,
+                    false,
                     (date) => setModalState(() => tempTo = date),
                   ),
                   const SizedBox(height: 16),
                   buildQuickDateFilters(
-                    onToday: () {
+                    onToday: () async {
                       final now = DateTime.now();
+                      final dateFilterMonths = await Common.getDateFilter();
                       setModalState(() {
-                        tempFrom = now;
                         tempTo = now;
+                        tempFrom = now;
+                        if (dateFilterMonths != null && dateFilterMonths > 0) {
+                          final minFrom = Common.subtractMonths(now, dateFilterMonths);
+                          if (tempFrom!.isBefore(minFrom)) {
+                            tempFrom = minFrom;
+                          }
+                        }
                       });
                     },
-                    onThisMonth: () {
+                    onThisMonth: () async {
                       final now = DateTime.now();
+                      final dateFilterMonths = await Common.getDateFilter();
+                      final firstDayOfMonth = DateTime(now.year, now.month, 1);
+                      final lastDayOfMonth = DateTime(now.year, now.month + 1, 0);
                       setModalState(() {
-                        tempFrom = DateTime(now.year, now.month, 1);
-                        tempTo = DateTime(now.year, now.month + 1, 0);
+                        tempTo = lastDayOfMonth;
+                        DateTime fromCandidate = firstDayOfMonth;
+                        if (dateFilterMonths != null && dateFilterMonths > 0) {
+                          final minFrom = Common.subtractMonths(lastDayOfMonth, dateFilterMonths);
+                          if (fromCandidate.isBefore(minFrom)) {
+                            fromCandidate = minFrom;
+                          }
+                        }
+                        tempFrom = fromCandidate;
                       });
                     },
                   ),
@@ -2550,13 +2634,20 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: () {
+                            onPressed: () async {
+                              final dateFilterMonths = await Common.getDateFilter();
+                              final now = DateTime.now();
+                              DateTime defaultFrom = now.subtract(const Duration(days: 30));
+                              if (dateFilterMonths != null && dateFilterMonths > 0) {
+                                final minFrom = Common.subtractMonths(now, dateFilterMonths);
+                                if (defaultFrom.isBefore(minFrom)) {
+                                  defaultFrom = minFrom;
+                                }
+                              }
                               setModalState(() {
                                 tempStaffIds.clear();
-                                tempFrom = DateTime.now().subtract(
-                                  const Duration(days: 30),
-                                );
-                                tempTo = DateTime.now();
+                                tempFrom = defaultFrom;
+                                tempTo = now;
                               });
                             },
                             style: OutlinedButton.styleFrom(
@@ -2575,10 +2666,21 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                         const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () {
+                            onPressed: () async {
+                              final dateFilterMonths = await Common.getDateFilter();
+                              DateTime finalFrom = tempFrom ?? tempTo;
+                              if (dateFilterMonths != null && dateFilterMonths > 0) {
+                                final minFrom = Common.subtractMonths(tempTo, dateFilterMonths);
+                                if (finalFrom.isBefore(minFrom)) {
+                                  finalFrom = minFrom;
+                                }
+                              }
+                              if (finalFrom.isAfter(tempTo)) {
+                                finalFrom = tempTo;
+                              }
                               Navigator.pop(context);
                               onApply(
-                                tempFrom,
+                                finalFrom,
                                 tempTo,
                                 tempStaffIds,
                                 tempProductIds,

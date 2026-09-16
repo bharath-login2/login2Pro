@@ -292,7 +292,50 @@ class _SalaryReportPageState extends State<SalaryReportPage> {
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      // Text("LOP Days: ${staff.lopDays}"),
+                                      if (staff.remarks != null &&
+                                          staff.remarks.toString().trim().isNotEmpty &&
+                                          staff.remarks.toString() != "null")
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Icon(Icons.comment_outlined,
+                                                  size: 13,
+                                                  color: Colors.grey.shade600),
+                                              const SizedBox(width: 4),
+                                              Expanded(
+                                                child: Text.rich(
+                                                  TextSpan(
+                                                    children: [
+                                                      TextSpan(
+                                                        text: "Remarks: ",
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: Colors
+                                                              .grey.shade700,
+                                                        ),
+                                                      ),
+                                                      TextSpan(
+                                                        text: "${staff.remarks}",
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: Colors
+                                                              .grey.shade800,
+                                                          fontStyle:
+                                                              FontStyle.italic,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                     ],
                                   ),
                                   trailing: Column(

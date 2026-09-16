@@ -251,7 +251,15 @@ class _AddBookingPageState extends State<AddBookingPage> {
     }
 
     // Handle state and district
+    final targetDistrictId =
+        booking.districtId.trim().isNotEmpty ? booking.districtId.trim() : null;
+    selectedStateId =
+        booking.stateId.trim().isNotEmpty ? booking.stateId.trim() : null;
+
     if (selectedStateId != null && selectedStateId!.isNotEmpty) {
+      if (stateList.isEmpty) {
+        await _fetchStates();
+      }
       if (stateList.isNotEmpty) {
         final state = stateList.firstWhere(
           (s) => s.id == selectedStateId,
@@ -261,8 +269,8 @@ class _AddBookingPageState extends State<AddBookingPage> {
           stateController.text = state.name;
           selectedStateName = state.name;
           await _fetchDistricts(selectedStateId!);
-          if (selectedDistrictId != null && selectedDistrictId!.isNotEmpty) {
-            await Future.delayed(const Duration(milliseconds: 500));
+          if (targetDistrictId != null && targetDistrictId.isNotEmpty) {
+            selectedDistrictId = targetDistrictId;
             if (districtList.isNotEmpty) {
               final district = districtList.firstWhere(
                 (d) => d.id == selectedDistrictId,
@@ -1297,12 +1305,12 @@ class _AddBookingPageState extends State<AddBookingPage> {
                                 icon: Icons.login,
                                 selectTime: true,
                               ),
-                              _buildDateField(
-                                label: 'Check-out Date *',
-                                controller: _checkOutController,
-                                icon: Icons.logout,
-                                selectTime: true,
-                              ),
+                              // _buildDateField(
+                              //   label: 'Check-out Date *',
+                              //   controller: _checkOutController,
+                              //   icon: Icons.logout,
+                              //   selectTime: true,
+                              // ),
                             ]),
                             const SizedBox(height: 12),
                             _buildResponsiveRow([

@@ -188,6 +188,7 @@ class RentItem {
   final String id;
   final String rentId;
   final String productId;
+  final String productName;
   final String qty;
   final String unitPrice;
   final String days;
@@ -207,6 +208,7 @@ class RentItem {
     required this.id,
     required this.rentId,
     required this.productId,
+    required this.productName,
     required this.qty,
     required this.unitPrice,
     required this.days,
@@ -228,6 +230,7 @@ class RentItem {
       id: json['id']?.toString() ?? '',
       rentId: json['rent_id']?.toString() ?? '',
       productId: json['product_id']?.toString() ?? '',
+      productName: json['product_name']?.toString() ?? '',
       qty: json['qty']?.toString() ?? '0',
       unitPrice: json['unit_price']?.toString() ?? '0.00',
       days: json['days']?.toString() ?? '0',
@@ -250,6 +253,7 @@ class RentItem {
       'id': id,
       'rent_id': rentId,
       'product_id': productId,
+      'product_name': productName,
       'qty': qty,
       'unit_price': unitPrice,
       'days': days,

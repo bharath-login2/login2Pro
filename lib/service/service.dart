@@ -10936,7 +10936,7 @@ class HttpService {
         "${await Config.getUrl()}startWork",
         data: formData,
       );
-
+      print('Start Work Response: ${result}');
       if (result.statusCode == 200 && result.data != null) {
         return result.data;
       }
@@ -12754,7 +12754,7 @@ class HttpService {
           "rent_id": rentId,
         }),
       );
-
+      print('issue details for ID:$response');
       if (response.statusCode == 200) {
         final data = response.data;
         if (data == null) {

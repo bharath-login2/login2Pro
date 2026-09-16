@@ -5,6 +5,7 @@ import 'package:login2/models/lead_management/leadProductsModel.dart';
 import 'package:login2/service/service.dart';
 import 'package:login2/models/lead_management/getActiveStatusModel.dart';
 import 'package:login2/models/lead_management/tagListForFilterModel.dart';
+import 'package:login2/core/common.dart';
 
 class ViewLeadsFilterWidget extends StatefulWidget {
   final Function(Map<String, dynamic>) onApplyFilters;
@@ -475,17 +476,33 @@ String? selectedDateType;
           ],
         ),
         const SizedBox(height: 16),
-        _buildDateField('From Date', fromDate, (date) {
+        _buildDateField('From Date', fromDate, true, toDate, (date) async {
+          final dateFilterMonths = await Common.getDateFilter();
           setState(() {
             fromDate = date;
             isDateFiltered = true;
+            if (dateFilterMonths != null && dateFilterMonths > 0) {
+              final maxTo = Common.addMonths(date, dateFilterMonths);
+              if (toDate != null && (toDate!.isBefore(date) || toDate!.isAfter(maxTo))) {
+                toDate = null;
+              }
+            } else if (toDate != null && toDate!.isBefore(date)) {
+              toDate = null;
+            }
           });
         }),
         const SizedBox(height: 12),
-        _buildDateField('To Date', toDate, (date) {
+        _buildDateField('To Date', toDate, false, fromDate, (date) async {
+          final dateFilterMonths = await Common.getDateFilter();
           setState(() {
             toDate = date;
             isDateFiltered = true;
+            if (dateFilterMonths != null && dateFilterMonths > 0) {
+              final minFrom = Common.subtractMonths(date, dateFilterMonths);
+              if (fromDate != null && (fromDate!.isBefore(minFrom) || fromDate!.isAfter(date))) {
+                fromDate = null;
+              }
+            }
           });
         }),
         const SizedBox(height: 16),
@@ -540,17 +557,33 @@ String? selectedDateType;
           ],
         ),
         const SizedBox(height: 16),
-        _buildDateField('From Date', fromDateUpdated, (date) {
+        _buildDateField('From Date', fromDateUpdated, true, toDateUpdated, (date) async {
+          final dateFilterMonths = await Common.getDateFilter();
           setState(() {
             fromDateUpdated = date;
             isDateFilteredUpdated = true;
+            if (dateFilterMonths != null && dateFilterMonths > 0) {
+              final maxTo = Common.addMonths(date, dateFilterMonths);
+              if (toDateUpdated != null && (toDateUpdated!.isBefore(date) || toDateUpdated!.isAfter(maxTo))) {
+                toDateUpdated = null;
+              }
+            } else if (toDateUpdated != null && toDateUpdated!.isBefore(date)) {
+              toDateUpdated = null;
+            }
           });
         }),
         const SizedBox(height: 12),
-        _buildDateField('To Date', toDateUpdated, (date) {
+        _buildDateField('To Date', toDateUpdated, false, fromDateUpdated, (date) async {
+          final dateFilterMonths = await Common.getDateFilter();
           setState(() {
             toDateUpdated = date;
             isDateFilteredUpdated = true;
+            if (dateFilterMonths != null && dateFilterMonths > 0) {
+              final minFrom = Common.subtractMonths(date, dateFilterMonths);
+              if (fromDateUpdated != null && (fromDateUpdated!.isBefore(minFrom) || fromDateUpdated!.isAfter(date))) {
+                fromDateUpdated = null;
+              }
+            }
           });
         }),
         const SizedBox(height: 16),
@@ -691,14 +724,53 @@ String? selectedDateType;
   }
 
   Widget _buildDateField(
-      String label, DateTime? value, Function(DateTime) onSelect) {
+      String label, DateTime? value, bool isFrom, DateTime? otherDate, Function(DateTime) onSelect) {
     return InkWell(
       onTap: () async {
+        final dateFilterMonths = await Common.getDateFilter();
+        final DateTime now = DateTime.now();
+
+        DateTime firstDate;
+        DateTime lastDate;
+        DateTime initialDate;
+
+        if (isFrom) {
+          if (otherDate != null) {
+            lastDate = otherDate;
+            if (dateFilterMonths != null && dateFilterMonths > 0) {
+              firstDate = Common.subtractMonths(otherDate, dateFilterMonths);
+            } else {
+              firstDate = DateTime(2000);
+            }
+          } else {
+            firstDate = DateTime(2000);
+            lastDate = DateTime(2100);
+          }
+          initialDate = value ?? lastDate;
+          if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+          if (initialDate.isAfter(lastDate)) initialDate = lastDate;
+        } else {
+          if (otherDate != null) {
+            firstDate = otherDate;
+            if (dateFilterMonths != null && dateFilterMonths > 0) {
+              lastDate = Common.addMonths(otherDate, dateFilterMonths);
+            } else {
+              lastDate = DateTime(2100);
+            }
+          } else {
+            firstDate = DateTime(2000);
+            lastDate = DateTime(2100);
+          }
+          initialDate = value ?? firstDate;
+          if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+          if (initialDate.isAfter(lastDate)) initialDate = lastDate;
+        }
+
         final picked = await showDatePicker(
           context: context,
-          initialDate: value ?? DateTime.now(),
-          firstDate: DateTime(2000),
-          lastDate: DateTime(2100),
+          initialDate: initialDate,
+          firstDate: firstDate,
+          lastDate: lastDate,
         );
         if (picked != null) onSelect(picked);
       },

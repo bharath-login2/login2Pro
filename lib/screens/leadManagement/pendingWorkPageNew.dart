@@ -1624,10 +1624,14 @@ class _PendingWorkPageNewState extends State<PendingWorkPageNew> {
                     const SizedBox(height: 2),
 
                     // Priority and due date
-                    Row(
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      runSpacing: 4,
                       children: [
                         if (task.priority.isNotEmpty)
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(Icons.flag,
                                   size: 12, color: Colors.grey),
@@ -1641,10 +1645,9 @@ class _PendingWorkPageNewState extends State<PendingWorkPageNew> {
                               ),
                             ],
                           ),
-                        if (task.priority.isNotEmpty && task.dueDate.isNotEmpty)
-                          const SizedBox(width: 12),
                         if (task.dueDate.isNotEmpty)
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(Icons.calendar_today,
                                   size: 12, color: Colors.grey),
@@ -2435,12 +2438,32 @@ class _PendingWorkPageNewState extends State<PendingWorkPageNew> {
   Color _getDueDateColor(String dueDate) {
     try {
       final now = DateTime.now();
-      final due = DateFormat('dd-MM-yyyy').parse(dueDate);
+      DateTime? due;
+      final formats = [
+        DateFormat('dd-MM-yyyy hh:mm a'),
+        DateFormat('dd-MM-yyyy HH:mm:ss'),
+        DateFormat('dd-MM-yyyy HH:mm'),
+        DateFormat('yyyy-MM-dd HH:mm:ss'),
+        DateFormat('yyyy-MM-dd HH:mm'),
+        DateFormat('dd-MM-yyyy'),
+        DateFormat('yyyy-MM-dd'),
+      ];
+      for (var f in formats) {
+        try {
+          due = f.parse(dueDate.trim());
+          break;
+        } catch (_) {}
+      }
+      due ??= DateTime.tryParse(dueDate.trim());
+      if (due == null) return Colors.grey;
+
       final difference = due.difference(now).inDays;
 
-      if (difference < 0) {
+      if (due.isBefore(now)) {
         return Colors.red; // Past due
-      } else if (difference == 0) {
+      } else if (due.year == now.year &&
+          due.month == now.month &&
+          due.day == now.day) {
         return Colors.orange; // Due today
       } else if (difference <= 3) {
         return Colors.orange.shade700; // Due in 3 days

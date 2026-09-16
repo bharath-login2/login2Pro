@@ -3022,25 +3022,53 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                   const SizedBox(height: 4),
                   InkWell(
                     onTap: () async {
+                      final now = DateTime.now();
+
                       DateTime? pickedDate = await showDatePicker(
                         context: context,
-                        initialDate: DateTime.now(),
+                        initialDate: now,
                         firstDate: DateTime(2000),
-                        lastDate: DateTime.now(),
+                        lastDate: now,
                       );
+
                       if (pickedDate != null) {
+                        // If selected date is today, restrict time to current time.
+                        final isToday = pickedDate.year == now.year &&
+                            pickedDate.month == now.month &&
+                            pickedDate.day == now.day;
+
+                        TimeOfDay initialTime = isToday
+                            ? TimeOfDay(hour: now.hour, minute: now.minute)
+                            : TimeOfDay.now();
+
                         TimeOfDay? pickedTime = await showTimePicker(
                           context: context,
-                          initialTime: TimeOfDay.now(),
+                          initialTime: initialTime,
                         );
+
                         if (pickedTime != null) {
+                          // For today's date, prevent selecting a future time.
+                          if (isToday &&
+                              (pickedTime.hour > now.hour ||
+                                  (pickedTime.hour == now.hour &&
+                                      pickedTime.minute > now.minute))) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Future time cannot be selected'),
+                              ),
+                            );
+                            return;
+                          }
+
                           setState(() {
                             final dt = DateTime(
-                                pickedDate.year,
-                                pickedDate.month,
-                                pickedDate.day,
-                                pickedTime.hour,
-                                pickedTime.minute);
+                              pickedDate!.year,
+                              pickedDate.month,
+                              pickedDate.day,
+                              pickedTime.hour,
+                              pickedTime.minute,
+                            );
+
                             calledDate1.text =
                                 DateFormat('dd-MM-yyyy hh:mm a').format(dt);
                           });
@@ -3057,7 +3085,10 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(calledDate1.text),
-                          const Icon(Icons.access_time_filled, size: 18),
+                          const Icon(
+                            Icons.access_time_filled,
+                            size: 18,
+                          ),
                         ],
                       ),
                     ),

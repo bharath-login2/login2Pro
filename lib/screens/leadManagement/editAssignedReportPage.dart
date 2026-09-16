@@ -139,17 +139,22 @@ class _EditWorkPageState extends State<EditWorkPage> {
     }
 
     if (work.dueDate.isNotEmpty) {
-      try {
-        final parsedDate = DateFormat('dd-MM-yyyy').parse(work.dueDate);
-        dueDate = parsedDate;
-      } catch (e) {
+      final formats = [
+        DateFormat('dd-MM-yyyy hh:mm a'),
+        DateFormat('dd-MM-yyyy HH:mm:ss'),
+        DateFormat('dd-MM-yyyy HH:mm'),
+        DateFormat('yyyy-MM-dd HH:mm:ss'),
+        DateFormat('yyyy-MM-dd HH:mm'),
+        DateFormat('dd-MM-yyyy'),
+        DateFormat('yyyy-MM-dd'),
+      ];
+      for (var f in formats) {
         try {
-          final parsedDate = DateFormat('dd-MM-yyyy').parse(work.dueDate);
-          dueDate = parsedDate;
-        } catch (e) {
-          dueDate = null;
-        }
+          dueDate = f.parse(work.dueDate.trim());
+          break;
+        } catch (_) {}
       }
+      dueDate ??= DateTime.tryParse(work.dueDate.trim());
     }
 
     priority = _mapPriorityToId(work.priority);
@@ -647,7 +652,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
         'title': titleController.text.trim(),
         'title_id': selectedTitleId ?? titleController.text.trim(),
         'due_date':
-            dueDate != null ? DateFormat('yyyy-MM-dd').format(dueDate!) : '',
+            dueDate != null ? DateFormat('dd-MM-yyyy hh:mm a').format(dueDate!) : '',
         'priority': priority ?? '1',
         'assigned_to': assignedTo,
         'task_type': taskType,
@@ -1108,20 +1113,34 @@ class _EditWorkPageState extends State<EditWorkPage> {
                                           const SizedBox(height: 6),
                                           GestureDetector(
                                             onTap: () async {
-                                              final picked =
+                                              final pickedDate =
                                                   await showDatePicker(
                                                 context: context,
                                                 initialDate: dueDate ??
-                                                    DateTime
-                                                        .now(), // dueDate comes from widget.assignedWork
+                                                    DateTime.now(),
                                                 firstDate: DateTime(2022),
                                                 lastDate: DateTime(2100),
                                               );
-                                              if (picked != null) {
-                                                setState(() {
-                                                  dueDate = picked;
-                                                  _checkForChanges();
-                                                });
+                                              if (pickedDate != null) {
+                                                final pickedTime =
+                                                    await showTimePicker(
+                                                  context: context,
+                                                  initialTime: dueDate != null
+                                                      ? TimeOfDay.fromDateTime(dueDate!)
+                                                      : TimeOfDay.now(),
+                                                );
+                                                if (pickedTime != null) {
+                                                  setState(() {
+                                                    dueDate = DateTime(
+                                                      pickedDate.year,
+                                                      pickedDate.month,
+                                                      pickedDate.day,
+                                                      pickedTime.hour,
+                                                      pickedTime.minute,
+                                                    );
+                                                    _checkForChanges();
+                                                  });
+                                                }
                                               }
                                             },
                                             child: Container(
@@ -1145,9 +1164,9 @@ class _EditWorkPageState extends State<EditWorkPage> {
                                                     child: Text(
                                                       dueDate != null
                                                           ? DateFormat(
-                                                                  'dd-MM-yyyy')
+                                                                  'dd-MM-yyyy hh:mm a')
                                                               .format(
-                                                                  dueDate!) // Shows existing due date
+                                                                  dueDate!)
                                                           : 'Select',
                                                       style: TextStyle(
                                                         color: dueDate != null

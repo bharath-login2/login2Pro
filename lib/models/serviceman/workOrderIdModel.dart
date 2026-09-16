@@ -61,6 +61,8 @@ class WorkOrderData {
   List<dynamic> addProducts;
   String customerNameActual;
   ProductDetails productDetails;
+  String serviceOption;
+  String serviceCharge;
 
   WorkOrderData({
     required this.workOrderID,
@@ -101,47 +103,59 @@ class WorkOrderData {
     required this.addProducts,
     required this.customerNameActual,
     required this.productDetails,
+    this.serviceOption = '',
+    this.serviceCharge = '',
   });
 
   factory WorkOrderData.fromJson(Map<String, dynamic> json) => WorkOrderData(
-        workOrderID: json["WorkOrderID"],
-        workOrderId: json["work_order_id"],
-        assignedServiceMan: json["assigned_service_man"],
-        customerName: json["customer_name"],
-        customerType: json["customer_type"],
-        receivedTru: json["received_tru"],
-        workCategory: json["work_category"],
-        serialNo: json["serial_no"],
-        brand: json["brand"],
-        workType: json["work_type"],
-        pipelineName: json["pipeline_name"],
-        problemReportedByCustomer: json["problem_reported_by_customer"],
-        mobileNumber: json["MobileNumber"],
-        emailId: json["EmailID"],
-        address: json["Address"],
-        location: json["Location"],
-        jobType: json["job_type"],
-        issueDescription: json["IssueDescription"],
-        preferredDateTime: json["PreferredDateTime"],
-        estimatedDatetime: json["Estimated_datetime"],
-        priority: json["Priority"],
-        dealerName: json["dealer_name"],
-        userPassword: json["user_password"],
-        remarks: json["remarks"],
-        accessories: json["accessories"],
-        status: json["Status"],
-        createdBy: json["CreatedBy"],
-        companyId: json["company_id"],
-        createdAt: json["CreatedAt"],
-        startedAt: json["StartedAt"],
-        stoppedAt: json["StoppedAt"],
-        startedBy: json["StartedBy"],
-        stoppedBy: json["StoppedBy"],
-        createdByName: json["created_by_name"],
-        assignedStaffName: json["assigned_staff_name"],
-        addProducts: List<dynamic>.from(json["add_products"].map((x) => x)),
-        customerNameActual: json["customer_name_actual"],
-        productDetails: ProductDetails.fromJson(json["product_details"]),
+        workOrderID: json["WorkOrderID"] ?? '',
+        workOrderId: json["work_order_id"] ?? '',
+        assignedServiceMan: json["assigned_service_man"] ?? '',
+        customerName: json["customer_name"] ?? '',
+        customerType: json["customer_type"] ?? '',
+        receivedTru: json["received_tru"] ?? '',
+        workCategory: json["work_category"] ?? '',
+        serialNo: json["serial_no"] ?? '',
+        brand: json["brand"] ?? '',
+        workType: json["work_type"] ?? '',
+        pipelineName: json["pipeline_name"] ?? '',
+        problemReportedByCustomer: json["problem_reported_by_customer"] ?? '',
+        mobileNumber: json["MobileNumber"] ?? '',
+        emailId: json["EmailID"] ?? '',
+        address: json["Address"] ?? '',
+        location: json["Location"] ?? '',
+        jobType: json["job_type"] ?? '',
+        issueDescription: json["IssueDescription"] ?? '',
+        preferredDateTime: json["PreferredDateTime"] ?? '',
+        estimatedDatetime: json["Estimated_datetime"] ?? '',
+        priority: json["Priority"] ?? '',
+        dealerName: json["dealer_name"] ?? '',
+        userPassword: json["user_password"] ?? '',
+        remarks: json["remarks"] ?? '',
+        accessories: json["accessories"] ?? '',
+        status: json["Status"] ?? '',
+        createdBy: json["CreatedBy"] ?? '',
+        companyId: json["company_id"] ?? '',
+        createdAt: json["CreatedAt"] ?? '',
+        startedAt: json["StartedAt"] ?? '',
+        stoppedAt: json["StoppedAt"] ?? '',
+        startedBy: json["StartedBy"] ?? '',
+        stoppedBy: json["StoppedBy"] ?? '',
+        createdByName: json["created_by_name"] ?? '',
+        assignedStaffName: json["assigned_staff_name"] ?? '',
+        addProducts: json["add_products"] != null
+            ? List<dynamic>.from(json["add_products"].map((x) => x))
+            : [],
+        customerNameActual: json["customer_name_actual"] ?? '',
+        productDetails: json["product_details"] != null
+            ? ProductDetails.fromJson(json["product_details"])
+            : ProductDetails(id: '', productName: '', productType: '', pipeline: []),
+        serviceOption: json["service_option"]?.toString() ??
+            json["editservice_option"]?.toString() ??
+            '',
+        serviceCharge: json["service_charge"]?.toString() ??
+            json["editservice_charge"]?.toString() ??
+            '',
       );
 }
 
