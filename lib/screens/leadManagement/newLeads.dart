@@ -228,6 +228,12 @@ class _NewLeadsState extends State<NewLeads>
   List<String> checkedProductItemsName = [];
   List<String> checkedSubCategoryItems = [];
   List<String> checkedSubCategoryItemsName = [];
+  List<String> checkedClassItems = [];
+  List<String> checkedStreamItems = [];
+  List<String> checkedSyllabusItems = [];
+  List<String> checkedSchoolDistrictItems = [];
+  List<String> checkedAbroadItems = [];
+  List<String> checkedSchoolItems = [];
   List<TransferStaff> filteredStaff = [];
   String staffId = "";
   String staffName = "Staff";
@@ -552,7 +558,13 @@ class _NewLeadsState extends State<NewLeads>
       "district": DistrictId ?? "",
       "branchId": branch ?? "",
       "leadSourceId": widget.leadSourceId ?? "",
-      "productId": checkedProductItems
+      "productId": checkedProductItems,
+      "class_id": checkedClassItems,
+      "stream": checkedStreamItems,
+      "syllabus": checkedSyllabusItems,
+      "school_district_id": checkedSchoolDistrictItems,
+      "abroad": checkedAbroadItems,
+      "school_name": checkedSchoolItems,
     };
 
     bool shouldSendDates = isDateFiltered ||
@@ -1723,22 +1735,40 @@ class _NewLeadsState extends State<NewLeads>
                             'categoryIds': checkedCategoryItems,
                             'priorityIds': checkedPriorityItems,
                             'productIds': checkedProductItems,
+                            'classIds': checkedClassItems,
+                            'streamNames': checkedStreamItems,
+                            'syllabusIds': checkedSyllabusItems,
+                            'schoolDistrictIds': checkedSchoolDistrictItems,
+                            'abroadIds': checkedAbroadItems,
+                            'schoolIds': checkedSchoolItems,
                           },
                           onApplyFilters: (filters) {
                             setState(() {
                               fromdate = filters['fromDate'];
                               todate = filters['toDate'];
                               checkedAssignedStaffItems =
-                                  List<String>.from(filters['staffIds']);
+                                  List<String>.from(filters['staffIds'] ?? []);
                               checkedCategoryItems =
-                                  List<String>.from(filters['categoryIds']);
+                                  List<String>.from(filters['categoryIds'] ?? []);
                               checkedPriorityItems =
-                                  List<String>.from(filters['priorityIds']);
+                                  List<String>.from(filters['priorityIds'] ?? []);
                               checkedProductItems =
-                                  List<String>.from(filters['productIds']);
+                                  List<String>.from(filters['productIds'] ?? []);
+                              checkedClassItems =
+                                  List<String>.from(filters['classIds'] ?? filters['class_id'] ?? []);
+                              checkedStreamItems =
+                                  List<String>.from(filters['streamNames'] ?? filters['stream'] ?? []);
+                              checkedSyllabusItems =
+                                  List<String>.from(filters['syllabusIds'] ?? filters['syllabus'] ?? []);
+                              checkedSchoolDistrictItems =
+                                  List<String>.from(filters['schoolDistrictIds'] ?? filters['school_district_id'] ?? []);
+                              checkedAbroadItems =
+                                  List<String>.from(filters['abroadIds'] ?? filters['abroad'] ?? []);
+                              checkedSchoolItems =
+                                  List<String>.from(filters['schoolIds'] ?? filters['school_name'] ?? []);
 
                               final statusIds =
-                                  List<String>.from(filters['statusIds']);
+                                  List<String>.from(filters['statusIds'] ?? []);
                               status =
                                   statusIds.isNotEmpty ? statusIds.first : null;
 

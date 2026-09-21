@@ -5,6 +5,12 @@ import 'package:login2/models/lead_management/leadProductsModel.dart';
 import 'package:login2/service/service.dart';
 import 'package:login2/models/lead_management/getActiveStatusModel.dart';
 import 'package:login2/models/lead_management/tagListForFilterModel.dart';
+import 'package:login2/models/lead_management/classListModel.dart';
+import 'package:login2/models/lead_management/streamListModel.dart';
+import 'package:login2/models/lead_management/syllabusListModel.dart';
+import 'package:login2/models/lead_management/schoolDistrictListModel.dart';
+import 'package:login2/models/lead_management/schoolListModel.dart';
+import 'package:login2/models/lead_management/abroadListModel.dart';
 
 class ViewLeadsFilterWidget extends StatefulWidget {
   final Function(Map<String, dynamic>) onApplyFilters;
@@ -41,33 +47,147 @@ class _ViewLeadsFilterWidgetState extends State<ViewLeadsFilterWidget> {
   Set<String> selectedPriorityIds = {};
   Set<String> selectedProductIds = {};
   Set<String> selectedTagIds = {};
+  Set<String> selectedClassIds = {};
+  Set<String> selectedStreamNames = {};
+  Set<String> selectedSyllabusIds = {};
+  Set<String> selectedSchoolDistrictIds = {};
+  Set<String> selectedAbroadIds = {};
+  Set<String> selectedSchoolIds = {};
+
+  List<ClassItem> _classList = [];
+  bool _isClassLoading = false;
+
+  List<StreamItem> _streamList = [];
+  bool _isStreamLoading = false;
+
+  List<SyllabusItem> _syllabusList = [];
+  bool _isSyllabusLoading = false;
+
+  List<SchoolDistrictItem> _schoolDistrictList = [];
+  bool _isSchoolDistrictLoading = false;
+
+  List<AbroadItem> _abroadList = [];
+  bool _isAbroadLoading = false;
+
+  List<SchoolItem> _schoolList = [];
+  bool _isSchoolLoading = false;
+
   final DateFormat _formatter = DateFormat('dd-MM-yyyy');
   final TextEditingController _searchController = TextEditingController();
   GetActiveStatusModel? _activeStatusModel;
   bool _isActiveStatusLoading = false;
   TagListForFilterModel? _tagListModel;
   bool _isTagLoading = false;
-String? selectedDateType;
+  String? selectedDateType;
+
   @override
   void initState() {
     super.initState();
     _loadInitialFilters();
-    //  if (widget.isActiveLeads == '1') {
-    // String? status;
-    // String? statusFew;
-    // if (widget.currentTab == 'Active') {
-    //   statusFew = '2';
-    // } else if (widget.currentTab == 'Called') {
-    //   statusFew = '1';
-    // } else {
-    //   status = selectedStatusIds.isNotEmpty ? selectedStatusIds.first : null;
-    // }
     _fetchActiveStatus();
-    selectedDateType =
-      widget.initialFilters?['dateType'] ?? 'created';
-    // }
+    selectedDateType = widget.initialFilters?['dateType'] ?? 'created';
     if (selectedStatusIds.isNotEmpty) {
       _fetchTags(selectedStatusIds.first);
+    }
+    _fetchDropdownFiltersData();
+  }
+
+  Future<void> _fetchDropdownFiltersData() async {
+    _fetchClassList();
+    _fetchStreamList();
+    _fetchSyllabusList();
+    _fetchSchoolDistrictList();
+    _fetchAbroadList();
+    _fetchSchoolList(selectedSchoolDistrictIds.isNotEmpty ? selectedSchoolDistrictIds.first : null);
+  }
+
+  Future<void> _fetchClassList() async {
+    setState(() => _isClassLoading = true);
+    try {
+      final res = await HttpService.getClassList(null);
+      if (mounted) {
+        setState(() {
+          _classList = res?.data ?? [];
+          _isClassLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isClassLoading = false);
+    }
+  }
+
+  Future<void> _fetchStreamList() async {
+    setState(() => _isStreamLoading = true);
+    try {
+      final res = await HttpService.getStreamList(null);
+      if (mounted) {
+        setState(() {
+          _streamList = res?.data ?? [];
+          _isStreamLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isStreamLoading = false);
+    }
+  }
+
+  Future<void> _fetchSyllabusList() async {
+    setState(() => _isSyllabusLoading = true);
+    try {
+      final res = await HttpService.getSyllabusList(null);
+      if (mounted) {
+        setState(() {
+          _syllabusList = res?.data ?? [];
+          _isSyllabusLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isSyllabusLoading = false);
+    }
+  }
+
+  Future<void> _fetchSchoolDistrictList() async {
+    setState(() => _isSchoolDistrictLoading = true);
+    try {
+      final res = await HttpService.getDistrictList(null);
+      if (mounted) {
+        setState(() {
+          _schoolDistrictList = res?.data ?? [];
+          _isSchoolDistrictLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isSchoolDistrictLoading = false);
+    }
+  }
+
+  Future<void> _fetchAbroadList() async {
+    setState(() => _isAbroadLoading = true);
+    try {
+      final res = await HttpService.getAbroadList(null);
+      if (mounted) {
+        setState(() {
+          _abroadList = res?.data ?? [];
+          _isAbroadLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isAbroadLoading = false);
+    }
+  }
+
+  Future<void> _fetchSchoolList([String? districtId]) async {
+    setState(() => _isSchoolLoading = true);
+    try {
+      final res = await HttpService.getSchoolList(null, districtId ?? "");
+      if (mounted) {
+        setState(() {
+          _schoolList = res?.data ?? [];
+          _isSchoolLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isSchoolLoading = false);
     }
   }
 
@@ -165,6 +285,36 @@ String? selectedDateType;
       if (filters['call_result_reason'] != null) {
         selectedTagIds = Set<String>.from(filters['call_result_reason']);
       }
+      if (filters['classIds'] != null) {
+        selectedClassIds = Set<String>.from(filters['classIds']);
+      } else if (filters['class_id'] != null && filters['class_id'] is List) {
+        selectedClassIds = Set<String>.from(filters['class_id']);
+      }
+      if (filters['streamNames'] != null) {
+        selectedStreamNames = Set<String>.from(filters['streamNames']);
+      } else if (filters['stream'] != null && filters['stream'] is List) {
+        selectedStreamNames = Set<String>.from(filters['stream']);
+      }
+      if (filters['syllabusIds'] != null) {
+        selectedSyllabusIds = Set<String>.from(filters['syllabusIds']);
+      } else if (filters['syllabus'] != null && filters['syllabus'] is List) {
+        selectedSyllabusIds = Set<String>.from(filters['syllabus']);
+      }
+      if (filters['schoolDistrictIds'] != null) {
+        selectedSchoolDistrictIds = Set<String>.from(filters['schoolDistrictIds']);
+      } else if (filters['school_district_id'] != null && filters['school_district_id'] is List) {
+        selectedSchoolDistrictIds = Set<String>.from(filters['school_district_id']);
+      }
+      if (filters['abroadIds'] != null) {
+        selectedAbroadIds = Set<String>.from(filters['abroadIds']);
+      } else if (filters['abroad'] != null && filters['abroad'] is List) {
+        selectedAbroadIds = Set<String>.from(filters['abroad']);
+      }
+      if (filters['schoolIds'] != null) {
+        selectedSchoolIds = Set<String>.from(filters['schoolIds']);
+      } else if (filters['school_name'] != null && filters['school_name'] is List) {
+        selectedSchoolIds = Set<String>.from(filters['school_name']);
+      }
       if (filters['dateType'] != null) {
         selectedDateType = filters['dateType'];
         // Set selectedCategory based on dateType
@@ -257,7 +407,13 @@ String? selectedDateType;
                   _buildCategoryItem('Assigned Staff', Icons.people_outline),
                   _buildCategoryItem('Category', Icons.category_outlined),
                   _buildCategoryItem('Priority', Icons.low_priority),
-                  _buildCategoryItem('Products', Icons.shopping_bag_outlined),
+                  // _buildCategoryItem('Products', Icons.shopping_bag_outlined),
+                  _buildCategoryItem('Class', Icons.class_outlined),
+                  _buildCategoryItem('Stream', Icons.account_tree_outlined),
+                  _buildCategoryItem('Syllabus', Icons.menu_book_outlined),
+                  _buildCategoryItem('District school', Icons.location_city_outlined),
+                  _buildCategoryItem('Abroad', Icons.flight_takeoff_outlined),
+                  _buildCategoryItem('School Name', Icons.school_outlined),
                 ],
               ),
             ),
@@ -278,7 +434,10 @@ String? selectedDateType;
     final hasFilters = _hasFiltersForCategory(title);
 
     return GestureDetector(
-      onTap: () => setState(() => selectedCategory = title),
+      onTap: () => setState(() {
+        _searchController.clear();
+        selectedCategory = title;
+      }),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
@@ -342,6 +501,18 @@ String? selectedDateType;
         return selectedProductIds.isNotEmpty;
       case 'Tags':
         return selectedTagIds.isNotEmpty;
+      case 'Class':
+        return selectedClassIds.isNotEmpty;
+      case 'Stream':
+        return selectedStreamNames.isNotEmpty;
+      case 'Syllabus':
+        return selectedSyllabusIds.isNotEmpty;
+      case 'District school' || 'District School':
+        return selectedSchoolDistrictIds.isNotEmpty;
+      case 'Abroad':
+        return selectedAbroadIds.isNotEmpty;
+      case 'School Name':
+        return selectedSchoolIds.isNotEmpty;
       default:
         return false;
     }
@@ -365,6 +536,18 @@ String? selectedDateType;
         return _buildProductOptions();
       case 'Tags':
         return _buildTagOptions();
+      case 'Class':
+        return _buildClassOptions();
+      case 'Stream':
+        return _buildStreamOptions();
+      case 'Syllabus':
+        return _buildSyllabusOptions();
+      case 'District school' || 'District School':
+        return _buildSchoolDistrictOptions();
+      case 'Abroad':
+        return _buildAbroadOptions();
+      case 'School Name':
+        return _buildSchoolOptions();
       default:
         return const Center(child: Text('Select a category'));
     }
@@ -869,6 +1052,118 @@ String? selectedDateType;
     );
   }
 
+  Widget _buildClassOptions() {
+    if (_isClassLoading) return const Center(child: CircularProgressIndicator());
+    if (_classList.isEmpty) return const Center(child: Text('No classes found'));
+    return _buildSelectionList(
+      items: _classList
+          .map((e) => {'id': e.classId, 'name': e.className})
+          .toList(),
+      selectedIds: selectedClassIds,
+      onToggle: (id) => setState(() {
+        if (selectedClassIds.contains(id)) {
+          selectedClassIds.remove(id);
+        } else {
+          selectedClassIds.add(id);
+        }
+      }),
+    );
+  }
+
+  Widget _buildStreamOptions() {
+    if (_isStreamLoading) return const Center(child: CircularProgressIndicator());
+    if (_streamList.isEmpty) return const Center(child: Text('No streams found'));
+    return _buildSelectionList(
+      items: _streamList
+          .map((e) => {'id': e.streamName, 'name': e.streamName})
+          .toList(),
+      selectedIds: selectedStreamNames,
+      onToggle: (id) => setState(() {
+        if (selectedStreamNames.contains(id)) {
+          selectedStreamNames.remove(id);
+        } else {
+          selectedStreamNames.add(id);
+        }
+      }),
+    );
+  }
+
+  Widget _buildSyllabusOptions() {
+    if (_isSyllabusLoading) return const Center(child: CircularProgressIndicator());
+    if (_syllabusList.isEmpty) return const Center(child: Text('No syllabus found'));
+    return _buildSelectionList(
+      items: _syllabusList
+          .map((e) => {'id': e.id, 'name': e.value})
+          .toList(),
+      selectedIds: selectedSyllabusIds,
+      onToggle: (id) => setState(() {
+        if (selectedSyllabusIds.contains(id)) {
+          selectedSyllabusIds.remove(id);
+        } else {
+          selectedSyllabusIds.add(id);
+        }
+      }),
+    );
+  }
+
+  Widget _buildSchoolDistrictOptions() {
+    if (_isSchoolDistrictLoading) return const Center(child: CircularProgressIndicator());
+    if (_schoolDistrictList.isEmpty) return const Center(child: Text('No districts found'));
+    return _buildSelectionList(
+      items: _schoolDistrictList
+          .map((e) => {'id': e.districtId, 'name': e.districtTitle})
+          .toList(),
+      selectedIds: selectedSchoolDistrictIds,
+      onToggle: (id) => setState(() {
+        if (selectedSchoolDistrictIds.contains(id)) {
+          selectedSchoolDistrictIds.remove(id);
+        } else {
+          selectedSchoolDistrictIds.add(id);
+        }
+        _fetchSchoolList(selectedSchoolDistrictIds.isNotEmpty ? selectedSchoolDistrictIds.first : null);
+      }),
+    );
+  }
+
+  Widget _buildAbroadOptions() {
+    if (_isAbroadLoading) return const Center(child: CircularProgressIndicator());
+    if (_abroadList.isEmpty) return const Center(child: Text('No abroad options found'));
+    return _buildSelectionList(
+      items: _abroadList
+          .map((e) => {'id': e.placeId, 'name': e.placeName})
+          .toList(),
+      selectedIds: selectedAbroadIds,
+      onToggle: (id) => setState(() {
+        if (selectedAbroadIds.contains(id)) {
+          selectedAbroadIds.remove(id);
+        } else {
+          selectedAbroadIds.add(id);
+        }
+      }),
+    );
+  }
+
+  Widget _buildSchoolOptions() {
+    if (_isSchoolLoading) return const Center(child: CircularProgressIndicator());
+    if (_schoolList.isEmpty) return const Center(child: Text('No schools found'));
+    return _buildSelectionList(
+      items: _schoolList
+          .map((e) => {
+                'id': e.id.isNotEmpty ? e.id : e.schoolName,
+                'name': e.schoolName
+              })
+          .toList(),
+      selectedIds: selectedSchoolIds,
+      onToggle: (id) => setState(() {
+        if (selectedSchoolIds.contains(id)) {
+          selectedSchoolIds.remove(id);
+        } else {
+          selectedSchoolIds.add(id);
+        }
+      }),
+    );
+  }
+
   Widget _buildSelectionList({
     required List<Map<String, String>> items,
     required Set<String> selectedIds,
@@ -952,6 +1247,12 @@ String? selectedDateType;
                 selectedPriorityIds.clear();
                 selectedProductIds.clear();
                 selectedTagIds.clear();
+                selectedClassIds.clear();
+                selectedStreamNames.clear();
+                selectedSyllabusIds.clear();
+                selectedSchoolDistrictIds.clear();
+                selectedAbroadIds.clear();
+                selectedSchoolIds.clear();
                 _tagListModel = null;
                 fromDate = null;
                 toDate = null;
@@ -979,8 +1280,6 @@ String? selectedDateType;
                 'dateType': selectedDateType,
                 'fromDate': fromDate,
                 'toDate': toDate,
-                //    'fromDateUpdated': fromDateUpdated,
-                // 'toDateUpdated': toDateUpdated,
                 'isDateFiltered': isDateFiltered,
                 'statusIds': selectedStatusIds.toList(),
                 'staffIds': selectedStaffIds.toList(),
@@ -989,6 +1288,18 @@ String? selectedDateType;
                 'productIds': selectedProductIds.toList(),
                 'tagIds': selectedTagIds.toList(),
                 'call_result_reason': selectedTagIds.toList(),
+                'classIds': selectedClassIds.toList(),
+                'class_id': selectedClassIds.toList(),
+                'streamNames': selectedStreamNames.toList(),
+                'stream': selectedStreamNames.toList(),
+                'syllabusIds': selectedSyllabusIds.toList(),
+                'syllabus': selectedSyllabusIds.toList(),
+                'schoolDistrictIds': selectedSchoolDistrictIds.toList(),
+                'school_district_id': selectedSchoolDistrictIds.toList(),
+                'abroadIds': selectedAbroadIds.toList(),
+                'abroad': selectedAbroadIds.toList(),
+                'schoolIds': selectedSchoolIds.toList(),
+                'school_name': selectedSchoolIds.toList(),
               });
               Navigator.pop(context);
             },

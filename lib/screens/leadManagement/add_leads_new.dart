@@ -7,6 +7,12 @@ import 'package:login2/models/clients/postalCodeModel.dart';
 import 'package:login2/models/lead_management/districtModel.dart';
 import 'package:login2/models/lead_management/leadSubTypeModel.dart';
 import 'package:login2/models/lead_management/stateModel.dart';
+import 'package:login2/models/lead_management/classListModel.dart';
+import 'package:login2/models/lead_management/streamListModel.dart';
+import 'package:login2/models/lead_management/syllabusListModel.dart';
+import 'package:login2/models/lead_management/schoolDistrictListModel.dart';
+import 'package:login2/models/lead_management/schoolListModel.dart';
+import 'package:login2/models/lead_management/abroadListModel.dart';
 import 'package:login2/widgets/AddLeadSourceDialog.dart';
 import 'package:login2/widgets/addLeadCateoryPopup.dart';
 import 'package:lottie/lottie.dart';
@@ -108,7 +114,7 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
   final ScrollController _scrollController = ScrollController();
 
   // Form Fields
-  String leadType = 'Lead Category', leadTypeId = '';
+  String leadType = 'Lead Type', leadTypeId = '';
   String leadSubType = 'Lead Sub Category', leadSubTypeId = '';
   String assignStaff = 'Assign Staff', assignStaffId = '';
   String callResult = 'New', callResultId = '1';
@@ -116,7 +122,7 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
   String priority = 'Normal', priorityId = '2';
 
   final TextEditingController leadTypeCtrl =
-      TextEditingController(text: 'Lead Category');
+      TextEditingController(text: 'Lead Type');
   final TextEditingController leadSubTypeCtrl =
       TextEditingController(text: 'Lead Sub Category');
   final TextEditingController assignStaffCtrl =
@@ -143,6 +149,36 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
   final TextEditingController callResponseCtrl = TextEditingController();
   final TextEditingController whatsappNoCtrl = TextEditingController();
   final TextEditingController emailCtrl = TextEditingController();
+
+  // Student & School Details Fields
+  List<ClassItem> classList = [];
+  List<SyllabusItem> syllabusList = [];
+  List<StreamItem> streamList = [];
+  List<SchoolDistrictItem> schoolDistrictList = [];
+  List<SchoolItem> schoolList = [];
+  List<AbroadItem> abroadList = [];
+
+  String selectedClassId = '', selectedClassName = 'Select Class';
+  String selectedSyllabusId = '', selectedSyllabusValue = 'Select Syllabus';
+  String selectedStreamName = 'Select Stream';
+  String selectedSchoolDistrictId = '', selectedSchoolDistrictTitle = 'Select School District';
+  String selectedSchoolId = '', selectedSchoolName = 'Select School Name';
+  String selectedAbroadId = '', selectedAbroadName = 'Select Abroad';
+
+  final TextEditingController divisionCtrl = TextEditingController();
+  final TextEditingController classCtrl =
+      TextEditingController(text: 'Select Class');
+  final TextEditingController syllabusCtrl =
+      TextEditingController(text: 'Select Syllabus');
+  final TextEditingController streamCtrl =
+      TextEditingController(text: 'Select Stream');
+  final TextEditingController schoolDistrictCtrl =
+      TextEditingController(text: 'Select School District');
+  final TextEditingController schoolCtrl =
+      TextEditingController(text: 'Select School Name');
+  final TextEditingController abroadCtrl =
+      TextEditingController(text: 'Select Abroad');
+  bool isSchoolLoading = false;
 
   // Additional Fields
   final List<TextEditingController> _additionalCtrls = [];
@@ -315,6 +351,13 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
     callResponseCtrl.dispose();
     whatsappNoCtrl.dispose();
     emailCtrl.dispose();
+    divisionCtrl.dispose();
+    classCtrl.dispose();
+    syllabusCtrl.dispose();
+    streamCtrl.dispose();
+    schoolDistrictCtrl.dispose();
+    schoolCtrl.dispose();
+    abroadCtrl.dispose();
     for (var ctrl in _additionalCtrls) ctrl.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -344,12 +387,16 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
     roleId = await Common.getSharedPref("roleId") ?? '';
     multiBranch = await Common.getSharedPref("multiBranch") ?? '';
 
-    commonDetails = await HttpService.addLeadCommonData(widget.token);
+    final String userToken = (widget.token != null && widget.token!.isNotEmpty)
+        ? widget.token!
+        : (await Common.getSharedPref("token") ?? '');
+
+    commonDetails = await HttpService.addLeadCommonData(userToken);
     if (commonDetails != null) {
       if (widget.countryCode == null) {
         code = commonDetails!.data.countryCode.toString();
       }
-      configure = await HttpService.configure(widget.token);
+      configure = await HttpService.configure(userToken);
     }
     stateDetails = await HttpService.getState();
     productSectionModel = await HttpService.leadProductSection();
@@ -385,6 +432,31 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
     if (StateId != null && StateId!.isNotEmpty) {
       final result = await HttpService.getDistrict(StateId!);
       districtList = result?.data ?? [];
+    }
+
+    final classRes = await HttpService.getClassList(userToken);
+    if (classRes?.data != null) {
+      classList = classRes!.data!;
+    }
+
+    final syllabusRes = await HttpService.getSyllabusList(userToken);
+    if (syllabusRes?.data != null) {
+      syllabusList = syllabusRes!.data!;
+    }
+
+    final streamRes = await HttpService.getStreamList(userToken);
+    if (streamRes?.data != null) {
+      streamList = streamRes!.data!;
+    }
+
+    final districtRes = await HttpService.getDistrictList(userToken);
+    if (districtRes?.data != null) {
+      schoolDistrictList = districtRes!.data!;
+    }
+
+    final abroadRes = await HttpService.getAbroadList(userToken);
+    if (abroadRes?.data != null) {
+      abroadList = abroadRes!.data!;
     }
 
     setState(() => isLoading = false);
@@ -507,40 +579,42 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
               icon: Icons.person_outline,
               children: [
                 const SizedBox(height: 12),
-                _buildCustomerRow(),
-                const SizedBox(height: 12),
                 _buildPhoneField(),
                 const SizedBox(height: 12),
-                _buildWhatsappField(),
-                const SizedBox(height: 12),
-                _buildEmailField(),
-                const SizedBox(height: 12),
-                _buildAddressField(),
-                const SizedBox(height: 12),
-                _buildPinCodeField(),
-                const SizedBox(height: 12),
-                if (postOffices.isNotEmpty) _buildPostOfficeDropdown(),
-                const SizedBox(height: 12),
-                _buildLocationFields(),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _buildSectionCard(
-              title: 'Lead Information',
-              icon: Icons.info_outline,
-              children: [
-                const SizedBox(height: 12),
-                _buildStaffField(),
+                _buildCustomerRow(),
                 const SizedBox(height: 12),
                 _buildLeadCategoryField(),
                 const SizedBox(height: 12),
-                if (leadSubTypeList?.data?.isNotEmpty ?? false)
+                if (leadSubTypeList?.data?.isNotEmpty ?? false) ...[
                   _buildSubCategoryField(),
+                  const SizedBox(height: 12),
+                ],
+                _buildStaffField(),
+                const SizedBox(height: 12),
+                _buildClassField(),
+                const SizedBox(height: 12),
+                if (_isClass11Or12(selectedClassName)) ...[
+                  _buildStreamField(),
+                  const SizedBox(height: 12),
+                ],
+                const SizedBox(height: 12),
+                _buildDivisionField(),
+                const SizedBox(height: 12),
+                _buildSyllabusField(),
+                const SizedBox(height: 12),
+                _buildSchoolDistrictField(),
+                const SizedBox(height: 12),
+                _buildSchoolNameField(),
+                const SizedBox(height: 12),
+                _buildAbroadField(),
+                const SizedBox(height: 12),
+                _buildAddressField(),
+                const SizedBox(height: 12),
+                _buildRemarksField(),
                 const SizedBox(height: 12),
                 _buildLeadSourceField(),
                 const SizedBox(height: 12),
                 _buildPriorityField(),
-                const SizedBox(height: 12),
                 const SizedBox(height: 12),
                 _buildStatusField(),
                 const SizedBox(height: 12),
@@ -551,8 +625,6 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
                 if (leadSettings != null
                     ? leadSettings!.isFollowupRequiredBool
                     : (callResultId == '2'))
-                  const SizedBox(height: 12),
-                _buildRemarksField(),
                 const SizedBox(height: 12),
                 // if (leadSettings != null
                 //     ? leadSettings!.isFollowupRequiredBool ||
@@ -566,17 +638,26 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
                 if (callResultId != '1') _buildCallResponseField(),
               ],
             ),
-            const SizedBox(height: 12),
-            _buildSectionCard(
-              title: 'Product Info',
-              icon: Icons.shopping_bag_outlined,
-              children: [
-                const SizedBox(height: 12),
-                _buildProductSelection(),
-                const SizedBox(height: 12),
-                _buildCostField(),
-              ],
-            ),
+            // const SizedBox(height: 12),
+            // _buildSectionCard(
+            //   title: 'Lead Information',
+            //   icon: Icons.info_outline,
+            //   children: [
+            //     const SizedBox(height: 12),
+                
+            //   ],
+            // ),
+            // const SizedBox(height: 12),
+            // _buildSectionCard(
+            //   title: 'Product Info',
+            //   icon: Icons.shopping_bag_outlined,
+            //   children: [
+            //     const SizedBox(height: 12),
+            //     _buildProductSelection(),
+            //     const SizedBox(height: 12),
+            //     _buildCostField(),
+            //   ],
+            // ),
             if (commonDetails?.data.additionalFields != null &&
                 commonDetails!.data.additionalFields.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -627,26 +708,26 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
         Expanded(
           child: TextFormField(
             controller: clientNameCtrl,
-            decoration: _inputDecoration('Client Name *', Icons.person),
-            validator: (v) => v!.isEmpty ? 'Required' : null,
+            decoration: _inputDecoration('Student Name ', Icons.person),
+            // validator: (v) => v!.isEmpty ? 'Required' : null,
           ),
         ),
-        const SizedBox(width: 10),
-        GestureDetector(
-          onTap: () => contactPermission == 'true'
-              ? _selectContact()
-              : _showPermissionDialog(),
-          child: Container(
-            height: 50,
-            width: 60,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                  colors: [Color(0xFF2a86c9), Color(0xFF406dbe)]),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.contacts, color: Colors.white),
-          ),
-        ),
+        // const SizedBox(width: 10),
+        // GestureDetector(
+        //   onTap: () => contactPermission == 'true'
+        //       ? _selectContact()
+        //       : _showPermissionDialog(),
+        //   child: Container(
+        //     height: 50,
+        //     width: 60,
+        //     decoration: BoxDecoration(
+        //       gradient: const LinearGradient(
+        //           colors: [Color(0xFF2a86c9), Color(0xFF406dbe)]),
+        //       borderRadius: BorderRadius.circular(8),
+        //     ),
+        //     child: const Icon(Icons.contacts, color: Colors.white),
+        //   ),
+        // ),
       ],
     );
   }
@@ -762,9 +843,662 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
       child: AbsorbPointer(
         child: TextFormField(
           controller: TextEditingController(text: assignStaff),
-          decoration: _inputDecoration('Assign Staff', Icons.person),
+          decoration: _inputDecoration('Assign Agent', Icons.person),
         ),
       ),
+    );
+  }
+
+  bool _isClass11Or12(String className) {
+    final name = className.toLowerCase().trim();
+    return name.contains('11') ||
+        name.contains('12') ||
+        name == 'xi' ||
+        name == 'xii' ||
+        name.contains('plus one') ||
+        name.contains('plus two') ||
+        name.contains('+1') ||
+        name.contains('+2');
+  }
+
+  Widget _buildClassField() {
+    return GestureDetector(
+      onTap: () => _showClassDialog(),
+      child: Stack(
+        alignment: Alignment.centerRight,
+        children: [
+          AbsorbPointer(
+            child: TextFormField(
+              controller: classCtrl,
+              decoration: _inputDecoration('Class', Icons.school).copyWith(
+                suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
+              ),
+            ),
+          ),
+          if (selectedClassId.isNotEmpty)
+            Positioned(
+              right: 0,
+              child: IconButton(
+                icon: const Icon(Icons.clear, size: 20),
+                onPressed: () {
+                  setState(() {
+                    selectedClassId = '';
+                    selectedClassName = 'Select Class';
+                    classCtrl.text = 'Select Class';
+                  });
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+Widget _buildDivisionField() {
+  return TextFormField(
+    controller: divisionCtrl,
+    textCapitalization: TextCapitalization.characters,
+    inputFormatters: [
+      FilteringTextInputFormatter.allow(RegExp(r'[A-Z]')),
+    ],
+    decoration: _inputDecoration('Division', Icons.class_outlined),
+  );
+}
+  Widget _buildSyllabusField() {
+    return GestureDetector(
+      onTap: () => _showSyllabusDialog(),
+      child: Stack(
+        alignment: Alignment.centerRight,
+        children: [
+          AbsorbPointer(
+            child: TextFormField(
+              controller: syllabusCtrl,
+              decoration: _inputDecoration('Syllabus', Icons.book_outlined).copyWith(
+                suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
+              ),
+            ),
+          ),
+          if (selectedSyllabusId.isNotEmpty)
+            Positioned(
+              right: 0,
+              child: IconButton(
+                icon: const Icon(Icons.clear, size: 20),
+                onPressed: () {
+                  setState(() {
+                    selectedSyllabusId = '';
+                    selectedSyllabusValue = 'Select Syllabus';
+                    syllabusCtrl.text = 'Select Syllabus';
+                  });
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStreamField() {
+    return GestureDetector(
+      onTap: () => _showStreamDialog(),
+      child: Stack(
+        alignment: Alignment.centerRight,
+        children: [
+          AbsorbPointer(
+            child: TextFormField(
+              controller: streamCtrl,
+              decoration: _inputDecoration('Stream', Icons.merge_type_outlined).copyWith(
+                suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
+              ),
+            ),
+          ),
+          if (selectedStreamName != 'Select Stream')
+            Positioned(
+              right: 0,
+              child: IconButton(
+                icon: const Icon(Icons.clear, size: 20),
+                onPressed: () {
+                  setState(() {
+                    selectedStreamName = 'Select Stream';
+                    streamCtrl.text = 'Select Stream';
+                  });
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSchoolDistrictField() {
+    return GestureDetector(
+      onTap: () => _showSchoolDistrictDialog(),
+      child: Stack(
+        alignment: Alignment.centerRight,
+        children: [
+          AbsorbPointer(
+            child: TextFormField(
+              controller: schoolDistrictCtrl,
+              decoration: _inputDecoration('School District', Icons.map_outlined).copyWith(
+                suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
+              ),
+            ),
+          ),
+          if (selectedSchoolDistrictId.isNotEmpty)
+            Positioned(
+              right: 0,
+              child: IconButton(
+                icon: const Icon(Icons.clear, size: 20),
+                onPressed: () {
+                  setState(() {
+                    selectedSchoolDistrictId = '';
+                    selectedSchoolDistrictTitle = 'Select School District';
+                    schoolDistrictCtrl.text = 'Select School District';
+                    selectedSchoolId = '';
+                    selectedSchoolName = 'Select School Name';
+                    schoolCtrl.text = 'Select School Name';
+                    schoolList.clear();
+                  });
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSchoolNameField() {
+    return GestureDetector(
+      onTap: () => _showSchoolDialog(),
+      child: Stack(
+        alignment: Alignment.centerRight,
+        children: [
+          AbsorbPointer(
+            child: TextFormField(
+              controller: schoolCtrl,
+              decoration:
+                  _inputDecoration('School Name', Icons.account_balance_outlined)
+                      .copyWith(
+                suffixIcon: isSchoolLoading
+                    ? const Padding(
+                        padding: EdgeInsets.all(12.0),
+                        child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2)),
+                      )
+                    : const Icon(Icons.arrow_drop_down, color: Colors.grey),
+              ),
+            ),
+          ),
+          if (!isSchoolLoading && selectedSchoolId.isNotEmpty)
+            Positioned(
+              right: 0,
+              child: IconButton(
+                icon: const Icon(Icons.clear, size: 20),
+                onPressed: () {
+                  setState(() {
+                    selectedSchoolId = '';
+                    selectedSchoolName = 'Select School Name';
+                    schoolCtrl.text = 'Select School Name';
+                  });
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAbroadField() {
+    return GestureDetector(
+      onTap: () => _showAbroadDialog(),
+      child: Stack(
+        alignment: Alignment.centerRight,
+        children: [
+          AbsorbPointer(
+            child: TextFormField(
+              controller: abroadCtrl,
+              decoration: _inputDecoration('Abroad', Icons.flight_takeoff).copyWith(
+                suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
+              ),
+            ),
+          ),
+          if (selectedAbroadId.isNotEmpty)
+            Positioned(
+              right: 0,
+              child: IconButton(
+                icon: const Icon(Icons.clear, size: 20),
+                onPressed: () {
+                  setState(() {
+                    selectedAbroadId = '';
+                    selectedAbroadName = 'Select Abroad';
+                    abroadCtrl.text = 'Select Abroad';
+                  });
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _fetchSchoolsForDistrict(String districtId) async {
+    setState(() => isSchoolLoading = true);
+    final String userToken = (widget.token != null && widget.token!.isNotEmpty)
+        ? widget.token!
+        : (await Common.getSharedPref("token") ?? '');
+    final schoolRes = await HttpService.getSchoolList(userToken, districtId);
+    setState(() {
+      isSchoolLoading = false;
+      schoolList = schoolRes?.data ?? [];
+    });
+  }
+
+  void _showClassDialog() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (classList.isEmpty) {
+      Common.toastMessaage('No Class list found', Colors.orange);
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (_) {
+        final searchCtrl = TextEditingController();
+        var filtered = List<ClassItem>.from(classList);
+        return StatefulBuilder(builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Text('Select Class'),
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.8,
+              height: 400,
+              child: Column(
+                children: [
+                  TextField(
+                    controller: searchCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Search Class',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onChanged: (v) => setDialogState(() {
+                      filtered = classList
+                          .where((c) => c.className
+                              .toLowerCase()
+                              .contains(v.toLowerCase()))
+                          .toList();
+                    }),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filtered.length,
+                      itemBuilder: (_, i) {
+                        final item = filtered[i];
+                        return ListTile(
+                          title: Text(item.className),
+                          onTap: () {
+                            setState(() {
+                              selectedClassId = item.classId;
+                              selectedClassName = item.className;
+                              classCtrl.text = item.className;
+                            });
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  void _showSyllabusDialog() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (syllabusList.isEmpty) {
+      Common.toastMessaage('No Syllabus found', Colors.orange);
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (_) {
+        final searchCtrl = TextEditingController();
+        var filtered = List<SyllabusItem>.from(syllabusList);
+        return StatefulBuilder(builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Text('Select Syllabus'),
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.8,
+              height: 400,
+              child: Column(
+                children: [
+                  TextField(
+                    controller: searchCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Search Syllabus',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onChanged: (v) => setDialogState(() {
+                      filtered = syllabusList
+                          .where((s) => s.value
+                              .toLowerCase()
+                              .contains(v.toLowerCase()))
+                          .toList();
+                    }),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filtered.length,
+                      itemBuilder: (_, i) {
+                        final item = filtered[i];
+                        return ListTile(
+                          title: Text(item.value),
+                          onTap: () {
+                            setState(() {
+                              selectedSyllabusId = item.id;
+                              selectedSyllabusValue = item.value;
+                              syllabusCtrl.text = item.value;
+                            });
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  void _showStreamDialog() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (streamList.isEmpty) {
+      Common.toastMessaage('No Stream found', Colors.orange);
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (_) {
+        final searchCtrl = TextEditingController();
+        var filtered = List<StreamItem>.from(streamList);
+        return StatefulBuilder(builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Text('Select Stream'),
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.8,
+              height: 400,
+              child: Column(
+                children: [
+                  TextField(
+                    controller: searchCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Search Stream',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onChanged: (v) => setDialogState(() {
+                      filtered = streamList
+                          .where((s) => s.streamName
+                              .toLowerCase()
+                              .contains(v.toLowerCase()))
+                          .toList();
+                    }),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filtered.length,
+                      itemBuilder: (_, i) {
+                        final item = filtered[i];
+                        return ListTile(
+                          title: Text(item.streamName),
+                          onTap: () {
+                            setState(() {
+                              selectedStreamName = item.streamName;
+                              streamCtrl.text = item.streamName;
+                            });
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  void _showSchoolDistrictDialog() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (schoolDistrictList.isEmpty) {
+      Common.toastMessaage('No School District found', Colors.orange);
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (_) {
+        final searchCtrl = TextEditingController();
+        var filtered = List<SchoolDistrictItem>.from(schoolDistrictList);
+        return StatefulBuilder(builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Text('Select School District'),
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.8,
+              height: 400,
+              child: Column(
+                children: [
+                  TextField(
+                    controller: searchCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Search District',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onChanged: (v) => setDialogState(() {
+                      filtered = schoolDistrictList
+                          .where((d) => d.districtTitle
+                              .toLowerCase()
+                              .contains(v.toLowerCase()))
+                          .toList();
+                    }),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filtered.length,
+                      itemBuilder: (_, i) {
+                        final item = filtered[i];
+                        return ListTile(
+                          title: Text(item.districtTitle),
+                          onTap: () {
+                            setState(() {
+                              selectedSchoolDistrictId = item.districtId;
+                              selectedSchoolDistrictTitle = item.districtTitle;
+                              schoolDistrictCtrl.text = item.districtTitle;
+                              selectedSchoolId = '';
+                              selectedSchoolName = 'Select School Name';
+                              schoolCtrl.text = 'Select School Name';
+                              schoolList.clear();
+                            });
+                            Navigator.pop(context);
+                            _fetchSchoolsForDistrict(item.districtId);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  void _showSchoolDialog() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (selectedSchoolDistrictId.isEmpty) {
+      Common.toastMessaage('Please select a School District first', Colors.orange);
+      return;
+    }
+    if (schoolList.isEmpty && !isSchoolLoading) {
+      await _fetchSchoolsForDistrict(selectedSchoolDistrictId);
+    }
+    if (isSchoolLoading) {
+      Common.toastMessaage('Loading schools...', Colors.orange);
+      return;
+    }
+    if (schoolList.isEmpty) {
+      Common.toastMessaage('No schools found for this district', Colors.orange);
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (_) {
+        final searchCtrl = TextEditingController();
+        var filtered = List<SchoolItem>.from(schoolList);
+        return StatefulBuilder(builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Text('Select School Name'),
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.8,
+              height: 400,
+              child: Column(
+                children: [
+                  TextField(
+                    controller: searchCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Search School Name',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onChanged: (v) => setDialogState(() {
+                      filtered = schoolList
+                          .where((s) => s.schoolName
+                              .toLowerCase()
+                              .contains(v.toLowerCase()))
+                          .toList();
+                    }),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filtered.length,
+                      itemBuilder: (_, i) {
+                        final item = filtered[i];
+                        return ListTile(
+                          title: Text(item.schoolName),
+                          subtitle: item.schoolCode.isNotEmpty
+                              ? Text("Code: ${item.schoolCode}")
+                              : null,
+                          onTap: () {
+                            setState(() {
+                              selectedSchoolId = item.id;
+                              selectedSchoolName = item.schoolName;
+                              schoolCtrl.text = item.schoolName;
+                            });
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  void _showAbroadDialog() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (abroadList.isEmpty) {
+      Common.toastMessaage('No Abroad locations found', Colors.orange);
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (_) {
+        final searchCtrl = TextEditingController();
+        var filtered = List<AbroadItem>.from(abroadList);
+        return StatefulBuilder(builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Text('Select Abroad'),
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.8,
+              height: 400,
+              child: Column(
+                children: [
+                  TextField(
+                    controller: searchCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Search Abroad Location',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onChanged: (v) => setDialogState(() {
+                      filtered = abroadList
+                          .where((a) => a.placeName
+                              .toLowerCase()
+                              .contains(v.toLowerCase()))
+                          .toList();
+                    }),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filtered.length,
+                      itemBuilder: (_, i) {
+                        final item = filtered[i];
+                        return ListTile(
+                          title: Text(item.placeName),
+                          onTap: () {
+                            setState(() {
+                              selectedAbroadId = item.placeId;
+                              selectedAbroadName = item.placeName;
+                              abroadCtrl.text = item.placeName;
+                            });
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        });
+      },
     );
   }
 
@@ -778,14 +1512,14 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
             child: TextFormField(
               controller: leadTypeCtrl,
               decoration: _inputDecoration(
-                      'Lead Category', Icons.arrow_drop_down_circle_outlined)
+                      'Lead Type', Icons.arrow_drop_down_circle_outlined)
                   .copyWith(
                 suffixIcon: leadTypeId.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear, size: 20),
                         onPressed: () {
                           setState(() {
-                            leadType = 'Lead Category';
+                            leadType = 'Lead Type';
                             leadTypeId = '';
                             leadSubType = 'Lead Sub Category';
                             leadSubTypeId = '';
@@ -967,7 +1701,7 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
         child: TextFormField(
           controller: TextEditingController(text: callResult),
           decoration:
-              _inputDecoration('Stages', Icons.arrow_drop_down_circle_outlined),
+              _inputDecoration('Feedback', Icons.arrow_drop_down_circle_outlined),
         ),
       ),
     );
@@ -1522,7 +2256,7 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
         var filtered = List.from(commonDetails!.data.leadCategory);
         return StatefulBuilder(builder: (ctx, setDialogState) {
           return AlertDialog(
-            title: const Text('Lead Category'),
+            title: const Text('Lead Type'),
             content: SizedBox(
               width: MediaQuery.of(context).size.width * 0.8,
               height: 400,
@@ -2173,6 +2907,13 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
       whatsappNumber: whatsappNoCtrl.text,
       whatsappnumber_country_code: whatsappCode,
       email: emailCtrl.text,
+      classId: selectedClassId,
+      division: divisionCtrl.text,
+      syllabus: selectedSyllabusId.isNotEmpty ? selectedSyllabusValue : '',
+      streamName: selectedStreamName == 'Select Stream' ? '' : selectedStreamName,
+      schoolDistrictId: selectedSchoolDistrictId,
+      schoolId: selectedSchoolId,
+      abroadId: selectedAbroadId,
     );
 
     Navigator.pop(context);

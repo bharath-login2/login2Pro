@@ -2886,31 +2886,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
               ),
             )
           else ...[
-            // Add New Followup Form - Restricted for closed leads (Status ID '4' or name 'Closed')
-            if (leadDetails?.data?.callResultId != "4" &&
-                leadDetails?.data?.callResult != "Closed")
-              _buildAddNewFollowupForm()
-            else
-              const Card(
-                margin: EdgeInsets.all(12),
-                color: Colors.redAccent,
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, color: Colors.white),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'This lead is Closed. Further followups are restricted.',
-                          style: TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            _buildAddNewFollowupForm(),
           ],
 
           // List of existing followups
@@ -7468,16 +7444,16 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
           _buildDetailSection('Client Info', [
             _buildDetailRow('Client Name', data.clientName ?? '-'),
             _buildDetailRow('Phone', data.contactNumber1 ?? '-'),
-            _buildDetailRow('WhatsApp Number', data.whatsaAppNumber ?? '-'),
+            // _buildDetailRow('WhatsApp Number', data.whatsaAppNumber ?? '-'),
             // _buildDetailRow(
             //     'WhatsApp (', _stripCountryCode(data.whatsaAppNumber)),
             // _buildDetailRow('Country Code', data.countryCode ?? '-'),
             _buildDetailRow('Email', data.emailId ?? '-'),
             _buildDetailRow('Address', data.address ?? '-'),
             //  _buildDetailRow('Products', data.products ?? '-'),
-            _buildDetailRow('State', data.stateName ?? '-'),
-            _buildDetailRow('District', data.districtName ?? '-'),
-            _buildDetailRow('PIN Code', data.pinCode ?? '-'),
+            // _buildDetailRow('State', data.stateName ?? '-'),
+            // _buildDetailRow('District', data.districtName ?? '-'),
+            // _buildDetailRow('PIN Code', data.pinCode ?? '-'),
             _buildDetailRow('Post Office', data.postOffice ?? '-'),
             // ]),
             // _buildDetailRow('Category', data.leadCategory ?? '-'),
@@ -7500,20 +7476,23 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
             // _buildDetailRow('Email', data.emailId ?? '-'),
             // _buildDetailRow('Address', data.address ?? '-'),
             // //  _buildDetailRow('Products', data.products ?? '-'),
-            // _buildDetailRow('State', data.stateName ?? '-'),
-            // _buildDetailRow('District', data.districtName ?? '-'),
-            // _buildDetailRow('PIN Code', data.pinCode ?? '-'),
-            // _buildDetailRow('Post Office', data.postOffice ?? '-'),
             // // ]),
             _buildDetailRow('Created date', data.createdDate ?? '-'),
             _buildDetailRow('Created by', data.createdStaff ?? '-'),
             _buildDetailRow('Lead Source', data.leadSource ?? '-'),
             _buildDetailRow('Lead Stage', data.callResult ?? '-'),
-            _buildDetailRow('Product', data.products ?? '-'),
-            _buildDetailRow('Cost', '₹ ${data.cost}' ?? '-'),
+            // _buildDetailRow('Product', data.products ?? '-'),
+            // _buildDetailRow('Cost', '₹ ${data.cost}' ?? '-'),
             _buildDetailRow('Category', data.leadCategory ?? '-'),
             _buildDetailRow('Sub Category', data.leadSubCategory ?? '-'),
             _buildDetailRow('Remark', data.remarks ?? '-'),
+            _buildDetailRow('Class', data.classId ?? '-'),
+            _buildDetailRow('Division', data.division ?? '-'),
+            _buildDetailRow('Syllabus', data.syllabusValue ?? '-'),
+            _buildDetailRow('School District', data.districtschool ?? '-'),
+            _buildDetailRow('School Name', data.school ?? '-'),
+            _buildDetailRow('Abroad', data.abroadName ?? '-'),
+            _buildDetailRow('Stream', data.streamName ?? '-'),
             //  _buildDetailRow('Assigned to', data.staffName ?? '-'),
 
 //            _buildDetailRow('Cost', data.cost ?? '-'),

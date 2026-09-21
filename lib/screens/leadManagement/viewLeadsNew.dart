@@ -242,6 +242,12 @@ class _ViewLeadsNewState extends State<ViewLeadsNew>
   List<String> checkedProductItemsName = [];
   List<String> checkedSubCategoryItems = [];
   List<String> checkedSubCategoryItemsName = [];
+  List<String> checkedClassItems = [];
+  List<String> checkedStreamItems = [];
+  List<String> checkedSyllabusItems = [];
+  List<String> checkedSchoolDistrictItems = [];
+  List<String> checkedAbroadItems = [];
+  List<String> checkedSchoolItems = [];
   List<TransferStaff> filteredStaff = [];
   String staffId = "";
   String staffName = "Staff";
@@ -584,12 +590,12 @@ class _ViewLeadsNewState extends State<ViewLeadsNew>
       "leadSourceId": widget.leadSourceId ?? "",
       "productId": checkedProductItems,
       "selectedType": selectedDateType,
-      // 'updated_from_date': fromdateUpdated != null
-      //     ? DateFormat('dd-MM-yyyy').format(fromdateUpdated!)
-      //     : "",
-      // 'updated_to_date': todateUpdated != null
-      //     ? DateFormat('dd-MM-yyyy').format(todateUpdated!)
-      //     : "",
+      "class_id": checkedClassItems,
+      "stream": checkedStreamItems,
+      "syllabus": checkedSyllabusItems,
+      "school_district_id": checkedSchoolDistrictItems,
+      "abroad": checkedAbroadItems,
+      "school_name": checkedSchoolItems,
       "search": searchText,
     };
 
@@ -1907,6 +1913,12 @@ void _refreshList() async {
                             'categoryIds': checkedCategoryItems,
                             'priorityIds': checkedPriorityItems,
                             'productIds': checkedProductItems,
+                            'classIds': checkedClassItems,
+                            'streamNames': checkedStreamItems,
+                            'syllabusIds': checkedSyllabusItems,
+                            'schoolDistrictIds': checkedSchoolDistrictItems,
+                            'abroadIds': checkedAbroadItems,
+                            'schoolIds': checkedSchoolItems,
                             'dateType': selectedDateType,
                           },
                           onApplyFilters: (filters) {
@@ -1917,19 +1929,37 @@ void _refreshList() async {
                                   filters['dateType'] ?? 'created';
 
                               checkedAssignedStaffItems =
-                                  List<String>.from(filters['staffIds']);
+                                  List<String>.from(filters['staffIds'] ?? []);
 
                               checkedCategoryItems =
-                                  List<String>.from(filters['categoryIds']);
+                                  List<String>.from(filters['categoryIds'] ?? []);
 
                               checkedPriorityItems =
-                                  List<String>.from(filters['priorityIds']);
+                                  List<String>.from(filters['priorityIds'] ?? []);
 
                               checkedProductItems =
-                                  List<String>.from(filters['productIds']);
+                                  List<String>.from(filters['productIds'] ?? []);
+
+                              checkedClassItems =
+                                  List<String>.from(filters['classIds'] ?? filters['class_id'] ?? []);
+
+                              checkedStreamItems =
+                                  List<String>.from(filters['streamNames'] ?? filters['stream'] ?? []);
+
+                              checkedSyllabusItems =
+                                  List<String>.from(filters['syllabusIds'] ?? filters['syllabus'] ?? []);
+
+                              checkedSchoolDistrictItems =
+                                  List<String>.from(filters['schoolDistrictIds'] ?? filters['school_district_id'] ?? []);
+
+                              checkedAbroadItems =
+                                  List<String>.from(filters['abroadIds'] ?? filters['abroad'] ?? []);
+
+                              checkedSchoolItems =
+                                  List<String>.from(filters['schoolIds'] ?? filters['school_name'] ?? []);
 
                               final statusIds =
-                                  List<String>.from(filters['statusIds']);
+                                  List<String>.from(filters['statusIds'] ?? []);
 
                               status =
                                   statusIds.isNotEmpty ? statusIds.first : null;

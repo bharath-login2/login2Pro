@@ -1,4 +1,4 @@
-package com.login2Pro
+package com.login2.mentorbee
 
 import io.flutter.embedding.android.FlutterActivity
 

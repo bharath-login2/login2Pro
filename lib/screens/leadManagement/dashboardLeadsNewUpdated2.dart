@@ -281,6 +281,12 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
   List<String> _listTabSelectedPriorityIds = [];
   List<String> _listTabSelectedProductIds = [];
   List<String> _listTabSelectedTagIds = [];
+  List<String> _listTabSelectedClassIds = [];
+  List<String> _listTabSelectedStreamNames = [];
+  List<String> _listTabSelectedSyllabusIds = [];
+  List<String> _listTabSelectedSchoolDistrictIds = [];
+  List<String> _listTabSelectedAbroadIds = [];
+  List<String> _listTabSelectedSchoolIds = [];
   bool _isListTabFilterApplied = false;
   bool _isListTabDateFiltered = false;
   bool _isGlobalDateFiltered = false;
@@ -587,7 +593,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
         if (_isGraphViewActive) {
           await _fetchProgressBarLeads(_listTabFilter);
         } else {
-          _listTabFilter == "Followup"
+          _listTabFilter == "Followup" || _listTabFilter == "Followup Needed"
               ? await _fetchTabLeadsActive()
               : await _fetchTabLeads();
         }
@@ -2942,7 +2948,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                   _hasMoreListTabLeads &&
                   scrollInfo.metrics.pixels >=
                       scrollInfo.metrics.maxScrollExtent - 200) {
-                _listTabFilter == "Followup"
+                _listTabFilter == "Followup" || _listTabFilter == "Followup Needed"
                     ? _fetchTabLeadsActive(isLoadMore: true)
                     : _fetchTabLeads(isLoadMore: true);
                 return true;
@@ -3070,7 +3076,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                         child: Column(
                           children: [
                             const Text(
-                              "Missed",
+                              "Missed Leads",
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
@@ -3104,7 +3110,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
               child: _buildBoxIcons('Active', '2', 'Active Leads'),
             ),
             _buildDashboardBox(
-              title: 'Closed',
+              title: 'Admissions Taken',
               mainValue: isClosedDateFiltered
                   ? closedCount
                   : (dashboardCounts?.data?.leads?.closedLeads ?? 0).toString(),
@@ -3527,7 +3533,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
           ).then((_) {
             getData(widget.token, fromDate, toDate, isRefresh: true);
           });
-        } else if (title.contains('Transferred')) {
+        } else if (title.contains('Transferred Leads')) {
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -3796,52 +3802,52 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     });
 
     try {
-      String effectiveGraphStatus = _listTabFilter == 'New'
+      String effectiveGraphStatus = _listTabFilter == 'New' || _listTabFilter == 'New Leads'
           ? '1'
-          : _listTabFilter == 'Followup'
+          : _listTabFilter == 'Followup' || _listTabFilter == 'Followup Needed'
               ? '2'
-              : _listTabFilter == 'Missed'
+              : _listTabFilter == 'Missed' || _listTabFilter == 'Missed Leads'
                   ? '0'
-                  : _listTabFilter == 'Called'
+                  : _listTabFilter == 'Called' || _listTabFilter == 'Total Called'
                       ? '1'
-                      : _listTabFilter == 'Transferred'
+                      : _listTabFilter == 'Transferred Leads'
                           ? '2'
-                          : _listTabFilter == 'Closed'
+                          : _listTabFilter == 'Closed' || _listTabFilter == 'Admissions Taken'
                               ? '4'
                               : '';
 
       dynamic fDate = fromDate;
       dynamic tDate = toDate;
 
-      if (category == "New") {
+      if (category == "New" || category == "New Leads") {
         await getLeadProgressbarNew(
           widget.token!,
           fDate,
           tDate,
           effectiveGraphStatus,
         );
-      } else if (category == "Followup") {
+      } else if (category == "Followup" || category == "Followup Needed") {
         await getLeadProgressbarFollowup(
           widget.token!,
           fDate,
           tDate,
           effectiveGraphStatus,
         );
-      } else if (category == "Missed") {
+      } else if (category == "Missed" || category == "Missed Leads") {
         await getLeadProgressbarMissed(
           widget.token!,
           fDate,
           tDate,
           effectiveGraphStatus,
         );
-      } else if (category == "Called") {
+      } else if (category == "Called" || category == "Total Called") {
         await getLeadProgressbarCalled(
           widget.token!,
           fDate,
           tDate,
           effectiveGraphStatus,
         );
-      } else if (category == "Transferred") {
+      } else if (category == "Transferred Leads") {
         await getLeadProgressbarTransferred(
           widget.token!,
           fDate,
@@ -3849,7 +3855,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
           effectiveGraphStatus,
         );
       } else {
-        if (category == "Closed") {
+        if (category == "Closed" || category == "Admissions Taken" || category == "Admission Taken") {
           if (!isClosedDateFiltered) {
             fDate = DateFormat('dd-MM-yyyy').format(DateTime.now());
             tDate = DateFormat('dd-MM-yyyy').format(DateTime.now());
@@ -3925,21 +3931,24 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     String currentType = "";
     String? currentCallStatus;
 
-    if (_activeGraphCategory == "New") {
+    if (_activeGraphCategory == "New" || _activeGraphCategory == "New Leads") {
       currentStatus = "1";
       currentType = "";
-    } else if (_activeGraphCategory == "Followup") {
+    } else if (_activeGraphCategory == "Followup" || _activeGraphCategory == "Followup Needed") {
       currentStatus = "2";
       currentType = "";
-    } else if (_activeGraphCategory == "Missed") {
+    } else if (_activeGraphCategory == "Missed" || _activeGraphCategory == "Missed Leads") {
       currentType = "1";
       currentCallStatus = "-1";
-    } else if (_activeGraphCategory == "Called") {
+    } else if (_activeGraphCategory == "Called" || _activeGraphCategory == "Total Called") {
       currentType = "-1";
       currentCallStatus = "1";
-    } else if (_activeGraphCategory == "Transferred") {
+    } else if (_activeGraphCategory == "Transferred" || _activeGraphCategory == "Transferred Leads") {
       currentType = "2";
       currentCallStatus = "-2";
+    } else if (_activeGraphCategory == "Admissions Taken" || _activeGraphCategory == "Admission Taken" || _activeGraphCategory == "Closed") {
+      currentStatus = "4";
+      currentType = "";
     }
 
     if (object1 == null || object1!.data == null) {
@@ -4432,18 +4441,25 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                             Text(
                               _isGraphViewActive
                                   ? '$_listTabFilter '
-                                  : _listTabFilter == 'New'
+                                  : _listTabFilter == 'New Leads'
                                       ? 'New Leads'
-                                      : _listTabFilter == 'Followup'
-                                          ? 'Followup Leads'
-                                          : _listTabFilter == 'Missed'
-                                              ? 'Missed Leads'
-                                              : _listTabFilter == 'Called'
-                                                  ? 'Called Leads'
-                                                  : _listTabFilter ==
-                                                          'Transferred'
-                                                      ? 'Transferred Leads'
-                                                      : 'Total Leads',
+                                      : _listTabFilter == 'Followup Needed'
+                                          ? 'Followup Needed Leads'
+                                          : _listTabFilter == 'Followup'
+                                              ? 'Followup Leads'
+                                              : _listTabFilter == 'Missed Leads'
+                                                  ? 'Missed Leads'
+                                                  : _listTabFilter == 'Missed'
+                                                      ? 'Missed Leads'
+                                                      : _listTabFilter == 'Total Called'
+                                                          ? 'Total Called'
+                                                          : _listTabFilter == 'Called'
+                                                              ? 'Called Leads'
+                                                              : _listTabFilter == 'Transferred Leads'
+                                                                  ? 'Transferred Leads'
+                                                                  : _listTabFilter == 'Admissions Taken'
+                                                                      ? 'Admissions Taken'
+                                                                      : 'Total Leads',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -4536,7 +4552,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                 if (_isGraphViewActive) {
                                   _fetchProgressBarLeads(_listTabFilter);
                                 } else {
-                                  if (_listTabFilter == "Followup") {
+                                  if (_listTabFilter == "Followup" || _listTabFilter == "Followup Needed") {
                                     _fetchTabLeadsActive();
                                   } else {
                                     _fetchTabLeads();
@@ -4587,14 +4603,18 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                       'toDate': toDate,
                                       'statusIds': _listTabSelectedStatusIds,
                                       'staffIds': _listTabSelectedStaffIds,
-                                      'categoryIds':
-                                          _listTabSelectedCategoryIds,
-                                      'priorityIds':
-                                          _listTabSelectedPriorityIds,
+                                      'categoryIds': _listTabSelectedCategoryIds,
+                                      'priorityIds': _listTabSelectedPriorityIds,
                                       'productIds': _listTabSelectedProductIds,
+                                      'classIds': _listTabSelectedClassIds,
+                                      'streamNames': _listTabSelectedStreamNames,
+                                      'syllabusIds': _listTabSelectedSyllabusIds,
+                                      'schoolDistrictIds': _listTabSelectedSchoolDistrictIds,
+                                      'abroadIds': _listTabSelectedAbroadIds,
+                                      'schoolIds': _listTabSelectedSchoolIds,
                                     },
                                     isActiveLeads:
-                                        _listTabFilter == "Followup" ? "1" : "",
+                                        _listTabFilter == "Followup" || _listTabFilter == "Followup Needed" ? "1" : "",
                                     onApplyFilters: (filters) {
                                       setState(() {
                                         _isListTabLoading = true;
@@ -4627,6 +4647,30 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                         _listTabSelectedTagIds =
                                             List<String>.from(
                                           filters['tagIds'] ?? [],
+                                        );
+                                        _listTabSelectedClassIds =
+                                            List<String>.from(
+                                          filters['classIds'] ?? filters['class_id'] ?? [],
+                                        );
+                                        _listTabSelectedStreamNames =
+                                            List<String>.from(
+                                          filters['streamNames'] ?? filters['stream'] ?? [],
+                                        );
+                                        _listTabSelectedSyllabusIds =
+                                            List<String>.from(
+                                          filters['syllabusIds'] ?? filters['syllabus'] ?? [],
+                                        );
+                                        _listTabSelectedSchoolDistrictIds =
+                                            List<String>.from(
+                                          filters['schoolDistrictIds'] ?? filters['school_district_id'] ?? [],
+                                        );
+                                        _listTabSelectedAbroadIds =
+                                            List<String>.from(
+                                          filters['abroadIds'] ?? filters['abroad'] ?? [],
+                                        );
+                                        _listTabSelectedSchoolIds =
+                                            List<String>.from(
+                                          filters['schoolIds'] ?? filters['school_name'] ?? [],
                                         );
 
                                         _isListTabDateFiltered =
@@ -4954,27 +4998,27 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                 shouldRemove = true;
               }
             } else {
-              if (_listTabFilter == 'New') {
+              if (_listTabFilter == 'New Leads') {
                 if (newStatusIdStr != '1') {
                   shouldRemove = true;
                 }
-              } else if (_listTabFilter == 'Followup') {
+              } else if (_listTabFilter == 'Followup' || _listTabFilter == 'Followup Needed') {
                 if (newStatusIdStr != '2') {
                   shouldRemove = true;
                 }
-              } else if (_listTabFilter == 'Missed') {
+              } else if (_listTabFilter == 'Missed' || _listTabFilter == 'Missed Leads') {
                 if (newStatusIdStr != '3') {
                   shouldRemove = true;
                 }
-              } else if (_listTabFilter == 'Called') {
+              } else if (_listTabFilter == 'Called' || _listTabFilter == 'Total Called') {
                 // For Called tab, the backend returns all called leads regardless of callResultId.
                 // Therefore, we should never remove a lead from Called tab locally.
                 shouldRemove = false;
-              } else if (_listTabFilter == 'Transferred') {
+              } else if (_listTabFilter == 'Transferred Leads') {
                 if (newStatusIdStr != '5') {
                   shouldRemove = true;
                 }
-              } else if (_listTabFilter == 'Closed') {
+              } else if (_listTabFilter == 'Closed' || _listTabFilter == 'Admissions Taken') {
                 if (newStatusIdStr != '6') {
                   shouldRemove = true;
                 }
@@ -5136,7 +5180,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
           : (_listTabCurrentIsCalled == true
               ? ((_listTabSelectedStatusIds != null && _listTabSelectedStatusIds!.isNotEmpty)
                   ? _listTabSelectedStatusIds!.join(',')
-                  : (_listTabFilter == "New" ? "1" : ""))
+                  : (_listTabFilter == "New Leads" ? "1" : ""))
               : (_listTabCurrentStatus == "0"
                   ? ""
                   : (_listTabCurrentStatus ?? ""))),
@@ -5160,6 +5204,12 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
           : (_listTabCurrentLeadType ?? ""),
       "priority": _listTabSelectedPriorityIds,
       "call_result_reason": _listTabSelectedTagIds,
+      "class_id": _listTabSelectedClassIds,
+      "stream": _listTabSelectedStreamNames,
+      "syllabus": _listTabSelectedSyllabusIds,
+      "school_district_id": _listTabSelectedSchoolDistrictIds,
+      "abroad": _listTabSelectedAbroadIds,
+      "school_name": _listTabSelectedSchoolIds,
     };
 
     bool shouldSendDates = _isListTabDateFiltered ||
@@ -5240,7 +5290,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
       "callResultId": (_listTabCurrentIsCalled == true)
           ? ((_listTabSelectedStatusIds != null && _listTabSelectedStatusIds!.isNotEmpty)
               ? _listTabSelectedStatusIds!.join(',')
-              : (_listTabFilter == "New" ? "1" : ""))
+              : (_listTabFilter == "New Leads" ? "1" : ""))
           : (_listTabCurrentStatus == "0" ? "" : (_listTabCurrentStatus ?? "")),
       "leadCategoryId": _listTabSelectedCategoryIds,
       "leadSubcategoryId": [],
@@ -5258,6 +5308,12 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
       "leadType": _listTabCurrentLeadType ?? "",
       "priority": _listTabSelectedPriorityIds,
       "call_result_reason": _listTabSelectedTagIds,
+      "class_id": _listTabSelectedClassIds,
+      "stream": _listTabSelectedStreamNames,
+      "syllabus": _listTabSelectedSyllabusIds,
+      "school_district_id": _listTabSelectedSchoolDistrictIds,
+      "abroad": _listTabSelectedAbroadIds,
+      "school_name": _listTabSelectedSchoolIds,
     };
 
     bool shouldSendDates = _isListTabDateFiltered ||
@@ -6207,7 +6263,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                         ),
                                         decoration: BoxDecoration(
                                           color: (category.leadStatus ?? "") ==
-                                                  "New"
+                                                  "New Leads"
                                               ? appBarStart.withOpacity(0.1)
                                               : (category.leadStatus ?? "") ==
                                                       "Follow Up"
@@ -6231,7 +6287,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                             fontWeight: FontWeight.w500,
                                             color: (category.leadStatus ??
                                                         "") ==
-                                                    "New"
+                                                    "New Leads"
                                                 ? appBarStart
                                                 : (category.leadStatus ?? "") ==
                                                         "Follow Up"
@@ -6570,16 +6626,19 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
             padding: const EdgeInsets.symmetric(horizontal: 4),
             constraints: const BoxConstraints(),
           ),
-          IconButton(
-            icon: Icon(
-              isTableActive ? Icons.bar_chart_rounded : Icons.description,
-              size: 20,
-              color: appBarStart,
+          if (title != "Active Lead Summary" &&
+              !title.contains("Active Lead Summary") &&
+              !title.contains("Stage-wise"))
+            IconButton(
+              icon: Icon(
+                isTableActive ? Icons.bar_chart_rounded : Icons.description,
+                size: 20,
+                color: appBarStart,
+              ),
+              onPressed: onToggleView,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              constraints: const BoxConstraints(),
             ),
-            onPressed: onToggleView,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            constraints: const BoxConstraints(),
-          ),
           if (showMoreMenu)
             PopupMenuButton<String>(
               icon: Container(
@@ -8597,7 +8656,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.white.withOpacity(0.06),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -12515,7 +12574,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                     child: Row(
                       children: [
                         _buildListSummaryItemOld(
-                          'New',
+                          'New Leads',
                           dashboardMainCounts != null
                               ? (dashboardMainCounts?.data.leads.newLeads ?? 0)
                                   .toString()
@@ -12569,7 +12628,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                           graphId: '-1',
                         ),
                         _buildListSummaryItemOld(
-                          'Transferred',
+                          'Transferred Leads',
                           dashboardMainCounts != null
                               ? (dashboardMainCounts
                                           ?.data.leads.transferLeads ??
@@ -12606,7 +12665,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                       children: [
                         Expanded(
                           child: _buildListSummaryItem(
-                            'New',
+                            'New Leads',
                             dashboardMainCounts != null
                                 ? (dashboardMainCounts?.data.leads.newLeads ??
                                         0)
@@ -12621,7 +12680,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                         const SizedBox(width: 8),
                         Expanded(
                           child: _buildListSummaryItemActive(
-                            'Followup',
+                            'Followup Needed',
                             dashboardMainCounts != null
                                 ? (dashboardMainCounts
                                             ?.data.leads.followupLeads ??
@@ -12637,7 +12696,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                         const SizedBox(width: 8),
                         Expanded(
                           child: _buildListSummaryItem(
-                            'Missed',
+                            'Missed Leads',
                             dashboardMainCounts != null
                                 ? (dashboardMainCounts
                                             ?.data.leads.missedLeads ??
@@ -12660,7 +12719,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                       children: [
                         Expanded(
                           child: _buildListSummaryItem(
-                            'Called',
+                            'Total Called',
                             dashboardMainCounts != null
                                 ? (dashboardMainCounts
                                             ?.data.leads.calledCount ??
@@ -12679,7 +12738,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                         const SizedBox(width: 8),
                         Expanded(
                           child: _buildListSummaryItem(
-                            'Transferred',
+                            'Transferred Leads',
                             dashboardMainCounts != null
                                 ? (dashboardMainCounts
                                             ?.data.leads.transferLeads ??
@@ -12697,7 +12756,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                         const SizedBox(width: 8),
                         Expanded(
                           child: _buildListSummaryItem(
-                            'Closed',
+                            'Admissions Taken',
                             dashboardCounts != null
                                 ? (dashboardCounts?.data?.leads?.closedLeads ??
                                         0)
@@ -12839,45 +12898,45 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                     ((status == '0' && callStatus != null)
                         ? callStatus
                         : status);
-                label == "New"
+                label == "New Leads"
                     ? await getLeadProgressbarNew(
                         widget.token!,
-                        fromDate,
-                        toDate,
+                        "",
+                        "",
                         effectiveGraphStatus,
                       )
                     : label == "Followup"
                         ? await getLeadProgressbarFollowup(
                             widget.token!,
-                            fromDate,
-                            toDate,
+                            "",
+                            "",
                             effectiveGraphStatus,
                           )
                         : label == "Missed"
                             ? await getLeadProgressbarMissed(
                                 widget.token!,
-                                fromDate,
-                                toDate,
+                                "",
+                                "",
                                 effectiveGraphStatus,
                               )
                             : label == "Called"
                                 ? await getLeadProgressbarCalled(
                                     widget.token!,
-                                    fromDate,
-                                    toDate,
+                                    "",
+                                    "",
                                     effectiveGraphStatus,
                                   )
-                                : label == "Transferred"
+                                : label == "Transferred Leads"
                                     ? await getLeadProgressbarTransferred(
                                         widget.token!,
-                                        fromDate,
-                                        toDate,
+                                        "",
+                                        "",
                                         effectiveGraphStatus,
                                       )
                                     : await getLeadProgressbar(
                                         widget.token!,
-                                        fromDate,
-                                        toDate,
+                                        "",
+                                        "",
                                         effectiveGraphStatus,
                                       );
 
@@ -12887,7 +12946,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                     leadProgressbarDialog(
                       context,
                       label,
-                      "\$label Leads",
+                      "\$label",
                       status,
                       leadType ?? "",
                       callStatus: callStatus,
@@ -13046,45 +13105,45 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                     ((status == '0' && callStatus != null)
                         ? callStatus
                         : status);
-                label == "New"
+                label == "New Leads"
                     ? await getLeadProgressbarNew(
                         widget.token!,
-                        fromDate,
-                        toDate,
+                        "",
+                        "",
                         effectiveGraphStatus,
                       )
                     : label == "Followup"
                         ? await getLeadProgressbarFollowup(
                             widget.token!,
-                            fromDate,
-                            toDate,
+                            "",
+                            "",
                             effectiveGraphStatus,
                           )
                         : label == "Missed"
                             ? await getLeadProgressbarMissed(
                                 widget.token!,
-                                fromDate,
-                                toDate,
+                                "",
+                                "",
                                 effectiveGraphStatus,
                               )
                             : label == "Called"
                                 ? await getLeadProgressbarCalled(
                                     widget.token!,
-                                    fromDate,
-                                    toDate,
+                                    "",
+                                    "",
                                     effectiveGraphStatus,
                                   )
-                                : label == "Transferred"
+                                : label == "Transferred Leads"
                                     ? await getLeadProgressbarTransferred(
                                         widget.token!,
-                                        fromDate,
-                                        toDate,
+                                        "",
+                                        "",
                                         effectiveGraphStatus,
                                       )
                                     : await getLeadProgressbar(
                                         widget.token!,
-                                        fromDate,
-                                        toDate,
+                                        "",
+                                        "",
                                         effectiveGraphStatus,
                                       );
 
@@ -13260,45 +13319,45 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                     ((status == '0' && callStatus != null)
                         ? callStatus
                         : status);
-                label == "New"
+                label == "New Leads"
                     ? await getLeadProgressbarNew(
                         widget.token!,
-                        fromDate,
-                        toDate,
+                        "",
+                        "",
                         effectiveGraphStatus,
                       )
-                    : label == "Followup"
+                    : label == "Followup Needed" || label == "Followup"
                         ? await getLeadProgressbarFollowup(
                             widget.token!,
-                            fromDate,
-                            toDate,
+                            "",
+                            "",
                             effectiveGraphStatus,
                           )
-                        : label == "Missed"
+                        : label == "Missed Leads" || label == "Missed"
                             ? await getLeadProgressbarMissed(
                                 widget.token!,
-                                fromDate,
-                                toDate,
+                                "",
+                                "",
                                 effectiveGraphStatus,
                               )
-                            : label == "Called"
+                            : label == "Total Called" || label == "Called"
                                 ? await getLeadProgressbarCalled(
                                     widget.token!,
-                                    fromDate,
-                                    toDate,
+                                    "",
+                                    "",
                                     effectiveGraphStatus,
                                   )
-                                : label == "Transferred"
+                                : label == "Transferred Leads"
                                     ? await getLeadProgressbarTransferred(
                                         widget.token!,
-                                        fromDate,
-                                        toDate,
+                                        "",
+                                        "",
                                         effectiveGraphStatus,
                                       )
                                     : await getLeadProgressbar(
                                         widget.token!,
-                                        fromDate,
-                                        toDate,
+                                        "",
+                                        "",
                                         effectiveGraphStatus,
                                       );
 
@@ -13308,7 +13367,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                     leadProgressbarDialog(
                       context,
                       label,
-                      "$label Leads",
+                      label == "Admissions Taken" || label == "Admission Taken" ? label : "$label",
                       status,
                       leadType ?? "",
                       callStatus: callStatus,
@@ -13474,45 +13533,45 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                     ((status == '0' && callStatus != null)
                         ? callStatus
                         : status);
-                label == "New"
+                label == "New Leads"
                     ? await getLeadProgressbarNew(
                         widget.token!,
-                        fromDate,
-                        toDate,
+                        "",
+                        "",
                         effectiveGraphStatus,
                       )
-                    : label == "Followup"
+                    : label == "Followup Needed"
                         ? await getLeadProgressbarFollowup(
                             widget.token!,
-                            fromDate,
-                            toDate,
+                            "",
+                            "",
                             effectiveGraphStatus,
                           )
-                        : label == "Missed"
+                        : label == "Missed Leads"
                             ? await getLeadProgressbarMissed(
                                 widget.token!,
-                                fromDate,
-                                toDate,
+                                "",
+                                "",
                                 effectiveGraphStatus,
                               )
-                            : label == "Called"
+                            : label == "Total Called"
                                 ? await getLeadProgressbarCalled(
                                     widget.token!,
-                                    fromDate,
-                                    toDate,
+                                    "",
+                                    "",
                                     effectiveGraphStatus,
                                   )
-                                : label == "Transferred"
+                                : label == "Transferred Leads"
                                     ? await getLeadProgressbarTransferred(
                                         widget.token!,
-                                        fromDate,
-                                        toDate,
+                                        "",
+                                        "",
                                         effectiveGraphStatus,
                                       )
                                     : await getLeadProgressbar(
                                         widget.token!,
-                                        fromDate,
-                                        toDate,
+                                        "",
+                                        "",
                                         effectiveGraphStatus,
                                       );
 
@@ -13522,7 +13581,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                     leadProgressbarDialogActive(
                       context,
                       label,
-                      "$label Leads",
+                      "$label",
                       status,
                       leadType ?? "",
                       callStatus: callStatus,
@@ -15851,6 +15910,68 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     );
   }
 
+  Future<void> _fetchProgressBarDataForDialog({
+    required String label,
+    required DateTime from,
+    required DateTime to,
+    required String status,
+    String? callStatus,
+  }) async {
+    String effectiveGraphStatus =
+        (status == '0' && callStatus != null && callStatus.isNotEmpty)
+            ? callStatus
+            : status;
+
+    String fDate = DateFormat('dd-MM-yyyy').format(from);
+    String tDate = DateFormat('dd-MM-yyyy').format(to);
+
+    String labelLower = label.trim().toLowerCase();
+
+    if (labelLower == "new leads" || labelLower == "new") {
+      await getLeadProgressbarNew(
+        widget.token!,
+        fDate,
+        tDate,
+        effectiveGraphStatus,
+      );
+    } else if (labelLower == "followup needed" || labelLower == "followup") {
+      await getLeadProgressbarFollowup(
+        widget.token!,
+        fDate,
+        tDate,
+        effectiveGraphStatus,
+      );
+    } else if (labelLower == "missed leads" || labelLower == "missed") {
+      await getLeadProgressbarMissed(
+        widget.token!,
+        fDate,
+        tDate,
+        effectiveGraphStatus,
+      );
+    } else if (labelLower == "total called" || labelLower == "called") {
+      await getLeadProgressbarCalled(
+        widget.token!,
+        fDate,
+        tDate,
+        effectiveGraphStatus,
+      );
+    } else if (labelLower == "transferred leads" || labelLower == "transferred") {
+      await getLeadProgressbarTransferred(
+        widget.token!,
+        fDate,
+        tDate,
+        effectiveGraphStatus,
+      );
+    } else {
+      await getLeadProgressbar(
+        widget.token!,
+        fDate,
+        tDate,
+        effectiveGraphStatus,
+      );
+    }
+  }
+
   Future<Object?> leadProgressbarDialog(
     BuildContext context,
     String label,
@@ -15859,6 +15980,10 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     String type, {
     String? callStatus,
   }) {
+    DateTime? selectedFromDate;
+    DateTime? selectedToDate;
+    bool isSearching = false;
+
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -15867,916 +15992,1093 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
         vsync: this,
         duration: const Duration(milliseconds: 400),
       ),
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(32),
-            topRight: Radius.circular(32),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(32),
+              topRight: Radius.circular(32),
+            ),
           ),
-        ),
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
-        ),
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 48,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(2.5),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 48,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(2.5),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: primaryBlue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.analytics_rounded,
-                      color: primaryBlue,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF1E293B),
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        Text(
-                          "Detailed analytics and distribution",
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade500,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.close_rounded,
-                        size: 18,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: SingleChildScrollView(
+              const SizedBox(height: 16),
+              Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
                     Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [primaryBlue, const Color(0xFF1D4ED8)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: primaryBlue.withOpacity(0.3),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
+                        color: primaryBlue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.analytics_rounded,
+                        color: primaryBlue,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF1E293B),
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          Text(
+                            "Detailed analytics and distribution",
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade500,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
                         ],
                       ),
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            right: -20,
-                            top: -20,
-                            child: Icon(
-                              Icons.trending_up_rounded,
-                              size: 100,
-                              color: Colors.white.withOpacity(0.1),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
                             ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Total Generated $label',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size: 18,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 24),
+  child: Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(
+        color: const Color(0xFFE2E8F0),
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.02),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        // FROM DATE
+        Expanded(
+          child: _buildDialogDateButton(
+            label: "From Date",
+            date: selectedFromDate,
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: selectedFromDate ?? DateTime.now(),
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2100),
+              );
+
+              if (picked != null) {
+                setModalState(() {
+                  selectedFromDate = picked;
+
+                  if (selectedToDate != null && selectedToDate!.isBefore(picked)) {
+                    selectedToDate = picked;
+                  }
+                });
+              }
+            },
+          ),
+        ),
+
+        const SizedBox(width: 8),
+
+        // TO DATE
+        Expanded(
+          child: _buildDialogDateButton(
+            label: "To Date",
+            date: selectedToDate,
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate:
+                    selectedToDate ??
+                    selectedFromDate ??
+                    DateTime.now(),
+                firstDate:
+                    selectedFromDate ?? DateTime(2020),
+                lastDate: DateTime(2100),
+              );
+
+              if (picked != null) {
+                setModalState(() {
+                  selectedToDate = picked;
+                });
+              }
+            },
+          ),
+        ),
+
+        const SizedBox(width: 8),
+
+        // SEARCH BUTTON
+        SizedBox(
+          height: 52,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryBlue,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+              ),
+            ),
+            onPressed: isSearching
+                ? null
+                : () async {
+                    // Do not call API if dates are not selected
+                    if (selectedFromDate == null ||
+                        selectedToDate == null) {
+                      return;
+                    }
+
+                    if (selectedToDate!.isBefore(
+                      selectedFromDate!,
+                    )) {
+                      return;
+                    }
+
+                    setModalState(() {
+                      isSearching = true;
+                    });
+
+                    try {
+                      await _fetchProgressBarDataForDialog(
+                        label: label,
+                        from: selectedFromDate!,
+                        to: selectedToDate!,
+                        status: status,
+                        callStatus: callStatus,
+                      );
+                    } finally {
+                      if (context.mounted) {
+                        setModalState(() {
+                          isSearching = false;
+                        });
+                      }
+                    }
+                  },
+            child: isSearching
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(
+                        Colors.white,
+                      ),
+                    ),
+                  )
+                : const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.search_rounded,
+                        size: 16,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        "Search",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      ],
+    ),
+  ),
+),          
+              
+              const SizedBox(height: 16),
+              Expanded(
+                child: isSearching
+                    ? Center(
+                        child: CircularProgressIndicator(color: primaryBlue),
+                      )
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        physics: const BouncingScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [primaryBlue, const Color(0xFF1D4ED8)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
+                                borderRadius: BorderRadius.circular(24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: primaryBlue.withOpacity(0.3),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 8),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.baseline,
-                                textBaseline: TextBaseline.alphabetic,
+                              child: Stack(
                                 children: [
-                                  Text(
-                                    object1?.data?.totalCount?.toString() ??
-                                        "0",
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 40,
-                                      fontWeight: FontWeight.w900,
+                                  Positioned(
+                                    right: -20,
+                                    top: -20,
+                                    child: Icon(
+                                      Icons.trending_up_rounded,
+                                      size: 100,
+                                      color: Colors.white.withOpacity(0.1),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Total Generated $label',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                                        textBaseline: TextBaseline.alphabetic,
+                                        children: [
+                                          Text(
+                                            object1?.data?.totalCount?.toString() ??
+                                                "0",
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 40,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          const Text(
+                                            "Leads",
+                                            style: TextStyle(
+                                              color: Colors.white60,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            if (object1?.data?.staffLeads?.isNotEmpty ?? false) ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
                                   const Text(
-                                    "Leads",
+                                    'Staff Contribution',
                                     style: TextStyle(
-                                      color: Colors.white60,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF1E293B),
+                                    ),
+                                  ),
+                                  Text(
+                                    '${object1!.data!.staffLeads!.length} Agents',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: primaryBlue,
                                     ),
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 16),
+                              ListView.builder(
+                                shrinkWrap: true,
+                                padding: EdgeInsets.zero,
+                                itemCount: object1!.data!.staffLeads!.length,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemBuilder: (context, i) {
+                                  final staff = object1!.data!.staffLeads![i];
+                                  double total = double.tryParse(
+                                        object1?.data?.totalCount?.toString() ?? "0",
+                                      ) ??
+                                      0;
+                                  double count =
+                                      double.tryParse(staff.staffCount ?? "0") ?? 0;
+                                  final double percentage =
+                                      total > 0 ? count / total : 0;
+                                  final color = _getStaffColor(i);
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        // Navigator.pop(context);
+                                        _navigateToFilteredLeads(
+                                          context: context,
+                                          staffName: staff.staffName,
+                                          staffId: staff.staffId,
+                                          title: title ?? 'Leads',
+                                          status: status ?? '0',
+                                          type: type ?? '',
+                                          callStatus: callStatus,
+                                          from: selectedFromDate,
+                                          to: selectedToDate,
+                                          isGlobalContext: true,
+                                        );
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(
+                                            color: const Color(0xFFE2E8F0),
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.02),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  width: 44,
+                                                  height: 44,
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      colors: [
+                                                        color.withOpacity(0.2),
+                                                        color.withOpacity(0.1),
+                                                      ],
+                                                    ),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      (staff.staffName?.isNotEmpty ==
+                                                              true)
+                                                          ? staff.staffName![0]
+                                                              .toUpperCase()
+                                                          : "?",
+                                                      style: TextStyle(
+                                                        color: color,
+                                                        fontWeight: FontWeight.w900,
+                                                        fontSize: 18,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        staff.staffName ?? "N/A",
+                                                        style: const TextStyle(
+                                                          fontSize: 15,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: Color(0xFF334155),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        "Active Performance",
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color: Colors.grey.shade500,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.end,
+                                                  children: [
+                                                    Text(
+                                                      staff.staffCount ?? "0",
+                                                      style: const TextStyle(
+                                                        fontSize: 18,
+                                                        fontWeight: FontWeight.w900,
+                                                        color: Color(0xFF1E293B),
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      "Leads",
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        color: Colors.grey.shade500,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 16),
+                                            LinearPercentIndicator(
+                                              padding: EdgeInsets.zero,
+                                              animation: true,
+                                              lineHeight: 8.0,
+                                              animationDuration: 1200,
+                                              percent: percentage.clamp(0.0, 1.0),
+                                              barRadius: const Radius.circular(4),
+                                              progressColor: color,
+                                              backgroundColor: const Color(0xFFF1F5F9),
+                                              trailing: Padding(
+                                                padding: const EdgeInsets.only(
+                                                  left: 12,
+                                                ),
+                                                child: Text(
+                                                  "${(percentage * 100).toStringAsFixed(1)}%",
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: color,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                             ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    if (object1?.data?.staffLeads?.isNotEmpty ?? false) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Staff Contribution',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                          Text(
-                            '${object1!.data!.staffLeads!.length} Agents',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: primaryBlue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        padding: EdgeInsets.zero,
-                        itemCount: object1!.data!.staffLeads!.length,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemBuilder: (context, i) {
-                          final staff = object1!.data!.staffLeads![i];
-                          double total = double.tryParse(
-                                object1?.data?.totalCount?.toString() ?? "0",
-                              ) ??
-                              0;
-                          double count =
-                              double.tryParse(staff.staffCount ?? "0") ?? 0;
-                          final double percentage =
-                              total > 0 ? count / total : 0;
-                          final color = _getStaffColor(i);
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: GestureDetector(
-                              onTap: () {
-                                // Navigator.pop(context);
-                                _navigateToFilteredLeads(
-                                  context: context,
-                                  staffName: staff.staffName,
-                                  staffId: staff.staffId,
-                                  title: title ?? 'Leads',
-                                  status: status ?? '0',
-                                  type: type ?? '',
-                                  callStatus: callStatus,
-                                  isGlobalContext: true,
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: const Color(0xFFE2E8F0),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.02),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
+                            if (object1?.data?.categoryLeads?.isNotEmpty ?? false) ...[
+                              const SizedBox(height: 32),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Category Distribution',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF1E293B),
                                     ),
-                                  ],
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 44,
-                                          height: 44,
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                color.withOpacity(0.2),
-                                                color.withOpacity(0.1),
+                                  ),
+                                  Text(
+                                    '${object1!.data!.categoryLeads!.length} Categories',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: primaryBlue,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              ListView.builder(
+                                shrinkWrap: true,
+                                padding: EdgeInsets.zero,
+                                itemCount: object1!.data!.categoryLeads!.length,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemBuilder: (context, i) {
+                                  final cat = object1!.data!.categoryLeads![i];
+                                  double total = double.tryParse(
+                                        object1?.data?.totalCount?.toString() ?? "0",
+                                      ) ??
+                                      0;
+                                  double count =
+                                      double.tryParse(cat.categoryCount ?? "0") ?? 0;
+                                  final double percentage =
+                                      total > 0 ? count / total : 0;
+                                  final color = _getStaffColor(i + 3);
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        _navigateToFilteredLeads(
+                                          context: context,
+                                          categoryName: cat.categoryName,
+                                          categoryId: cat.categoryId,
+                                          title: title,
+                                          status: status,
+                                          from: selectedFromDate,
+                                          to: selectedToDate,
+                                          isGlobalContext: true,
+                                        );
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(
+                                            color: const Color(0xFFE2E8F0),
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.02),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  width: 44,
+                                                  height: 44,
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      colors: [
+                                                        color.withOpacity(0.2),
+                                                        color.withOpacity(0.1),
+                                                      ],
+                                                    ),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      (cat.categoryName?.isNotEmpty ==
+                                                              true)
+                                                          ? cat.categoryName![0]
+                                                              .toUpperCase()
+                                                          : "?",
+                                                      style: TextStyle(
+                                                        color: color,
+                                                        fontWeight: FontWeight.w900,
+                                                        fontSize: 18,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        cat.categoryName ?? "N/A",
+                                                        style: const TextStyle(
+                                                          fontSize: 15,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: Color(0xFF334155),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        "Category Performance",
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color: Colors.grey.shade500,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.end,
+                                                  children: [
+                                                    Text(
+                                                      cat.categoryCount ?? "0",
+                                                      style: const TextStyle(
+                                                        fontSize: 18,
+                                                        fontWeight: FontWeight.w900,
+                                                        color: Color(0xFF1E293B),
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      "Leads",
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        color: Colors.grey.shade500,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ],
                                             ),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              (staff.staffName?.isNotEmpty ==
-                                                      true)
-                                                  ? staff.staffName![0]
-                                                      .toUpperCase()
-                                                  : "?",
-                                              style: TextStyle(
-                                                color: color,
-                                                fontWeight: FontWeight.w900,
-                                                fontSize: 18,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                staff.staffName ?? "N/A",
-                                                style: const TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF334155),
+                                            const SizedBox(height: 16),
+                                            LinearPercentIndicator(
+                                              padding: EdgeInsets.zero,
+                                              animation: true,
+                                              lineHeight: 8.0,
+                                              animationDuration: 1200,
+                                              percent: percentage.clamp(0.0, 1.0),
+                                              barRadius: const Radius.circular(4),
+                                              progressColor: color,
+                                              backgroundColor: const Color(0xFFF1F5F9),
+                                              trailing: Padding(
+                                                padding: const EdgeInsets.only(
+                                                  left: 12,
                                                 ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                "Active Performance",
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey.shade500,
-                                                  fontWeight: FontWeight.w500,
+                                                child: Text(
+                                                  "${(percentage * 100).toStringAsFixed(1)}%",
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: color,
+                                                  ),
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.end,
-                                          children: [
-                                            Text(
-                                              staff.staffCount ?? "0",
-                                              style: const TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w900,
-                                                color: Color(0xFF1E293B),
-                                              ),
-                                            ),
-                                            Text(
-                                              "Leads",
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.grey.shade500,
-                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
                                           ],
                                         ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    LinearPercentIndicator(
-                                      padding: EdgeInsets.zero,
-                                      animation: true,
-                                      lineHeight: 8.0,
-                                      animationDuration: 1200,
-                                      percent: percentage.clamp(0.0, 1.0),
-                                      barRadius: const Radius.circular(4),
-                                      progressColor: color,
-                                      backgroundColor: const Color(0xFFF1F5F9),
-                                      trailing: Padding(
-                                        padding: const EdgeInsets.only(
-                                          left: 12,
-                                        ),
-                                        child: Text(
-                                          "${(percentage * 100).toStringAsFixed(1)}%",
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w800,
-                                            color: color,
-                                          ),
-                                        ),
                                       ),
                                     ),
-                                  ],
-                                ),
+                                  );
+                                },
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                    if (object1?.data?.categoryLeads?.isNotEmpty ?? false) ...[
-                      const SizedBox(height: 32),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Category Distribution',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                          Text(
-                            '${object1!.data!.categoryLeads!.length} Categories',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: primaryBlue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        padding: EdgeInsets.zero,
-                        itemCount: object1!.data!.categoryLeads!.length,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemBuilder: (context, i) {
-                          final cat = object1!.data!.categoryLeads![i];
-                          double total = double.tryParse(
-                                object1?.data?.totalCount?.toString() ?? "0",
-                              ) ??
-                              0;
-                          double count =
-                              double.tryParse(cat.categoryCount ?? "0") ?? 0;
-                          final double percentage =
-                              total > 0 ? count / total : 0;
-                          final color = _getStaffColor(i + 3);
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.pop(context);
-                                _navigateToFilteredLeads(
-                                  context: context,
-                                  categoryName: cat.categoryName,
-                                  categoryId: cat.categoryId,
-                                  title: title,
-                                  status: status,
-                                  isGlobalContext: true,
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: const Color(0xFFE2E8F0),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.02),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
+                            ],
+                            if (object1?.data?.missedLeads?.isNotEmpty ?? false) ...[
+                              const SizedBox(height: 32),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Missed Leads Distribution',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF1E293B),
                                     ),
-                                  ],
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 44,
-                                          height: 44,
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                color.withOpacity(0.2),
-                                                color.withOpacity(0.1),
+                                  ),
+                                  Text(
+                                    '${object1!.data!.missedLeads!.length} Staffs',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: primaryBlue,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              ListView.builder(
+                                shrinkWrap: true,
+                                padding: EdgeInsets.zero,
+                                itemCount: object1!.data!.missedLeads!.length,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemBuilder: (context, i) {
+                                  final missed = object1!.data!.missedLeads![i];
+                                  double total = double.tryParse(
+                                        object1?.data?.totalCount?.toString() ?? "0",
+                                      ) ??
+                                      0;
+                                  double count =
+                                      double.tryParse(missed.missedstaffCount ?? "0") ??
+                                          0;
+                                  final double percentage =
+                                      total > 0 ? count / total : 0;
+                                  final color = _getStaffColor(i + 5);
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        _navigateToFilteredLeads(
+                                          context: context,
+                                          staffName: missed.missedstaffName,
+                                          staffId: missed.missedstaffId,
+                                          title: title,
+                                          status: status,
+                                          type: type,
+                                          from: selectedFromDate,
+                                          to: selectedToDate,
+                                          isGlobalContext: true,
+                                        );
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(
+                                            color: const Color(0xFFE2E8F0),
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.02),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  width: 44,
+                                                  height: 44,
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      colors: [
+                                                        color.withOpacity(0.2),
+                                                        color.withOpacity(0.1),
+                                                      ],
+                                                    ),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      (missed.missedstaffName
+                                                                  ?.isNotEmpty ==
+                                                              true)
+                                                          ? missed.missedstaffName![0]
+                                                              .toUpperCase()
+                                                          : "?",
+                                                      style: TextStyle(
+                                                        color: color,
+                                                        fontWeight: FontWeight.w900,
+                                                        fontSize: 18,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        missed.missedstaffName ?? "N/A",
+                                                        style: const TextStyle(
+                                                          fontSize: 15,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: Color(0xFF334155),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        "Staff Missed Leads",
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color: Colors.grey.shade500,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.end,
+                                                  children: [
+                                                    Text(
+                                                      missed.missedstaffCount ?? "0",
+                                                      style: const TextStyle(
+                                                        fontSize: 18,
+                                                        fontWeight: FontWeight.w900,
+                                                        color: Color(0xFF1E293B),
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      "Leads",
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        color: Colors.grey.shade500,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ],
                                             ),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              (cat.categoryName?.isNotEmpty ==
-                                                      true)
-                                                  ? cat.categoryName![0]
-                                                      .toUpperCase()
-                                                  : "?",
-                                              style: TextStyle(
-                                                color: color,
-                                                fontWeight: FontWeight.w900,
-                                                fontSize: 18,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                cat.categoryName ?? "N/A",
-                                                style: const TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF334155),
+                                            const SizedBox(height: 16),
+                                            LinearPercentIndicator(
+                                              padding: EdgeInsets.zero,
+                                              animation: true,
+                                              lineHeight: 8.0,
+                                              animationDuration: 1200,
+                                              percent: percentage.clamp(0.0, 1.0),
+                                              barRadius: const Radius.circular(4),
+                                              progressColor: color,
+                                              backgroundColor: const Color(0xFFF1F5F9),
+                                              trailing: Padding(
+                                                padding: const EdgeInsets.only(
+                                                  left: 12,
                                                 ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                "Category Performance",
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey.shade500,
-                                                  fontWeight: FontWeight.w500,
+                                                child: Text(
+                                                  "${(percentage * 100).toStringAsFixed(1)}%",
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: color,
+                                                  ),
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.end,
-                                          children: [
-                                            Text(
-                                              cat.categoryCount ?? "0",
-                                              style: const TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w900,
-                                                color: Color(0xFF1E293B),
-                                              ),
-                                            ),
-                                            Text(
-                                              "Leads",
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.grey.shade500,
-                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
                                           ],
                                         ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    LinearPercentIndicator(
-                                      padding: EdgeInsets.zero,
-                                      animation: true,
-                                      lineHeight: 8.0,
-                                      animationDuration: 1200,
-                                      percent: percentage.clamp(0.0, 1.0),
-                                      barRadius: const Radius.circular(4),
-                                      progressColor: color,
-                                      backgroundColor: const Color(0xFFF1F5F9),
-                                      trailing: Padding(
-                                        padding: const EdgeInsets.only(
-                                          left: 12,
-                                        ),
-                                        child: Text(
-                                          "${(percentage * 100).toStringAsFixed(1)}%",
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w800,
-                                            color: color,
-                                          ),
-                                        ),
                                       ),
                                     ),
-                                  ],
-                                ),
+                                  );
+                                },
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                    if (object1?.data?.missedLeads?.isNotEmpty ?? false) ...[
-                      const SizedBox(height: 32),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Missed Leads Distribution',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                          Text(
-                            '${object1!.data!.missedLeads!.length} Staffs',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: primaryBlue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        padding: EdgeInsets.zero,
-                        itemCount: object1!.data!.missedLeads!.length,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemBuilder: (context, i) {
-                          final missed = object1!.data!.missedLeads![i];
-                          double total = double.tryParse(
-                                object1?.data?.totalCount?.toString() ?? "0",
-                              ) ??
-                              0;
-                          double count =
-                              double.tryParse(missed.missedstaffCount ?? "0") ??
-                                  0;
-                          final double percentage =
-                              total > 0 ? count / total : 0;
-                          final color = _getStaffColor(i + 5);
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.pop(context);
-                                _navigateToFilteredLeads(
-                                  context: context,
-                                  staffName: missed.missedstaffName,
-                                  staffId: missed.missedstaffId,
-                                  title: title,
-                                  status: status,
-                                  type: type,
-                                  isGlobalContext: true,
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: const Color(0xFFE2E8F0),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.02),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
+                            ],
+                            if (object1?.data?.statusLeads?.isNotEmpty ?? false) ...[
+                              const SizedBox(height: 32),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Status Distribution',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF1E293B),
                                     ),
-                                  ],
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 44,
-                                          height: 44,
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                color.withOpacity(0.2),
-                                                color.withOpacity(0.1),
+                                  ),
+                                  Text(
+                                    '${object1!.data!.statusLeads!.length} Stages',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: primaryBlue,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              ListView.builder(
+                                shrinkWrap: true,
+                                padding: EdgeInsets.zero,
+                                itemCount: object1!.data!.statusLeads!.length,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemBuilder: (context, i) {
+                                  final statusLead = object1!.data!.statusLeads![i];
+                                  double total = double.tryParse(
+                                        object1?.data?.totalCount?.toString() ?? "0",
+                                      ) ??
+                                      0;
+                                  double count =
+                                      double.tryParse(statusLead.statusCount ?? "0") ??
+                                          0;
+                                  final double percentage =
+                                      total > 0 ? count / total : 0;
+                                  final color = _getStaffColor(i + 7);
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        _navigateToFilteredLeads(
+                                          context: context,
+                                          status: statusLead.statusId,
+                                          title: title,
+                                          type: type,
+                                          from: selectedFromDate,
+                                          to: selectedToDate,
+                                          isGlobalContext: true,
+                                        );
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(
+                                            color: const Color(0xFFE2E8F0),
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.02),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  width: 44,
+                                                  height: 44,
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      colors: [
+                                                        color.withOpacity(0.2),
+                                                        color.withOpacity(0.1),
+                                                      ],
+                                                    ),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      (statusLead.statusName?.isNotEmpty ==
+                                                              true)
+                                                          ? statusLead.statusName![0]
+                                                              .toUpperCase()
+                                                          : "?",
+                                                      style: TextStyle(
+                                                        color: color,
+                                                        fontWeight: FontWeight.w900,
+                                                        fontSize: 18,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        statusLead.statusName ?? "N/A",
+                                                        style: const TextStyle(
+                                                          fontSize: 15,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: Color(0xFF334155),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        "Status Progress",
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color: Colors.grey.shade500,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.end,
+                                                  children: [
+                                                    Text(
+                                                      statusLead.statusCount ?? "0",
+                                                      style: const TextStyle(
+                                                        fontSize: 18,
+                                                        fontWeight: FontWeight.w900,
+                                                        color: Color(0xFF1E293B),
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      "Leads",
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        color: Colors.grey.shade500,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ],
                                             ),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              (missed.missedstaffName
-                                                          ?.isNotEmpty ==
-                                                      true)
-                                                  ? missed.missedstaffName![0]
-                                                      .toUpperCase()
-                                                  : "?",
-                                              style: TextStyle(
-                                                color: color,
-                                                fontWeight: FontWeight.w900,
-                                                fontSize: 18,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                missed.missedstaffName ?? "N/A",
-                                                style: const TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF334155),
+                                            const SizedBox(height: 16),
+                                            LinearPercentIndicator(
+                                              padding: EdgeInsets.zero,
+                                              animation: true,
+                                              lineHeight: 8.0,
+                                              animationDuration: 1200,
+                                              percent: percentage.clamp(0.0, 1.0),
+                                              barRadius: const Radius.circular(4),
+                                              progressColor: color,
+                                              backgroundColor: const Color(0xFFF1F5F9),
+                                              trailing: Padding(
+                                                padding: const EdgeInsets.only(
+                                                  left: 12,
                                                 ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                "Staff Missed Leads",
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey.shade500,
-                                                  fontWeight: FontWeight.w500,
+                                                child: Text(
+                                                  "${(percentage * 100).toStringAsFixed(1)}%",
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: color,
+                                                  ),
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.end,
-                                          children: [
-                                            Text(
-                                              missed.missedstaffCount ?? "0",
-                                              style: const TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w900,
-                                                color: Color(0xFF1E293B),
-                                              ),
-                                            ),
-                                            Text(
-                                              "Leads",
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.grey.shade500,
-                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
                                           ],
                                         ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    LinearPercentIndicator(
-                                      padding: EdgeInsets.zero,
-                                      animation: true,
-                                      lineHeight: 8.0,
-                                      animationDuration: 1200,
-                                      percent: percentage.clamp(0.0, 1.0),
-                                      barRadius: const Radius.circular(4),
-                                      progressColor: color,
-                                      backgroundColor: const Color(0xFFF1F5F9),
-                                      trailing: Padding(
-                                        padding: const EdgeInsets.only(
-                                          left: 12,
-                                        ),
-                                        child: Text(
-                                          "${(percentage * 100).toStringAsFixed(1)}%",
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w800,
-                                            color: color,
-                                          ),
-                                        ),
                                       ),
                                     ),
-                                  ],
-                                ),
+                                  );
+                                },
                               ),
-                            ),
-                          );
-                        },
+                            ],
+                            const SizedBox(height: 40),
+                          ],
+                        ),
                       ),
-                    ],
-                    if (object1?.data?.statusLeads?.isNotEmpty ?? false) ...[
-                      const SizedBox(height: 32),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Status Distribution',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                          Text(
-                            '${object1!.data!.statusLeads!.length} Stages',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: primaryBlue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        padding: EdgeInsets.zero,
-                        itemCount: object1!.data!.statusLeads!.length,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemBuilder: (context, i) {
-                          final statusLead = object1!.data!.statusLeads![i];
-                          double total = double.tryParse(
-                                object1?.data?.totalCount?.toString() ?? "0",
-                              ) ??
-                              0;
-                          double count =
-                              double.tryParse(statusLead.statusCount ?? "0") ??
-                                  0;
-                          final double percentage =
-                              total > 0 ? count / total : 0;
-                          final color = _getStaffColor(i + 7);
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.pop(context);
-                                _navigateToFilteredLeads(
-                                  context: context,
-                                  status: statusLead.statusId,
-                                  title: title,
-                                  type: type,
-                                  isGlobalContext: true,
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: const Color(0xFFE2E8F0),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.02),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 44,
-                                          height: 44,
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                color.withOpacity(0.2),
-                                                color.withOpacity(0.1),
-                                              ],
-                                            ),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              (statusLead.statusName
-                                                          ?.isNotEmpty ==
-                                                      true)
-                                                  ? statusLead.statusName![0]
-                                                      .toUpperCase()
-                                                  : "?",
-                                              style: TextStyle(
-                                                color: color,
-                                                fontWeight: FontWeight.w900,
-                                                fontSize: 18,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                statusLead.statusName ?? "N/A",
-                                                style: const TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF334155),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                "Status Progress",
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey.shade500,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.end,
-                                          children: [
-                                            Text(
-                                              statusLead.statusCount ?? "0",
-                                              style: const TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w900,
-                                                color: Color(0xFF1E293B),
-                                              ),
-                                            ),
-                                            Text(
-                                              "Leads",
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.grey.shade500,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    LinearPercentIndicator(
-                                      padding: EdgeInsets.zero,
-                                      animation: true,
-                                      lineHeight: 8.0,
-                                      animationDuration: 1200,
-                                      percent: percentage.clamp(0.0, 1.0),
-                                      barRadius: const Radius.circular(4),
-                                      progressColor: color,
-                                      backgroundColor: const Color(0xFFF1F5F9),
-                                      trailing: Padding(
-                                        padding: const EdgeInsets.only(
-                                          left: 12,
-                                        ),
-                                        child: Text(
-                                          "${(percentage * 100).toStringAsFixed(1)}%",
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w800,
-                                            color: color,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                    const SizedBox(height: 40),
-                  ],
-                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -16790,928 +17092,13 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     String type, {
     String? callStatus,
   }) {
-    return showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      transitionAnimationController: AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 400),
-      ),
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(32),
-            topRight: Radius.circular(32),
-          ),
-        ),
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
-        ),
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 48,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(2.5),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: primaryBlue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.analytics_rounded,
-                      color: primaryBlue,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF1E293B),
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        Text(
-                          "Detailed analytics and distribution",
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade500,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.close_rounded,
-                        size: 18,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [primaryBlue, const Color(0xFF1D4ED8)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: primaryBlue.withOpacity(0.3),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            right: -20,
-                            top: -20,
-                            child: Icon(
-                              Icons.trending_up_rounded,
-                              size: 100,
-                              color: Colors.white.withOpacity(0.1),
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Total Generated $label',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.baseline,
-                                textBaseline: TextBaseline.alphabetic,
-                                children: [
-                                  Text(
-                                    object1?.data?.totalCount?.toString() ??
-                                        "0",
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 40,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    "Leads",
-                                    style: TextStyle(
-                                      color: Colors.white60,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    if (object1?.data?.staffLeads?.isNotEmpty ?? false) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Staff Contribution',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                          Text(
-                            '${object1!.data!.staffLeads!.length} Agents',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: primaryBlue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        padding: EdgeInsets.zero,
-                        itemCount: object1!.data!.staffLeads!.length,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemBuilder: (context, i) {
-                          final staff = object1!.data!.staffLeads![i];
-                          double total = double.tryParse(
-                                object1?.data?.totalCount?.toString() ?? "0",
-                              ) ??
-                              0;
-                          double count =
-                              double.tryParse(staff.staffCount ?? "0") ?? 0;
-                          final double percentage =
-                              total > 0 ? count / total : 0;
-                          final color = _getStaffColor(i);
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: GestureDetector(
-                              onTap: () async {
-                                // Navigator.pop(context);
-
-                                await _navigateToFilteredLeadsActive(
-                                  context: context,
-                                  staffName: staff.staffName,
-                                  staffId: staff.staffId,
-                                  title: title,
-                                  status: status,
-                                  type: type,
-                                  callStatus: callStatus,
-                                  isGlobalContext: true,
-                                  isFollowup: "1",
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: const Color(0xFFE2E8F0),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.02),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 44,
-                                          height: 44,
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                color.withOpacity(0.2),
-                                                color.withOpacity(0.1),
-                                              ],
-                                            ),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              (staff.staffName?.isNotEmpty ==
-                                                      true)
-                                                  ? staff.staffName![0]
-                                                      .toUpperCase()
-                                                  : "?",
-                                              style: TextStyle(
-                                                color: color,
-                                                fontWeight: FontWeight.w900,
-                                                fontSize: 18,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                staff.staffName ?? "N/A",
-                                                style: const TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF334155),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                "Active Performance",
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey.shade500,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.end,
-                                          children: [
-                                            Text(
-                                              staff.staffCount ?? "0",
-                                              style: const TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w900,
-                                                color: Color(0xFF1E293B),
-                                              ),
-                                            ),
-                                            Text(
-                                              "Leads",
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.grey.shade500,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    LinearPercentIndicator(
-                                      padding: EdgeInsets.zero,
-                                      animation: true,
-                                      lineHeight: 8.0,
-                                      animationDuration: 1200,
-                                      percent: percentage.clamp(0.0, 1.0),
-                                      barRadius: const Radius.circular(4),
-                                      progressColor: color,
-                                      backgroundColor: const Color(0xFFF1F5F9),
-                                      trailing: Padding(
-                                        padding: const EdgeInsets.only(
-                                          left: 12,
-                                        ),
-                                        child: Text(
-                                          "${(percentage * 100).toStringAsFixed(1)}%",
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w800,
-                                            color: color,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                    if (object1?.data?.categoryLeads?.isNotEmpty ?? false) ...[
-                      const SizedBox(height: 32),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Category Distribution',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                          Text(
-                            '${object1!.data!.categoryLeads!.length} Categories',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: primaryBlue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        padding: EdgeInsets.zero,
-                        itemCount: object1!.data!.categoryLeads!.length,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemBuilder: (context, i) {
-                          final cat = object1!.data!.categoryLeads![i];
-                          double total = double.tryParse(
-                                object1?.data?.totalCount?.toString() ?? "0",
-                              ) ??
-                              0;
-                          double count =
-                              double.tryParse(cat.categoryCount ?? "0") ?? 0;
-                          final double percentage =
-                              total > 0 ? count / total : 0;
-                          final color = _getStaffColor(i + 3);
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.pop(context);
-                                _navigateToFilteredLeads(
-                                  context: context,
-                                  categoryName: cat.categoryName,
-                                  categoryId: cat.categoryId,
-                                  title: title,
-                                  status: status,
-                                  isGlobalContext: true,
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: const Color(0xFFE2E8F0),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.02),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 44,
-                                          height: 44,
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                color.withOpacity(0.2),
-                                                color.withOpacity(0.1),
-                                              ],
-                                            ),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              (cat.categoryName?.isNotEmpty ==
-                                                      true)
-                                                  ? cat.categoryName![0]
-                                                      .toUpperCase()
-                                                  : "?",
-                                              style: TextStyle(
-                                                color: color,
-                                                fontWeight: FontWeight.w900,
-                                                fontSize: 18,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                cat.categoryName ?? "N/A",
-                                                style: const TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF334155),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                "Category Performance",
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey.shade500,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.end,
-                                          children: [
-                                            Text(
-                                              cat.categoryCount ?? "0",
-                                              style: const TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w900,
-                                                color: Color(0xFF1E293B),
-                                              ),
-                                            ),
-                                            Text(
-                                              "Leads",
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.grey.shade500,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    LinearPercentIndicator(
-                                      padding: EdgeInsets.zero,
-                                      animation: true,
-                                      lineHeight: 8.0,
-                                      animationDuration: 1200,
-                                      percent: percentage.clamp(0.0, 1.0),
-                                      barRadius: const Radius.circular(4),
-                                      progressColor: color,
-                                      backgroundColor: const Color(0xFFF1F5F9),
-                                      trailing: Padding(
-                                        padding: const EdgeInsets.only(
-                                          left: 12,
-                                        ),
-                                        child: Text(
-                                          "${(percentage * 100).toStringAsFixed(1)}%",
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w800,
-                                            color: color,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                    if (object1?.data?.missedLeads?.isNotEmpty ?? false) ...[
-                      const SizedBox(height: 32),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Missed Leads Distribution',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                          Text(
-                            '${object1!.data!.missedLeads!.length} Staffs',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: primaryBlue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        padding: EdgeInsets.zero,
-                        itemCount: object1!.data!.missedLeads!.length,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemBuilder: (context, i) {
-                          final missed = object1!.data!.missedLeads![i];
-                          double total = double.tryParse(
-                                object1?.data?.totalCount?.toString() ?? "0",
-                              ) ??
-                              0;
-                          double count =
-                              double.tryParse(missed.missedstaffCount ?? "0") ??
-                                  0;
-                          final double percentage =
-                              total > 0 ? count / total : 0;
-                          final color = _getStaffColor(i + 5);
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.pop(context);
-                                _navigateToFilteredLeads(
-                                  context: context,
-                                  staffName: missed.missedstaffName,
-                                  staffId: missed.missedstaffId,
-                                  title: title,
-                                  status: status,
-                                  type: type,
-                                  isGlobalContext: true,
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: const Color(0xFFE2E8F0),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.02),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 44,
-                                          height: 44,
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                color.withOpacity(0.2),
-                                                color.withOpacity(0.1),
-                                              ],
-                                            ),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              (missed.missedstaffName
-                                                          ?.isNotEmpty ==
-                                                      true)
-                                                  ? missed.missedstaffName![0]
-                                                      .toUpperCase()
-                                                  : "?",
-                                              style: TextStyle(
-                                                color: color,
-                                                fontWeight: FontWeight.w900,
-                                                fontSize: 18,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                missed.missedstaffName ?? "N/A",
-                                                style: const TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF334155),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                "Staff Missed Leads",
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey.shade500,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.end,
-                                          children: [
-                                            Text(
-                                              missed.missedstaffCount ?? "0",
-                                              style: const TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w900,
-                                                color: Color(0xFF1E293B),
-                                              ),
-                                            ),
-                                            Text(
-                                              "Leads",
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.grey.shade500,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    LinearPercentIndicator(
-                                      padding: EdgeInsets.zero,
-                                      animation: true,
-                                      lineHeight: 8.0,
-                                      animationDuration: 1200,
-                                      percent: percentage.clamp(0.0, 1.0),
-                                      barRadius: const Radius.circular(4),
-                                      progressColor: color,
-                                      backgroundColor: const Color(0xFFF1F5F9),
-                                      trailing: Padding(
-                                        padding: const EdgeInsets.only(
-                                          left: 12,
-                                        ),
-                                        child: Text(
-                                          "${(percentage * 100).toStringAsFixed(1)}%",
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w800,
-                                            color: color,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                    if (object1?.data?.statusLeads?.isNotEmpty ?? false) ...[
-                      const SizedBox(height: 32),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Status Distribution',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                          Text(
-                            '${object1!.data!.statusLeads!.length} Stages',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: primaryBlue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        padding: EdgeInsets.zero,
-                        itemCount: object1!.data!.statusLeads!.length,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemBuilder: (context, i) {
-                          final statusLead = object1!.data!.statusLeads![i];
-                          double total = double.tryParse(
-                                object1?.data?.totalCount?.toString() ?? "0",
-                              ) ??
-                              0;
-                          double count =
-                              double.tryParse(statusLead.statusCount ?? "0") ??
-                                  0;
-                          final double percentage =
-                              total > 0 ? count / total : 0;
-                          final color = _getStaffColor(i + 7);
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.pop(context);
-                                _navigateToFilteredLeads(
-                                  context: context,
-                                  status: statusLead.statusId,
-                                  title: title,
-                                  type: type,
-                                  isGlobalContext: true,
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: const Color(0xFFE2E8F0),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.02),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 44,
-                                          height: 44,
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                color.withOpacity(0.2),
-                                                color.withOpacity(0.1),
-                                              ],
-                                            ),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              (statusLead.statusName
-                                                          ?.isNotEmpty ==
-                                                      true)
-                                                  ? statusLead.statusName![0]
-                                                      .toUpperCase()
-                                                  : "?",
-                                              style: TextStyle(
-                                                color: color,
-                                                fontWeight: FontWeight.w900,
-                                                fontSize: 18,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                statusLead.statusName ?? "N/A",
-                                                style: const TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF334155),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                "Status Progress",
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey.shade500,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.end,
-                                          children: [
-                                            Text(
-                                              statusLead.statusCount ?? "0",
-                                              style: const TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w900,
-                                                color: Color(0xFF1E293B),
-                                              ),
-                                            ),
-                                            Text(
-                                              "Leads",
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.grey.shade500,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    LinearPercentIndicator(
-                                      padding: EdgeInsets.zero,
-                                      animation: true,
-                                      lineHeight: 8.0,
-                                      animationDuration: 1200,
-                                      percent: percentage.clamp(0.0, 1.0),
-                                      barRadius: const Radius.circular(4),
-                                      progressColor: color,
-                                      backgroundColor: const Color(0xFFF1F5F9),
-                                      trailing: Padding(
-                                        padding: const EdgeInsets.only(
-                                          left: 12,
-                                        ),
-                                        child: Text(
-                                          "${(percentage * 100).toStringAsFixed(1)}%",
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w800,
-                                            color: color,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                    const SizedBox(height: 40),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return leadProgressbarDialog(
+      context,
+      label,
+      title,
+      status,
+      type,
+      callStatus: callStatus,
     );
   }
 
@@ -17726,16 +17113,22 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
   Color _getListTabBackgroundColor() {
     switch (_listTabFilter) {
       case 'New':
+      case 'New Leads':
         return _colors[1].withOpacity(0.08);
       case 'Followup':
+      case 'Followup Needed':
         return _colors[2].withOpacity(0.08);
       case 'Missed':
+      case 'Missed Leads':
         return _colors[5].withOpacity(0.08);
       case 'Called':
+      case 'Total Called':
         return _colors[6].withOpacity(0.08);
-      case 'Transferred':
+      case 'Transferred Leads':
         return _colors[8].withOpacity(0.08);
       case 'Closed':
+      case 'Admissions Taken':
+      case 'Admission Taken':
         return _colors[4].withOpacity(0.08);
       default:
         return backgroundLight;
@@ -17745,16 +17138,22 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
   Color _getListTabPrimaryColor() {
     switch (_listTabFilter) {
       case 'New':
+      case 'New Leads':
         return _colors[1];
       case 'Followup':
+      case 'Followup Needed':
         return _colors[2];
       case 'Missed':
+      case 'Missed Leads':
         return _colors[5];
       case 'Called':
+      case 'Total Called':
         return _colors[6];
-      case 'Transferred':
+      case 'Transferred Leads':
         return _colors[8];
       case 'Closed':
+      case 'Admissions Taken':
+      case 'Admission Taken':
         return _colors[4];
       default:
         return textPrimary;
@@ -18630,50 +18029,61 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     );
   }
 
-  Widget _buildDialogDateButton({
-    required String label,
-    required DateTime date,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(color: textSecondary, fontSize: 11),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.calendar_today_rounded,
-                    size: 14, color: appBarStart),
-                const SizedBox(width: 8),
-                Text(
-                  DateFormat('dd MMM').format(date),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: textPrimary,
-                  ),
-                ),
-              ],
-            ),
-          ],
+Widget _buildDialogDateButton({
+  required String label,
+  required DateTime? date,
+  required VoidCallback onTap,
+}) {
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(16),
+    child: Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.grey.shade200,
         ),
       ),
-    );
-  }
-
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: textSecondary,
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(
+                Icons.calendar_today_rounded,
+                size: 14,
+                color: appBarStart,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                date != null
+                    ? DateFormat('dd MMM').format(date)
+                    : 'Date',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: date != null
+                      ? textPrimary
+                      : textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
   Widget _buildDialogAnalyticsButton({
     required IconData icon,
     required String title,

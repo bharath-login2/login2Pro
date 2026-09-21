@@ -1,4 +1,4 @@
-package com.login2Pro;
+package com.login2.mentorbee;
 
 import io.flutter.app.FlutterApplication;
 import io.flutter.embedding.engine.FlutterEngine;

@@ -175,6 +175,7 @@ import 'package:login2/models/lead_management/stateModel.dart';
 import 'package:login2/models/lead_management/stockCounsumptionListModel.dart';
 import 'package:login2/models/lead_management/stockRequestEditDetails.dart';
 import 'package:login2/models/lead_management/supplierDetailsModel.dart';
+import 'package:login2/models/lead_management/syllabusListModel.dart';
 import 'package:login2/models/lead_management/tagListForFilterModel.dart';
 import 'package:login2/models/lead_management/taskStatusModel.dart';
 import 'package:login2/models/lead_management/unhideInvoiceModel.dart';
@@ -298,6 +299,11 @@ import '../../models/lead_management/leadCategoryDeleteModel.dart';
 import '../../models/lead_management/leadDashboardModel.dart';
 import '../models/clients/customer_log.dart';
 import '../models/lead_management/leadDetailsModel.dart';
+import '../models/lead_management/classListModel.dart';
+import '../models/lead_management/streamListModel.dart';
+import '../models/lead_management/schoolDistrictListModel.dart';
+import '../models/lead_management/schoolListModel.dart';
+import '../models/lead_management/abroadListModel.dart';
 import '../../models/lead_management/leadProgressbarModel.dart';
 import '../../models/lead_management/leadTransferModel.dart';
 import '../../models/lead_management/searchModel.dart';
@@ -1035,6 +1041,257 @@ class HttpService {
     }
   }
 
+  static Future<ClassListModel?> getClassList(String? token) async {
+    try {
+      String? userToken = (token != null && token.isNotEmpty)
+          ? token
+          : await Common.getSharedPref("token");
+      var params = {"token": userToken};
+      var result = await _dio.get(
+        "${await Config.getUrl()}getClassList",
+        queryParameters: params,
+        options: Options(receiveTimeout: const Duration(seconds: 30)),
+      );
+      log("getClassList GET response: ${result.data}");
+      if (result.statusCode == 200 && result.data != null) {
+        return ClassListModel.fromJson(
+            result.data is String ? jsonDecode(result.data) : result.data);
+      }
+    } catch (e) {
+      log("error getClassList GET: $e");
+    }
+    try {
+      String? userToken = (token != null && token.isNotEmpty)
+          ? token
+          : await Common.getSharedPref("token");
+      var formData = FormData.fromMap({"token": userToken});
+      var result = await _dio.post(
+        "${await Config.getUrl()}getClassList",
+        data: formData,
+        options: Options(receiveTimeout: const Duration(seconds: 30)),
+      );
+      log("getClassList POST response: ${result.data}");
+      if (result.statusCode == 200 && result.data != null) {
+        return ClassListModel.fromJson(
+            result.data is String ? jsonDecode(result.data) : result.data);
+      }
+    } catch (e) {
+      log("error getClassList POST: $e");
+    }
+    return null;
+  }
+
+  static Future<StreamListModel?> getStreamList(String? token) async {
+    try {
+      String? userToken = (token != null && token.isNotEmpty)
+          ? token
+          : await Common.getSharedPref("token");
+      var params = {"token": userToken};
+      var result = await _dio.get(
+        "${await Config.getUrl()}getStreamList",
+        queryParameters: params,
+        options: Options(receiveTimeout: const Duration(seconds: 30)),
+      );
+      log("getStreamList GET response: ${result.data}");
+      if (result.statusCode == 200 && result.data != null) {
+        return StreamListModel.fromJson(
+            result.data is String ? jsonDecode(result.data) : result.data);
+      }
+    } catch (e) {
+      log("error getStreamList GET: $e");
+    }
+    try {
+      String? userToken = (token != null && token.isNotEmpty)
+          ? token
+          : await Common.getSharedPref("token");
+      var formData = FormData.fromMap({"token": userToken});
+      var result = await _dio.post(
+        "${await Config.getUrl()}getStreamList",
+        data: formData,
+        options: Options(receiveTimeout: const Duration(seconds: 30)),
+      );
+      log("getStreamList POST response: ${result.data}");
+      if (result.statusCode == 200 && result.data != null) {
+        return StreamListModel.fromJson(
+            result.data is String ? jsonDecode(result.data) : result.data);
+      }
+    } catch (e) {
+      log("error getStreamList POST: $e");
+    }
+    return null;
+  }
+
+  static Future<SyllabusListModel?> getSyllabusList(String? token) async {
+    try {
+      String? userToken = (token != null && token.isNotEmpty)
+          ? token
+          : await Common.getSharedPref("token");
+      var params = {"token": userToken};
+      var result = await _dio.get(
+        "${await Config.getUrl()}getSyllabusList",
+        queryParameters: params,
+        options: Options(receiveTimeout: const Duration(seconds: 30)),
+      );
+      log("getSyllabusList GET response: ${result.data}");
+      if (result.statusCode == 200 && result.data != null) {
+        return SyllabusListModel.fromJson(
+            result.data is String ? jsonDecode(result.data) : result.data);
+      }
+    } catch (e) {
+      log("error getSyllabusList GET: $e");
+    }
+    try {
+      String? userToken = (token != null && token.isNotEmpty)
+          ? token
+          : await Common.getSharedPref("token");
+      var formData = FormData.fromMap({"token": userToken});
+      var result = await _dio.post(
+        "${await Config.getUrl()}getSyllabusList",
+        data: formData,
+        options: Options(receiveTimeout: const Duration(seconds: 30)),
+      );
+      log("getSyllabusList POST response: ${result.data}");
+      if (result.statusCode == 200 && result.data != null) {
+        return SyllabusListModel.fromJson(
+            result.data is String ? jsonDecode(result.data) : result.data);
+      }
+    } catch (e) {
+      log("error getSyllabusList POST: $e");
+    }
+    return null;
+  }
+
+  static Future<SchoolDistrictListModel?> getDistrictList(String? token) async {
+    try {
+      String? userToken = (token != null && token.isNotEmpty)
+          ? token
+          : await Common.getSharedPref("token");
+      var params = {"token": userToken};
+      var result = await _dio.get(
+        "${await Config.getUrl()}getDistrictList",
+        queryParameters: params,
+        options: Options(receiveTimeout: const Duration(seconds: 30)),
+      );
+      log("getDistrictList GET response: ${result.data}");
+      if (result.statusCode == 200 && result.data != null) {
+        return SchoolDistrictListModel.fromJson(
+            result.data is String ? jsonDecode(result.data) : result.data);
+      }
+    } catch (e) {
+      log("error getDistrictList GET: $e");
+    }
+    try {
+      String? userToken = (token != null && token.isNotEmpty)
+          ? token
+          : await Common.getSharedPref("token");
+      var formData = FormData.fromMap({"token": userToken});
+      var result = await _dio.post(
+        "${await Config.getUrl()}getDistrictList",
+        data: formData,
+        options: Options(receiveTimeout: const Duration(seconds: 30)),
+      );
+      log("getDistrictList POST response: ${result.data}");
+      if (result.statusCode == 200 && result.data != null) {
+        return SchoolDistrictListModel.fromJson(
+            result.data is String ? jsonDecode(result.data) : result.data);
+      }
+    } catch (e) {
+      log("error getDistrictList POST: $e");
+    }
+    return null;
+  }
+
+  static Future<SchoolListModel?> getSchoolList(
+      String? token, String? districtId) async {
+    try {
+      String? userToken = (token != null && token.isNotEmpty)
+          ? token
+          : await Common.getSharedPref("token");
+      var params = {
+        "token": userToken,
+        "district_id": districtId,
+      };
+      var result = await _dio.get(
+        "${await Config.getUrl()}getSchoolList",
+        queryParameters: params,
+        options: Options(receiveTimeout: const Duration(seconds: 30)),
+      );
+      log("getSchoolList GET response: ${result.data}");
+      if (result.statusCode == 200 && result.data != null) {
+        var parsed = result.data is String
+            ? jsonDecode(result.data.toString().trim())
+            : result.data;
+        return SchoolListModel.fromJson(parsed);
+      }
+    } catch (e) {
+      log("error getSchoolList GET: $e");
+    }
+    try {
+      String? userToken = (token != null && token.isNotEmpty)
+          ? token
+          : await Common.getSharedPref("token");
+      var formData = FormData.fromMap({
+        "token": userToken,
+        "district_id": districtId,
+      });
+      var result = await _dio.post(
+        "${await Config.getUrl()}getSchoolList",
+        data: formData,
+        options: Options(receiveTimeout: const Duration(seconds: 30)),
+      );
+      log("getSchoolList POST response: ${result.data}");
+      if (result.statusCode == 200 && result.data != null) {
+        var parsed = result.data is String
+            ? jsonDecode(result.data.toString().trim())
+            : result.data;
+        return SchoolListModel.fromJson(parsed);
+      }
+    } catch (e) {
+      log("error getSchoolList POST: $e");
+    }
+    return null;
+  }
+
+  static Future<AbroadListModel?> getAbroadList(String? token) async {
+    try {
+      String? userToken = (token != null && token.isNotEmpty)
+          ? token
+          : await Common.getSharedPref("token");
+      var params = {"token": userToken};
+      var result = await _dio.get(
+        "${await Config.getUrl()}getAbroadList",
+        queryParameters: params,
+        options: Options(receiveTimeout: const Duration(seconds: 30)),
+      );
+      log("getAbroadList GET response: ${result.data}");
+      if (result.statusCode == 200 && result.data != null) {
+        return AbroadListModel.fromJson(
+            result.data is String ? jsonDecode(result.data) : result.data);
+      }
+    } catch (e) {
+      log("error getAbroadList GET: $e");
+    }
+    try {
+      String? userToken = (token != null && token.isNotEmpty)
+          ? token
+          : await Common.getSharedPref("token");
+      var formData = FormData.fromMap({"token": userToken});
+      var result = await _dio.post(
+        "${await Config.getUrl()}getAbroadList",
+        data: formData,
+        options: Options(receiveTimeout: const Duration(seconds: 30)),
+      );
+      log("getAbroadList POST response: ${result.data}");
+      if (result.statusCode == 200 && result.data != null) {
+        return AbroadListModel.fromJson(
+            result.data is String ? jsonDecode(result.data) : result.data);
+      }
+    } catch (e) {
+      log("error getAbroadList POST: $e");
+    }
+    return null;
+  }
+
   static Future addLeadsNew(
       token,
       branchId,
@@ -1062,7 +1319,14 @@ class HttpService {
       String? products,
       String? whatsappNumber,
       String? whatsappnumber_country_code,
-      String? email}) async {
+      String? email,
+      String? classId,
+      String? division,
+      String? syllabus,
+      String? streamName,
+      String? schoolDistrictId,
+      String? schoolId,
+      String? abroadId}) async {
     var formData = FormData.fromMap({
       'token': token,
       'branchId': branchId,
@@ -1091,6 +1355,13 @@ class HttpService {
       'state_id': stateId ?? '',
       'district_id': districtId ?? '',
       'products': products ?? '',
+      'class_id': classId ?? '',
+      'division': division ?? '',
+      'syllabus': syllabus ?? '',
+      'stream': streamName ?? '',
+      'school_district_id': schoolDistrictId ?? '',
+      'school_name': schoolId ?? '',
+      'abroad': abroadId ?? '',
     });
 
     try {
@@ -1324,6 +1595,7 @@ class HttpService {
           options: Options(receiveTimeout: const Duration(seconds: 30)),
           queryParameters: params);
 
+    print('leadDetails: $result');
       if (result.statusCode == 200) {
         LeadDeatailsModel model = LeadDeatailsModel.fromJson(result.data);
         return model;
@@ -1733,7 +2005,14 @@ class HttpService {
       String? products,
       String? whatsappNumber,
       String? whatsappnumber_country_code,
-      String? email}) async {
+      String? email,
+      String? classId,
+      String? division,
+      String? syllabus,
+      String? streamName,
+      String? schoolDistrictId,
+      String? schoolId,
+      String? abroadId}) async {
     var formData = FormData.fromMap({
       'token': token,
       'branchId': branchId,
@@ -1763,6 +2042,13 @@ class HttpService {
       'state_id': stateId ?? '',
       'district_id': districtId ?? '',
       'products': products ?? '',
+      'class_id': classId ?? '',
+      'division': division ?? '',
+      'syllabus': syllabus ?? '',
+      'stream': streamName ?? '',
+      'school_district_id': schoolDistrictId ?? '',
+      'school_name': schoolId ?? '',
+      'abroad': abroadId ?? '',
     });
     try {
       var result = await _dio.post("${await Config.getUrl()}edit_lead_updated",
@@ -1831,7 +2117,7 @@ class HttpService {
 
     try {
       var result = await _dio.post(
-          "${await Config.getUrl()}lead_progressbar_data",
+          "${await Config.getUrl()}closed_lead_progressbar",
           data: formData);
       LeadProgressbarModel model = LeadProgressbarModel.fromJson(result.data);
       return model;
@@ -1844,9 +2130,9 @@ class HttpService {
       {List<String>? staffIds}) async {
     Map<String, dynamic> map = {
       "token": token,
-      "fromDate": "",
-      "toDate": "",
-      "callStatus": "",
+      "fromDate": fromDate,
+      "toDate": toDate,
+      "callStatus": callStatus,
     };
     if (staffIds != null && staffIds.isNotEmpty) {
       if (staffIds.length == 1) {
@@ -1871,9 +2157,9 @@ class HttpService {
       {List<String>? staffIds}) async {
     Map<String, dynamic> map = {
       "token": token,
-      "fromDate": "",
-      "toDate": "",
-      "callStatus": "",
+      "fromDate": fromDate,
+      "toDate": toDate,
+      "callStatus": callStatus,
     };
     if (staffIds != null && staffIds.isNotEmpty) {
       if (staffIds.length == 1) {
@@ -1899,9 +2185,9 @@ class HttpService {
       {List<String>? staffIds}) async {
     Map<String, dynamic> map = {
       "token": token,
-      "fromDate": "",
-      "toDate": "",
-      "callStatus": "",
+      "fromDate": fromDate,
+      "toDate": toDate,
+      "callStatus": callStatus,
     };
     if (staffIds != null && staffIds.isNotEmpty) {
       if (staffIds.length == 1) {
@@ -1927,9 +2213,9 @@ class HttpService {
       {List<String>? staffIds}) async {
     Map<String, dynamic> map = {
       "token": token,
-      "fromDate": "",
-      "toDate": "",
-      "callStatus": "",
+      "fromDate": fromDate,
+      "toDate": toDate,
+      "callStatus": callStatus,
     };
     if (staffIds != null && staffIds.isNotEmpty) {
       if (staffIds.length == 1) {
@@ -1955,9 +2241,9 @@ class HttpService {
       {List<String>? staffIds}) async {
     Map<String, dynamic> map = {
       "token": token,
-      "fromDate": "",
-      "toDate": "",
-      "callStatus": "",
+      "fromDate": fromDate,
+      "toDate": toDate,
+      "callStatus": callStatus,
     };
     if (staffIds != null && staffIds.isNotEmpty) {
       if (staffIds.length == 1) {
@@ -2804,6 +3090,8 @@ class HttpService {
       var result = await _dio.get("${await Config.getUrl()}lead_details_data",
           options: Options(receiveTimeout: const Duration(seconds: 30)),
           queryParameters: params);
+          
+    print('listAddonDet: $result');
       if (result.statusCode == 200) {
         LeadDeatailsModelAdd model = LeadDeatailsModelAdd.fromJson(result.data);
         return model;

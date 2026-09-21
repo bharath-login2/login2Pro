@@ -450,7 +450,7 @@ class _FilterWidgetState extends State<FilterWidget> {
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
                 child: const Text(
-                  'Apply Filters',
+                  'Apply Filterss',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,

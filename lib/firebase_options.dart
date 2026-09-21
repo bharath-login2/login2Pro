@@ -63,6 +63,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '483110935745',
     projectId: 'login2-pro',
     storageBucket: 'login2-pro.firebasestorage.app',
-    iosBundleId: 'com.login2Pro',
+    iosBundleId: 'com.login2.mentorbee',
   );
 }

@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.login2Pro</string>
+	<string>com.login2.mentorbee</string>
 	<key>PROJECT_ID</key>
 	<string>login2-pro</string>
 	<key>STORAGE_BUCKET</key>

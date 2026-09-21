@@ -60,6 +60,20 @@ class Data {
   String? state;
   String? district;
   String? whatsappNumberCountryCode;
+  String? classId;
+  String? className;
+  String? division;
+  String? syllabusValue;  // from 'syllabus' key
+  String? streamName;    // from 'stream' key
+  String? schoolDistrictId;
+  String? schoolDistrictTitle;
+  String? schoolId;
+  String? schoolName;
+  String? abroadId;
+  String? abroadName;
+  String? school;
+  String? districtschool;
+  // String? abroad;
   List<CallHandledUsers>? callHandledUsers;
 
   Data({
@@ -109,6 +123,20 @@ class Data {
     this.state,
     this.district,
     this.whatsappNumberCountryCode,
+    this.classId,
+    this.className,
+    this.division,
+    this.syllabusValue,
+    this.streamName,
+    this.schoolDistrictId,
+    this.schoolDistrictTitle,
+    this.schoolId,
+    this.schoolName,
+    this.abroadId,
+    this.abroadName,
+    this.school,
+    this.districtschool,
+    // this.abroad,
     this.callHandledUsers,
   });
 
@@ -179,6 +207,24 @@ class Data {
     state = json['state'] ?? "";
     district = json['district'] ?? "";
     whatsappNumberCountryCode = json['whatsapp_country_code'] ?? "";
+    classId = (json['class_id'] ?? json['class'] ?? "").toString();
+    // class_name / class_title only come when API returns full class object;
+    // when 'class' key holds numeric ID, className stays empty (display via classList lookup)
+    className = (json['class_name'] ?? json['class_title'] ?? "").toString();
+    division = (json['division'] ?? "").toString();
+    // 'syllabus' key = the syllabus board (State/CBSE/ICSE)
+    syllabusValue = (json['syllabus'] ?? "").toString();
+    // 'stream' key = the stream subject (HUMANITIES / SCIENCE etc.)
+    streamName = (json['stream'] ?? json['stream_name'] ?? "").toString();
+    schoolDistrictId = (json['school_district_id'] ?? json['school_district'] ?? "").toString();
+    schoolDistrictTitle = (json['school_district_title'] ?? "").toString();
+    schoolId = (json['school_id'] ?? json['school_name'] ?? "").toString();
+    schoolName = (json['school_name_title'] ?? json['school_name'] ?? "").toString();
+    abroadId = (json['abroad_id'] ?? json['abroad'] ?? "").toString();
+    abroadName = (json['abroad_name'] ?? "").toString();
+    districtschool = (json['school_district_name'] ?? "").toString();
+    // abroad = (json['abroad_name'] ?? "").toString();
+    school = (json['schoolname'] ?? "").toString();
   }
 }
 

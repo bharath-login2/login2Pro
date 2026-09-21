@@ -266,6 +266,12 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
   List<String> _listTabSelectedCategoryIds = [];
   List<String> _listTabSelectedPriorityIds = [];
   List<String> _listTabSelectedProductIds = [];
+  List<String> _listTabSelectedClassIds = [];
+  List<String> _listTabSelectedStreamNames = [];
+  List<String> _listTabSelectedSyllabusIds = [];
+  List<String> _listTabSelectedSchoolDistrictIds = [];
+  List<String> _listTabSelectedAbroadIds = [];
+  List<String> _listTabSelectedSchoolIds = [];
   bool _isListTabFilterApplied = false;
   bool _isListTabDateFiltered = false;
   bool _isGlobalDateFiltered = false;
@@ -3981,6 +3987,12 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
                                     'categoryIds': _listTabSelectedCategoryIds,
                                     'priorityIds': _listTabSelectedPriorityIds,
                                     'productIds': _listTabSelectedProductIds,
+                                    'classIds': _listTabSelectedClassIds,
+                                    'streamNames': _listTabSelectedStreamNames,
+                                    'syllabusIds': _listTabSelectedSyllabusIds,
+                                    'schoolDistrictIds': _listTabSelectedSchoolDistrictIds,
+                                    'abroadIds': _listTabSelectedAbroadIds,
+                                    'schoolIds': _listTabSelectedSchoolIds,
                                   },
                                   onApplyFilters: (filters) {
                                     setState(() {
@@ -3988,22 +4000,40 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
                                       toDate = filters['toDate'];
                                       _listTabSelectedStatusIds =
                                           List<String>.from(
-                                              filters['statusIds']);
+                                              filters['statusIds'] ?? []);
                                       _listTabSelectedStaffIds =
                                           List<String>.from(
-                                              filters['staffIds']);
+                                              filters['staffIds'] ?? []);
                                       _listTabSelectedCategoryIds =
                                           List<String>.from(
-                                              filters['categoryIds']);
+                                              filters['categoryIds'] ?? []);
                                       _listTabSelectedPriorityIds =
                                           List<String>.from(
-                                              filters['priorityIds']);
+                                              filters['priorityIds'] ?? []);
                                       _listTabSelectedProductIds =
                                           List<String>.from(
-                                              filters['productIds']);
+                                              filters['productIds'] ?? []);
+                                      _listTabSelectedClassIds =
+                                          List<String>.from(
+                                              filters['classIds'] ?? filters['class_id'] ?? []);
+                                      _listTabSelectedStreamNames =
+                                          List<String>.from(
+                                              filters['streamNames'] ?? filters['stream'] ?? []);
+                                      _listTabSelectedSyllabusIds =
+                                          List<String>.from(
+                                              filters['syllabusIds'] ?? filters['syllabus'] ?? []);
+                                      _listTabSelectedSchoolDistrictIds =
+                                          List<String>.from(
+                                              filters['schoolDistrictIds'] ?? filters['school_district_id'] ?? []);
+                                      _listTabSelectedAbroadIds =
+                                          List<String>.from(
+                                              filters['abroadIds'] ?? filters['abroad'] ?? []);
+                                      _listTabSelectedSchoolIds =
+                                          List<String>.from(
+                                              filters['schoolIds'] ?? filters['school_name'] ?? []);
                                       _isListTabFilterApplied = true;
                                       _isListTabDateFiltered =
-                                          filters['isDateFiltered'];
+                                          filters['isDateFiltered'] ?? false;
                                     });
                                     getData(widget.token, fromDate, toDate,
                                         isRefresh: true);
@@ -4365,6 +4395,12 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
       "pageSize": 10,
       "isFirst": !isLoadMore,
       "leadType": _listTabCurrentLeadType ?? "",
+      "class_id": _listTabSelectedClassIds,
+      "stream": _listTabSelectedStreamNames,
+      "syllabus": _listTabSelectedSyllabusIds,
+      "school_district_id": _listTabSelectedSchoolDistrictIds,
+      "abroad": _listTabSelectedAbroadIds,
+      "school_name": _listTabSelectedSchoolIds,
     };
 
     bool shouldSendDates = _isListTabFilterApplied ||
@@ -7261,7 +7297,7 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.white.withOpacity(0.06),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
