@@ -254,6 +254,8 @@ import 'package:login2/models/serviceman/workCategoryGraphModel.dart';
 import 'package:login2/models/serviceman/workCategoryModel.dart';
 import 'package:login2/models/serviceman/workOrderIdModel.dart';
 import 'package:login2/models/serviceman/workTypeModel.dart';
+import 'package:login2/models/serviceman/serviceDashboardCountsModel.dart';
+import 'package:login2/models/serviceman/serviceCollectionModel.dart';
 import 'package:login2/models/staff_report/AttendanceStaffwiseModel.dart';
 import 'package:login2/models/staff_report/staff_call_details_model.dart';
 import 'package:login2/models/staff_report/staff_details_model.dart';
@@ -1831,7 +1833,7 @@ class HttpService {
 
     try {
       var result = await _dio.post(
-          "${await Config.getUrl()}lead_progressbar_data",
+          "${await Config.getUrl()}closed_lead_progressbar",
           data: formData);
       LeadProgressbarModel model = LeadProgressbarModel.fromJson(result.data);
       return model;
@@ -10869,6 +10871,52 @@ class HttpService {
     return null;
   }
 
+  Future<ServiceDashboardCountsModel?> getServiceDashboardCounts() async {
+    var formData = FormData.fromMap({
+      "token": await Common.getSharedPref("token"),
+      "staff_id": await Common.getSharedPref("staff_id"),
+    });
+
+    try {
+      var result = await _dio.post(
+        "${await Config.getUrl()}getServiceDashboardCounts",
+        data: formData,
+      );
+
+      if (result.statusCode == 200 && result.data != null) {
+        return ServiceDashboardCountsModel.fromJson(result.data);
+      } else {
+        log("Unexpected status code: ${result.statusCode}");
+      }
+    } catch (e) {
+      log("getServiceDashboardCounts error: $e");
+    }
+    return null;
+  }
+
+  Future<ServiceCollectionModel?> getServiceCollection(int type) async {
+    var formData = FormData.fromMap({
+      "token": await Common.getSharedPref("token"),
+      "type": type,
+    });
+
+    try {
+      var result = await _dio.post(
+        "${await Config.getUrl()}getServiceCollection",
+        data: formData,
+      );
+
+      if (result.statusCode == 200 && result.data != null) {
+        return ServiceCollectionModel.fromJson(result.data);
+      } else {
+        log("Unexpected status code: ${result.statusCode}");
+      }
+    } catch (e) {
+      log("getServiceCollection error: $e");
+    }
+    return null;
+  }
+
   Future<CurrentStatus?> checkCurrentWorkStatus() async {
     var formData = FormData.fromMap({
       "token": await Common.getSharedPref("token"),
@@ -14968,6 +15016,7 @@ class HttpService {
         "${await Config.getUrl()}get_selected_product_types",
         data: formData,
       );
+      print("getProductTypes response: ${response.data}");
       if (response.statusCode == 200 &&
           (response.data['status'] == true ||
               response.data['status'] == 'success')) {

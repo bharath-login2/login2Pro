@@ -39,7 +39,10 @@ class _WorkListPageState extends State<WorkListPage>
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   bool isWorkStarted = false;
-  @override
+
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = "";
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +54,32 @@ class _WorkListPageState extends State<WorkListPage>
     _controller.forward();
 
     _initPage();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<WorkOrder> get _filteredWorkOrders {
+    if (_searchQuery.trim().isEmpty) return workOrders;
+    final query = _searchQuery.toLowerCase().trim();
+    return workOrders.where((work) {
+      final name = (work.customerName ?? "").toLowerCase();
+      final phone = (work.mobileNumber ?? "").toLowerCase();
+      final workId = (work.workOrderID ?? work.workOrderId ?? "").toLowerCase();
+      final cat = (work.workCategory ?? "").toLowerCase();
+      final issue = (work.issueDescription ?? "").toLowerCase();
+      final loc = (work.location ?? work.address ?? "").toLowerCase();
+      return name.contains(query) ||
+          phone.contains(query) ||
+          workId.contains(query) ||
+          cat.contains(query) ||
+          issue.contains(query) ||
+          loc.contains(query);
+    }).toList();
   }
 
   Future<void> _initPage() async {
@@ -2205,460 +2234,601 @@ class _WorkListPageState extends State<WorkListPage>
     }
   }
 
+  Color _getStatusColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case "new":
+        return const Color(0xFF3B82F6);
+      case "assigned":
+        return const Color(0xFF8B5CF6);
+      case "in progress":
+      case "ongoing":
+        return const Color(0xFF10B981);
+      case "completed":
+        return const Color(0xFF059669);
+      case "on hold":
+      case "pending":
+        return const Color(0xFFF59E0B);
+      case "cancelled":
+      case "overdue":
+        return const Color(0xFFEF4444);
+      default:
+        return const Color(0xFF64748B);
+    }
+  }
+
   Widget _buildWorkCard(WorkOrder work) {
-    final Color statusColor = _getStatusChipColor(work.status);
-    final Color cardColor = _getCardColor(work.status);
+    final status = work.status ?? "New";
+    final statusColor = _getStatusColor(status);
+    final workId = (work.workOrderID?.isNotEmpty == true)
+        ? work.workOrderID!
+        : ((work.workOrderId?.isNotEmpty == true)
+            ? work.workOrderId!
+            : "WK-${work.custId ?? '0'}");
+    final workTitle = (work.workCategory?.isNotEmpty == true)
+        ? work.workCategory!
+        : ((work.issueDescription?.isNotEmpty == true)
+            ? work.issueDescription!
+            : "Work Order");
+
+    final double progress = status.toLowerCase().contains("completed")
+        ? 1.0
+        : status.toLowerCase().contains("progress")
+            ? 0.70
+            : (status.toLowerCase().contains("pending") || status.toLowerCase().contains("hold"))
+                ? 0.35
+                : 0.20;
+
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(
-            colors: [cardColor.withOpacity(0.95), Colors.white],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200, width: 1.1),
           boxShadow: [
             BoxShadow(
-              color: statusColor.withOpacity(0.2),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            onTap: () => _showViewDialog(work),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(15),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Top Row: Work ID badge + Status pill badge
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const CircleAvatar(
-                        backgroundColor: Color(0xFF2a86c9),
-                        child: Icon(Icons.person, color: Colors.white),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        work.customerName ?? "-",
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A86C9).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.assignment_outlined, size: 13, color: Color(0xFF2A86C9)),
+                            const SizedBox(width: 4),
+                            Text(
+                              workId,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2A86C9),
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                  _iconButton(
-                    Icons.remove_red_eye_rounded,
-                    Colors.indigo,
-                    () => _showViewDialog(work),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Chip(
-                    backgroundColor: statusColor,
-                    label: Text(
-                      work.status?.toUpperCase() ?? "-",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.calendar_month,
-                        color: Colors.black54,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        work.estimatedDatetime ?? "-",
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.black54,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const Divider(height: 22),
-              work.issueDescription != ""
-                  ? _buildInfoRow(
-                      Icons.dangerous,
-                      'Issue: ${work.issueDescription ?? "-"}',
-                      const Color.fromARGB(255, 255, 55, 55),
-                    )
-                  : SizedBox(),
-              work.assignedServiceMan != ""
-                  ? _buildInfoRow(
-                      Icons.workspace_premium_sharp,
-                      'Assigned To: ${work.assignedServiceMan ?? "-"}',
-                      const Color.fromARGB(255, 158, 34, 196),
-                    )
-                  : SizedBox(),
-              _buildInfoRow(
-                Icons.phone,
-                work.mobileNumber,
-                Colors.teal,
-                isPhone: true,
-              ),
-              work.location != ""
-                  ? _buildInfoRow(
-                      Icons.location_pin,
-                      work.location,
-                      Colors.deepOrangeAccent,
-                    )
-                  : SizedBox(),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  if (work.status == "New")
-                    Row(
-                      children: [
-                        work.priority != ""
-                            ? Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
+                      Row(
+                        children: [
+                          if (work.priority?.isNotEmpty == true) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              margin: const EdgeInsets.only(right: 6),
+                              decoration: BoxDecoration(
+                                color: work.priority == "Low"
+                                    ? Colors.blue.shade50
+                                    : work.priority == "Medium"
+                                        ? Colors.amber.shade50
+                                        : Colors.red.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
                                   color: work.priority == "Low"
-                                      ? Colors.blue.shade100
+                                      ? Colors.blue.shade200
                                       : work.priority == "Medium"
-                                          ? Colors.orange.shade100
-                                          : work.priority == "High"
-                                              ? Colors.red.shade100
-                                              : Colors.green.shade100,
-                                  borderRadius: BorderRadius.circular(8),
+                                          ? Colors.amber.shade300
+                                          : Colors.red.shade200,
+                                  width: 0.8,
                                 ),
-                                child: Text(
-                                  work.priority ?? "",
+                              ),
+                              child: Text(
+                                work.priority!,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: work.priority == "Low"
+                                      ? Colors.blue.shade800
+                                      : work.priority == "Medium"
+                                          ? Colors.amber.shade900
+                                          : Colors.red.shade800,
+                                ),
+                              ),
+                            ),
+                          ],
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: statusColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: statusColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  status,
                                   style: TextStyle(
+                                    fontSize: 11,
                                     fontWeight: FontWeight.bold,
-                                    color: work.priority == "Low"
-                                        ? Colors.blue.shade800
-                                        : work.priority == "Medium"
-                                            ? Colors.orange.shade800
-                                            : work.priority == "High"
-                                                ? Colors.red.shade800
-                                                : Colors.green.shade800,
+                                    color: statusColor,
                                   ),
                                 ),
-                              )
-                            : SizedBox(),
-                      ],
-                    )
-                  else
-                    const SizedBox(),
-                  if ((work.status == "New") && roleId != null && roleId == "3")
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        if (isWorkStarted) {
-                          _showWorkInProgressDialog();
-                        } else {
-                          _confirmAction("Start Work", work, "start");
-                        }
-                      },
-                      icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                      label: const Text("Start"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade600,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(width: 6),
-                  if (roleId == "2" && work.status != "Completed") ...[
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => EditWorkPage(
-                              workOrderId: work.workOrderID ?? '',
+                              ],
                             ),
                           ),
-                        ).then((value) {
-                          if (value == true) _fetchWorkList();
-                        });
-                      },
-                      icon: const Icon(Icons.edit, size: 16),
-                      label: const Text("Edit", style: TextStyle(fontSize: 13)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(
-                          255,
-                          67,
-                          207,
-                          241,
-                        ),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        textStyle: const TextStyle(fontSize: 13),
-                        minimumSize: const Size(0, 36),
+                        ],
                       ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text("Confirm Delete"),
-                            content: const Text(
-                              "Are you sure you want to delete this work order? This action cannot be undone.",
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text("Cancel"),
-                              ),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color.fromARGB(
-                                    255,
-                                    160,
-                                    48,
-                                    40,
-                                  ),
-                                  foregroundColor: Colors.white,
-                                ),
-                                onPressed: () => Navigator.pop(context, true),
-                                child: const Text("Delete"),
-                              ),
-                            ],
-                          ),
-                        );
+                    ],
+                  ),
 
-                        if (confirm == true) {
-                          final httpService = HttpService();
-                          final success = await httpService.deleteWorkOrder(
-                            work.workOrderID ?? '',
-                          );
-                          if (success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  "Work order deleted successfully",
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                                backgroundColor: Colors.green,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                            _fetchWorkList();
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  "Failed to delete work order",
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                                backgroundColor: Colors.red,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      icon: const Icon(Icons.delete, size: 16),
-                      label: const Text(
-                        "Delete",
-                        style: TextStyle(fontSize: 13),
+                  const SizedBox(height: 12),
+
+                  // Customer Avatar & Name & Work Title
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A86C9).withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.person,
+                          color: Color(0xFF2A86C9),
+                          size: 22,
+                        ),
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(
-                          255,
-                          230,
-                          114,
-                          133,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              work.customerName ?? "Customer",
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              workTitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
+                          ],
                         ),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
+                      ),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => _showViewDialog(work),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2A86C9).withOpacity(0.08),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.visibility_outlined,
+                              size: 18,
+                              color: Color(0xFF2A86C9),
+                            ),
+                          ),
                         ),
-                        textStyle: const TextStyle(fontSize: 13),
-                        minimumSize: const Size(0, 36),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // Issue Description callout box if present
+                  if (work.issueDescription?.isNotEmpty == true && work.issueDescription != workTitle) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline, size: 14, color: Color(0xFF64748B)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              work.issueDescription!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF475569),
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ] else if ((work.status == "In Progress") &&
-                      roleId != null &&
-                      roleId == "3")
-                    ElevatedButton.icon(
-                      onPressed: () =>
-                          _confirmActionStop("Stop Work", work, "stop"),
-                      icon: const Icon(Icons.stop, size: 18),
-                      label: const Text("Stop"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(255, 238, 15, 15),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                      ),
-                    )
-                  else if ((work.status == "On Hold") &&
-                      roleId != null &&
-                      roleId == "3")
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        if (isWorkStarted) {
-                          _showWorkInProgressDialog();
-                        } else {
-                          _confirmActionRestart(
-                            "Restart Work",
-                            work,
-                            "restart",
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.restart_alt, size: 18),
-                      label: const Text("Restart"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(
-                          255,
-                          37,
-                          182,
-                          240,
-                        ),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                      ),
-                    )
-                  // else if (roleId == "3")
-                  //   Row(
-                  //     children: const [
-                  //       Icon(Icons.verified, color: Colors.green, size: 22),
-                  //       SizedBox(width: 4),
-                  //       Text(
-                  //         "Completed",
-                  //         style: TextStyle(
-                  //           fontWeight: FontWeight.bold,
-                  //           color: Colors.green,
-                  //         ),
-                  //       ),
-                  //     ],
-                  //   ),
-                ],
+                    const SizedBox(height: 10),
+                  ],
+
+                  // Mobile & Location Row
+                  Row(
+  children: [
+    if (work.mobileNumber?.isNotEmpty == true) ...[
+      InkWell(
+        onTap: () => _launchPhone(work.mobileNumber!),
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 4,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFFD1FAE5),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: const Color(0xFFA7F3D0),
+              width: 0.6,
+            ),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.phone_enabled_outlined,
+                size: 13,
+                color: Color(0xFF047857),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                work.mobileNumber!,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF065F46),
+                ),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _iconButton(IconData icon, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: CircleAvatar(
-          backgroundColor: color.withOpacity(0.15),
-          child: Icon(icon, color: color, size: 24),
+      const SizedBox(width: 8),
+    ],
+    if (work.location?.isNotEmpty == true ||
+        work.address?.isNotEmpty == true) ...[
+      Expanded(
+        child: Row(
+          children: [
+            const Icon(
+              Icons.location_on_outlined,
+              size: 14,
+              color: Color(0xFF64748B),
+            ),
+            const SizedBox(width: 3),
+            Expanded(
+              child: Text(
+                (work.location?.isNotEmpty == true
+                    ? work.location
+                    : work.address)!,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ],
+  ],
+),
 
-  Widget _buildInfoRow(
-    IconData icon,
-    String? value,
-    Color color, {
-    bool isPhone = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: color.withOpacity(0.1),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: GestureDetector(
-              onTap:
-                  isPhone && value != null ? () => _launchPhone(value) : null,
-              child: Text(
-                value ?? '-',
-                style: TextStyle(
-                  color: isPhone ? Colors.blueAccent : Colors.black87,
-                  fontSize: 14,
-                  decoration: isPhone ? TextDecoration.underline : null,
-                ),
-                overflow: TextOverflow.ellipsis,
+                  if (work.assignedServiceMan?.isNotEmpty == true || work.estimatedDatetime?.isNotEmpty == true) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        if (work.assignedServiceMan?.isNotEmpty == true)
+                          Row(
+                            children: [
+                              const Icon(Icons.badge_outlined, size: 13, color: Color(0xFF64748B)),
+                              const SizedBox(width: 4),
+                              Text(
+                                "Assigned: ${work.assignedServiceMan}",
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF475569),
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          const SizedBox(),
+                        if (work.estimatedDatetime?.isNotEmpty == true)
+                          Row(
+                            children: [
+                              const Icon(Icons.calendar_today_outlined, size: 12, color: Color(0xFF64748B)),
+                              const SizedBox(width: 4),
+                              Text(
+                                work.estimatedDatetime!,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ],
+
+                  const SizedBox(height: 10),
+
+                  // Progress Bar
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Progress",
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          Text(
+                            "${(progress * 100).toInt()}%",
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: statusColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 5,
+                          backgroundColor: Colors.grey.shade100,
+                          valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Action Buttons Row
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      if ((work.status == "New") && roleId != null && roleId == "3")
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            if (isWorkStarted) {
+                              _showWorkInProgressDialog();
+                            } else {
+                              _confirmAction("Start Work", work, "start");
+                            }
+                          },
+                          icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                          label: const Text("Start Work", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF10B981),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          ),
+                        ),
+                      if (roleId == "2" && work.status != "Completed") ...[
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditWorkPage(
+                                  workOrderId: work.workOrderID ?? '',
+                                ),
+                              ),
+                            ).then((value) {
+                              if (value == true) _fetchWorkList();
+                            });
+                          },
+                          icon: const Icon(Icons.edit_outlined, size: 15),
+                          label: const Text("Edit", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF2A86C9),
+                            side: const BorderSide(color: Color(0xFF2A86C9), width: 1.2),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text("Confirm Delete"),
+                                content: const Text(
+                                  "Are you sure you want to delete this work order? This action cannot be undone.",
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text("Cancel"),
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFEF4444),
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: const Text("Delete"),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (confirm == true) {
+                              final httpService = HttpService();
+                              final success = await httpService.deleteWorkOrder(
+                                work.workOrderID ?? '',
+                              );
+                              if (success) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      "Work order deleted successfully",
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                    backgroundColor: Colors.green,
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                                _fetchWorkList();
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      "Failed to delete work order",
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                    backgroundColor: Colors.red,
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.delete_outline, size: 15),
+                          label: const Text("Delete", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFEF4444),
+                            side: const BorderSide(color: Color(0xFFEF4444), width: 1.2),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                        ),
+                      ] else if ((work.status == "In Progress") &&
+                          roleId != null &&
+                          roleId == "3") ...[
+                        ElevatedButton.icon(
+                          onPressed: () =>
+                              _confirmActionStop("Stop Work", work, "stop"),
+                          icon: const Icon(Icons.stop_rounded, size: 16),
+                          label: const Text("Stop Work", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFEF4444),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          ),
+                        ),
+                      ] else if ((work.status == "On Hold") &&
+                          roleId != null &&
+                          roleId == "3") ...[
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            if (isWorkStarted) {
+                              _showWorkInProgressDialog();
+                            } else {
+                              _confirmActionRestart(
+                                "Restart Work",
+                                work,
+                                "restart",
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.restart_alt_rounded, size: 16),
+                          label: const Text("Restart", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF3B82F6),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
-  }
-
-  Color _getCardColor(String? status) {
-    switch (status?.toLowerCase()) {
-      case "new":
-        return const Color(0xFFD7E9FF);
-      case "assigned":
-        return const Color(0xFFFFD6D6);
-      case "in progress":
-        return const Color(0xFFFFEFC2);
-      case "completed":
-        return const Color.fromARGB(255, 223, 247, 225);
-      case "on hold":
-        return const Color(0xFFFFE3B3);
-      default:
-        return Colors.grey.shade200;
-    }
-  }
-
-  Color _getStatusChipColor(String? status) {
-    switch (status?.toLowerCase()) {
-      case "new":
-        return Colors.blueAccent;
-      case "assigned":
-        return Colors.pinkAccent;
-      case "in progress":
-        return Colors.orangeAccent;
-      case "completed":
-        return Colors.green;
-      case "on hold":
-        return Colors.redAccent;
-      default:
-        return Colors.grey;
-    }
   }
 
   void _showViewDialog(WorkOrder work) {
@@ -2678,7 +2848,7 @@ class _WorkListPageState extends State<WorkListPage>
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFF5F6FF), Colors.white],
+                  colors: [Color(0xFFF8FAFC), Colors.white],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -2964,20 +3134,34 @@ class _WorkListPageState extends State<WorkListPage>
 
   @override
   Widget build(BuildContext context) {
+    final filteredList = _filteredWorkOrders;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FB),
-      appBar: AppBar(
-        title: Text(widget.pageTitle),
-        backgroundColor: const Color(0xFF2a86c9),
-        foregroundColor: Colors.white,
-        elevation: 4,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
-        ),
-        actions: [
-          roleId != "3"
-              ? IconButton(
-                  icon: const Icon(Icons.add_circle_outline),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(56),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF2a86c9), Color(0xFF406dbe)],
+            ),
+          ),
+          child: AppBar(
+            title: Text(
+              widget.pageTitle,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: Colors.white,
+              ),
+            ),
+            backgroundColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            actions: [
+              if (roleId != "3")
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline, size: 22),
                   tooltip: "Add New Work",
                   onPressed: () {
                     Navigator.push(
@@ -2987,28 +3171,147 @@ class _WorkListPageState extends State<WorkListPage>
                       ),
                     ).then((_) => _fetchWorkList());
                   },
-                )
-              : SizedBox(),
-        ],
+                ),
+            ],
+          ),
+        ),
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : workOrders.isEmpty
-              ? const Center(
-                  child: Text(
-                    "No works found.",
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _fetchWorkList,
-                  child: ListView.builder(
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: workOrders.length,
-                    itemBuilder: (context, index) =>
-                        _buildWorkCard(workOrders[index]),
+      body: Column(
+        children: [
+          // Modern Search Bar
+          Container(
+            margin: const EdgeInsets.only(left: 16, right: 16, top: 14, bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 15),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(25),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (val) {
+                setState(() {
+                  _searchQuery = val;
+                });
+              },
+              decoration: InputDecoration(
+                hintText: "Search by customer, phone, ID, location...",
+                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                border: InputBorder.none,
+                icon: const Icon(Icons.search, color: Color(0xFF2a86c9)),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {
+                            _searchQuery = "";
+                          });
+                        },
+                      )
+                    : null,
+              ),
+            ),
+          ),
+
+          // Header summary badge bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      widget.pageTitle,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E293B),
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2A86C9).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        "${filteredList.length} Work Orders",
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF2A86C9),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  "Total: ${workOrders.length}",
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 4),
+
+          // Work orders list view
+          Expanded(
+            child: isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF2A86C9)),
+                  )
+                : filteredList.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.assignment_outlined,
+                              size: 48,
+                              color: Colors.grey.shade300,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _searchQuery.isNotEmpty
+                                  ? "No works matching '$_searchQuery'"
+                                  : "No works found.",
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : RefreshIndicator(
+                        color: const Color(0xFF2A86C9),
+                        onRefresh: _fetchWorkList,
+                        child: ListView.builder(
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: filteredList.length,
+                          itemBuilder: (context, index) =>
+                              _buildWorkCard(filteredList[index]),
+                        ),
+                      ),
+          ),
+        ],
+      ),
     );
   }
 }

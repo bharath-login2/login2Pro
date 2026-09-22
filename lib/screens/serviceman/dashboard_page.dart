@@ -26,7 +26,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'work_status_page.dart';
 import 'work_category_page.dart';
 import 'expense_income_page.dart';
+import 'serviceCollectionListPage.dart';
 import 'work_progress_page.dart';
+import 'package:intl/intl.dart';
+import 'package:login2/models/serviceman/workModel.dart';
+import 'package:login2/models/serviceman/serviceDashboardCountsModel.dart';
+import 'package:login2/models/serviceman/serviceCollectionModel.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -54,11 +59,80 @@ class _DashboardPageState extends State<DashboardPage> {
   String profilePic = '';
   CommonConfigureModel? configure;
 
+  List<WorkOrder> ongoingWorkOrders = [];
+  bool isLoadingOngoingWorks = true;
+
+  ServiceDashboardCountsData? dashboardCounts;
+  bool isLoadingDashboardCounts = true;
+
+  List<ServiceCollectionRecord> recentPaymentReports = [];
+  bool isLoadingRecentPaymentReports = true;
+
   @override
   void initState() {
     super.initState();
     _loadStaffName();
     _setupFirebaseMessaging();
+    _fetchOngoingWorks();
+    _fetchDashboardCounts();
+    _fetchRecentPaymentReports();
+  }
+
+  Future<void> _fetchOngoingWorks() async {
+    setState(() => isLoadingOngoingWorks = true);
+    final today = DateTime.now().toIso8601String().split('T').first;
+    final staffId = await Common.getSharedPref("staff_id") ?? "1";
+    try {
+      final httpService = HttpService();
+      final model = await httpService.getWorkList(
+        staffId,
+        today,
+        "3",
+      );
+      if (model != null && model.data?.lists != null) {
+        setState(() {
+          ongoingWorkOrders = model.data!.lists!;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching ongoing work list: $e");
+    } finally {
+      setState(() => isLoadingOngoingWorks = false);
+    }
+  }
+
+  Future<void> _fetchDashboardCounts() async {
+    setState(() => isLoadingDashboardCounts = true);
+    try {
+      final httpService = HttpService();
+      final model = await httpService.getServiceDashboardCounts();
+      if (model != null && model.status == true && model.data != null) {
+        setState(() {
+          dashboardCounts = model.data;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching service dashboard counts: $e");
+    } finally {
+      setState(() => isLoadingDashboardCounts = false);
+    }
+  }
+
+  Future<void> _fetchRecentPaymentReports() async {
+    setState(() => isLoadingRecentPaymentReports = true);
+    try {
+      final httpService = HttpService();
+      final model = await httpService.getServiceCollection(2);
+      if (model != null && model.status == true && model.data?.records != null) {
+        setState(() {
+          recentPaymentReports = model.data!.records!;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching recent payment reports: $e");
+    } finally {
+      setState(() => isLoadingRecentPaymentReports = false);
+    }
   }
 
   void _setupFirebaseMessaging() async {
@@ -114,7 +188,18 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _refreshPage() {
     debugPrint("Page Refreshed!");
+    _fetchOngoingWorks();
+    _fetchDashboardCounts();
+    _fetchRecentPaymentReports();
     setState(() {});
+  }
+
+  String _formatAmount(num? amount) {
+    if (amount == null || amount == 0) return "0";
+    if (amount % 1 == 0) {
+      return NumberFormat("#,##,##0", "en_IN").format(amount.toInt());
+    }
+    return NumberFormat("#,##,##0.00", "en_IN").format(amount);
   }
 
   Future<void> _loadStaffName() async {
@@ -153,6 +238,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       key: _scaffoldKey,
       endDrawer: const SideBar(),
       appBar: PreferredSize(
@@ -415,379 +501,356 @@ class _DashboardPageState extends State<DashboardPage> {
 
             const SizedBox(height: 10),
 
-            // Work Categories Grid - Redesigned
+            // 8 Modern Work & Financial Stat Cards Grid
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 20,
-                crossAxisSpacing: 20,
-                childAspectRatio: 1.0,
+                mainAxisSpacing: 14,
+                crossAxisSpacing: 14,
+                childAspectRatio: 1.15,
                 children: [
-                  _buildModernWorkCard(
+                  _buildModernStatCard(
                     title: "New Work",
-                    icon: Icons.fiber_new,
-                    color: const Color(0xFF4A90E2),
-                    gradientColors: [
-                      const Color(0xFF4A90E2),
-                      const Color(0xFF357ABD)
-                    ],
-                    typeId: "1",
+                    value: isLoadingDashboardCounts
+                        ? "..."
+                        : "${dashboardCounts?.newOrders ?? 0}",
+                    icon: Icons.fiber_new_rounded,
+                    gradientColors: const [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WorkListPage(
+                          pageTitle: "New Work",
+                          typeId: "1",
+                        ),
+                      ),
+                    ),
                   ),
-                  _buildModernWorkCard(
+                  _buildModernStatCard(
                     title: "Pending Work",
-                    icon: Icons.hourglass_empty,
-                    color: const Color(0xFFF39C12),
-                    gradientColors: [
-                      const Color(0xFFF39C12),
-                      const Color(0xFFE67E22)
-                    ],
-                    typeId: "2",
+                    value: isLoadingDashboardCounts
+                        ? "..."
+                        : "${dashboardCounts?.pendingOrders ?? 0}",
+                    icon: Icons.hourglass_top_rounded,
+                    gradientColors: const [Color(0xFFF59E0B), Color(0xFFD97706)],
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WorkListPage(
+                          pageTitle: "Pending Work",
+                          typeId: "2",
+                        ),
+                      ),
+                    ),
                   ),
-                  _buildModernWorkCard(
+                  _buildModernStatCard(
                     title: "Ongoing Work",
-                    icon: Icons.build,
-                    color: const Color(0xFF27AE60),
-                    gradientColors: [
-                      const Color(0xFF27AE60),
-                      const Color(0xFF229954)
-                    ],
-                    typeId: "3",
+                    value: isLoadingDashboardCounts
+                        ? "..."
+                        : "${dashboardCounts?.inprogressOrders ?? 0}",
+                    icon: Icons.engineering_rounded,
+                    gradientColors: const [Color(0xFF10B981), Color(0xFF059669)],
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WorkListPage(
+                          pageTitle: "Ongoing Work",
+                          typeId: "3",
+                        ),
+                      ),
+                    ),
                   ),
-                  _buildModernWorkCard(
+                  _buildModernStatCard(
                     title: "Completed Work",
-                    icon: Icons.check_circle,
-                    color: const Color(0xFF8E44AD),
-                    gradientColors: [
-                      const Color(0xFF8E44AD),
-                      const Color(0xFF6C3483)
-                    ],
-                    typeId: "4",
+                    value: isLoadingDashboardCounts
+                        ? "..."
+                        : "${dashboardCounts?.completedOrders ?? 0}",
+                    icon: Icons.task_alt_rounded,
+                    gradientColors: const [Color(0xFF8B5CF6), Color(0xFF6D28D9)],
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WorkListPage(
+                          pageTitle: "Completed Work",
+                          typeId: "4",
+                        ),
+                      ),
+                    ),
+                  ),
+                  _buildModernStatCard(
+                    title: "Overdue",
+                    value: isLoadingDashboardCounts
+                        ? "..."
+                        : "${dashboardCounts?.overdueOrders ?? 0}",
+                    icon: Icons.warning_amber_rounded,
+                    gradientColors: const [Color(0xFFEF4444), Color(0xFFB91C1C)],
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WorkListPage(
+                          pageTitle: "Overdue Work",
+                          typeId: "5",
+                        ),
+                      ),
+                    ),
+                  ),
+                  _buildModernStatCard(
+                    title: "Today Collected",
+                    value: isLoadingDashboardCounts
+                        ? "..."
+                        : "₹${_formatAmount(dashboardCounts?.todaysCollection)}",
+                    icon: Icons.today_rounded,
+                    gradientColors: const [Color(0xFF06B6D4), Color(0xFF0891B2)],
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ServiceCollectionListPage(
+                          type: 1,
+                          title: "Today Collected",
+                        ),
+                      ),
+                    ),
+                  ),
+                  _buildModernStatCard(
+                    title: "This Month Collection",
+                    value: isLoadingDashboardCounts
+                        ? "..."
+                        : "₹${_formatAmount(dashboardCounts?.thisMonthCollection)}",
+                    icon: Icons.account_balance_wallet_rounded,
+                    gradientColors: const [Color(0xFF10B981), Color(0xFF047857)],
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ServiceCollectionListPage(
+                          type: 2,
+                          title: "This Month Collection",
+                        ),
+                      ),
+                    ),
+                  ),
+                  _buildModernStatCard(
+                    title: "Balance to Receive",
+                    value: isLoadingDashboardCounts
+                        ? "..."
+                        : "₹${_formatAmount(dashboardCounts?.dueCollection)}",
+                    icon: Icons.pending_actions_rounded,
+                    gradientColors: const [Color(0xFF6366F1), Color(0xFF4338CA)],
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ServiceCollectionListPage(
+                          type: 3,
+                          title: "Balance to Receive",
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 20),
-            const WorkCategoryCard(),
-            // const SizedBox(height: 20),
-            // DashboardCard(
-            //   title: "Expense/Income Overview",
-            //   onTap: () => Navigator.push(
-            //     context,
-            //     MaterialPageRoute(builder: (_) => const ExpenseIncomePage()),
-            //   ),
-            //   child: SizedBox(
-            //     height: 280,
-            //     child: Padding(
-            //       padding: const EdgeInsets.all(12.0),
-            //       child: Column(
-            //         children: [
-            //           Expanded(
-            //             child: BarChart(
-            //               BarChartData(
-            //                 alignment: BarChartAlignment.spaceAround,
-            //                 maxY: 25000,
-            //                 barTouchData: BarTouchData(enabled: false),
-            //                 titlesData: FlTitlesData(
-            //                   leftTitles: AxisTitles(
-            //                     sideTitles: SideTitles(
-            //                       showTitles: true,
-            //                       reservedSize: 40,
-            //                       getTitlesWidget: (value, meta) {
-            //                         return Text(
-            //                           '${(value / 1000).toInt()}k',
-            //                           style: const TextStyle(fontSize: 10),
-            //                         );
-            //                       },
-            //                     ),
-            //                   ),
-            //                   bottomTitles: AxisTitles(
-            //                     sideTitles: SideTitles(
-            //                       showTitles: true,
-            //                       getTitlesWidget:
-            //                           (double value, TitleMeta meta) {
-            //                         const days = [
-            //                           'Mon',
-            //                           'Tue',
-            //                           'Wed',
-            //                           'Thu',
-            //                           'Fri',
-            //                           'Sat',
-            //                           'Sun'
-            //                         ];
-            //                         if (value.toInt() >= 0 &&
-            //                             value.toInt() < days.length) {
-            //                           return Text(days[value.toInt()],
-            //                               style: const TextStyle(fontSize: 10));
-            //                         }
-            //                         return const Text('');
-            //                       },
-            //                       reservedSize: 32,
-            //                     ),
-            //                   ),
-            //                 ),
-            //                 gridData: FlGridData(
-            //                     show: true,
-            //                     drawHorizontalLine: true,
-            //                     drawVerticalLine: false),
-            //                 borderData: FlBorderData(show: false),
-            //                 barGroups: [
-            //                   BarChartGroupData(x: 0, barRods: [
-            //                     BarChartRodData(
-            //                         toY: 20000,
-            //                         color: Colors.orange,
-            //                         width: 8,
-            //                         borderRadius: BorderRadius.circular(4)),
-            //                     BarChartRodData(
-            //                         toY: 10000,
-            //                         color: Colors.purple,
-            //                         width: 8,
-            //                         borderRadius: BorderRadius.circular(4)),
-            //                   ]),
-            //                   BarChartGroupData(x: 1, barRods: [
-            //                     BarChartRodData(
-            //                         toY: 18000,
-            //                         color: Colors.orange,
-            //                         width: 8,
-            //                         borderRadius: BorderRadius.circular(4)),
-            //                     BarChartRodData(
-            //                         toY: 12000,
-            //                         color: Colors.purple,
-            //                         width: 8,
-            //                         borderRadius: BorderRadius.circular(4)),
-            //                   ]),
-            //                   BarChartGroupData(x: 2, barRods: [
-            //                     BarChartRodData(
-            //                         toY: 15000,
-            //                         color: Colors.orange,
-            //                         width: 8,
-            //                         borderRadius: BorderRadius.circular(4)),
-            //                     BarChartRodData(
-            //                         toY: 9000,
-            //                         color: Colors.purple,
-            //                         width: 8,
-            //                         borderRadius: BorderRadius.circular(4)),
-            //                   ]),
-            //                   BarChartGroupData(x: 3, barRods: [
-            //                     BarChartRodData(
-            //                         toY: 22000,
-            //                         color: Colors.orange,
-            //                         width: 8,
-            //                         borderRadius: BorderRadius.circular(4)),
-            //                     BarChartRodData(
-            //                         toY: 11000,
-            //                         color: Colors.purple,
-            //                         width: 8,
-            //                         borderRadius: BorderRadius.circular(4)),
-            //                   ]),
-            //                   BarChartGroupData(x: 4, barRods: [
-            //                     BarChartRodData(
-            //                         toY: 21000,
-            //                         color: Colors.orange,
-            //                         width: 8,
-            //                         borderRadius: BorderRadius.circular(4)),
-            //                     BarChartRodData(
-            //                         toY: 10000,
-            //                         color: Colors.purple,
-            //                         width: 8,
-            //                         borderRadius: BorderRadius.circular(4)),
-            //                   ]),
-            //                   BarChartGroupData(x: 5, barRods: [
-            //                     BarChartRodData(
-            //                         toY: 17000,
-            //                         color: Colors.orange,
-            //                         width: 8,
-            //                         borderRadius: BorderRadius.circular(4)),
-            //                     BarChartRodData(
-            //                         toY: 8000,
-            //                         color: Colors.purple,
-            //                         width: 8,
-            //                         borderRadius: BorderRadius.circular(4)),
-            //                   ]),
-            //                   BarChartGroupData(x: 6, barRods: [
-            //                     BarChartRodData(
-            //                         toY: 23000,
-            //                         color: Colors.orange,
-            //                         width: 8,
-            //                         borderRadius: BorderRadius.circular(4)),
-            //                     BarChartRodData(
-            //                         toY: 12000,
-            //                         color: Colors.purple,
-            //                         width: 8,
-            //                         borderRadius: BorderRadius.circular(4)),
-            //                   ]),
-            //                 ],
-            //               ),
-            //             ),
-            //           ),
-            //           const SizedBox(height: 16),
-            //           Container(
-            //             padding: const EdgeInsets.all(12),
-            //             decoration: BoxDecoration(
-            //               color: Colors.grey.shade50,
-            //               borderRadius: BorderRadius.circular(12),
-            //             ),
-            //             child: Row(
-            //               mainAxisAlignment: MainAxisAlignment.spaceAround,
-            //               children: [
-            //                 _buildLegendItem(Icons.trending_up, "Income",
-            //                     "₹20,000", Colors.orange),
-            //                 _buildLegendItem(Icons.trending_down, "Expense",
-            //                     "₹10,000", Colors.purple),
-            //               ],
-            //             ),
-            //           ),
-            //         ],
-            //       ),
-            //     ),
-            //   ),
-            // ),
+            const SizedBox(height: 25),
 
-            // const SizedBox(height: 20),
+            // Section 1: Recent Ongoing Work List (5 Rows + See More)
+            _buildSectionHeader(
+              title: "Recent Ongoing Work",
+              badgeText: isLoadingOngoingWorks
+                  ? "Loading..."
+                  : "${ongoingWorkOrders.length} Active",
+              onSeeMore: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const WorkListPage(
+                    pageTitle: "Ongoing Work",
+                    typeId: "3",
+                  ),
+                ),
+              ),
+            ),
 
-            // // Work Progress Dashboard Card
-            // DashboardCard(
-            //   title: "Work Progress Tracker",
-            //   onTap: () => Navigator.push(
-            //     context,
-            //     MaterialPageRoute(builder: (_) => const WorkProgressPage()),
-            //   ),
-            //   child: SizedBox(
-            //     height: 240,
-            //     child: Padding(
-            //       padding: const EdgeInsets.all(12.0),
-            //       child: Column(
-            //         children: [
-            //           // Legend
-            //           Row(
-            //             mainAxisAlignment: MainAxisAlignment.center,
-            //             children: [
-            //               _buildLegendDot(Colors.orange, "Ongoing"),
-            //               const SizedBox(width: 20),
-            //               _buildLegendDot(Colors.green, "Completed"),
-            //               const SizedBox(width: 20),
-            //               _buildLegendDot(Colors.red, "Pending"),
-            //             ],
-            //           ),
-            //           const SizedBox(height: 10),
-            //           Expanded(
-            //             child: LineChart(
-            //               LineChartData(
-            //                 gridData: FlGridData(
-            //                     show: true,
-            //                     drawHorizontalLine: true,
-            //                     drawVerticalLine: false),
-            //                 titlesData: FlTitlesData(
-            //                   bottomTitles: AxisTitles(
-            //                     sideTitles: SideTitles(
-            //                       showTitles: true,
-            //                       getTitlesWidget: (value, meta) {
-            //                         const weeks = [
-            //                           'Week 1',
-            //                           'Week 2',
-            //                           'Week 3',
-            //                           'Week 4'
-            //                         ];
-            //                         if (value >= 0 && value < weeks.length) {
-            //                           return Padding(
-            //                             padding:
-            //                                 const EdgeInsets.only(top: 8.0),
-            //                             child: Text(weeks[value.toInt()],
-            //                                 style:
-            //                                     const TextStyle(fontSize: 10)),
-            //                           );
-            //                         }
-            //                         return const Text('');
-            //                       },
-            //                       reservedSize: 40,
-            //                     ),
-            //                   ),
-            //                   leftTitles: AxisTitles(
-            //                     sideTitles: SideTitles(
-            //                       showTitles: true,
-            //                       getTitlesWidget: (value, meta) {
-            //                         return Text('${value.toInt()}%',
-            //                             style: const TextStyle(fontSize: 10));
-            //                       },
-            //                       reservedSize: 35,
-            //                     ),
-            //                   ),
-            //                   rightTitles: const AxisTitles(
-            //                       sideTitles: SideTitles(showTitles: false)),
-            //                   topTitles: const AxisTitles(
-            //                       sideTitles: SideTitles(showTitles: false)),
-            //                 ),
-            //                 borderData: FlBorderData(
-            //                     show: true,
-            //                     border: Border.all(
-            //                         color: const Color(0xffE0E0E0), width: 1)),
-            //                 minX: 0,
-            //                 maxX: 3,
-            //                 minY: 0,
-            //                 maxY: 100,
-            //                 lineBarsData: [
-            //                   LineChartBarData(
-            //                     spots: const [
-            //                       FlSpot(0, 30),
-            //                       FlSpot(1, 45),
-            //                       FlSpot(2, 60),
-            //                       FlSpot(3, 40)
-            //                     ],
-            //                     isCurved: true,
-            //                     color: Colors.orange,
-            //                     barWidth: 3,
-            //                     isStrokeCapRound: true,
-            //                     dotData: FlDotData(show: true),
-            //                     belowBarData: BarAreaData(
-            //                         show: true,
-            //                         color: Colors.orange.withOpacity(0.2)),
-            //                   ),
-            //                   LineChartBarData(
-            //                     spots: const [
-            //                       FlSpot(0, 20),
-            //                       FlSpot(1, 45),
-            //                       FlSpot(2, 60),
-            //                       FlSpot(3, 85)
-            //                     ],
-            //                     isCurved: true,
-            //                     color: Colors.green,
-            //                     barWidth: 3,
-            //                     isStrokeCapRound: true,
-            //                     dotData: FlDotData(show: true),
-            //                     belowBarData: BarAreaData(
-            //                         show: true,
-            //                         color: Colors.green.withOpacity(0.2)),
-            //                   ),
-            //                   LineChartBarData(
-            //                     spots: const [
-            //                       FlSpot(0, 80),
-            //                       FlSpot(1, 55),
-            //                       FlSpot(2, 40),
-            //                       FlSpot(3, 15)
-            //                     ],
-            //                     isCurved: true,
-            //                     color: Colors.red,
-            //                     barWidth: 3,
-            //                     isStrokeCapRound: true,
-            //                     dotData: FlDotData(show: true),
-            //                     belowBarData: BarAreaData(
-            //                         show: true,
-            //                         color: Colors.red.withOpacity(0.2)),
-            //                   ),
-            //                 ],
-            //               ),
-            //             ),
-            //           ),
-            //         ],
-            //       ),
-            //     ),
-            //   ),
-            // ),
+            if (isLoadingOngoingWorks)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: CircularProgressIndicator(color: Color(0xFF2A86C9)),
+                ),
+              )
+            else if (ongoingWorkOrders.isEmpty)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  children: const [
+                    Icon(Icons.assignment_turned_in_outlined,
+                        size: 36, color: Colors.grey),
+                    SizedBox(height: 8),
+                    Text(
+                      "No ongoing works available",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ...ongoingWorkOrders.take(5).map((order) {
+                final workId = (order.workOrderID?.isNotEmpty == true)
+                    ? order.workOrderID!
+                    : ((order.workOrderId?.isNotEmpty == true)
+                        ? order.workOrderId!
+                        : "WK-${order.custId ?? '0'}");
+                final workTitle = (order.workCategory?.isNotEmpty == true)
+                    ? order.workCategory!
+                    : ((order.issueDescription?.isNotEmpty == true)
+                        ? order.issueDescription!
+                        : "Work Order");
+                final clientName = order.customerName ?? "Customer";
+                final location = (order.location?.isNotEmpty == true)
+                    ? order.location!
+                    : (order.address ?? "Location N/A");
+                final date =
+                    order.createdAt ?? order.preferredDateTime ?? "Today";
+                final status = order.status ?? "Ongoing";
 
-            const SizedBox(height: 30),
+                return _buildOngoingWorkCard(
+                  workId: workId,
+                  workTitle: workTitle,
+                  clientName: clientName,
+                  location: location,
+                  date: date,
+                  progress: status.toLowerCase().contains("progress")
+                      ? 0.75
+                      : status.toLowerCase().contains("pending")
+                          ? 0.35
+                          : 0.50,
+                  status: status,
+                  statusColor: status.toLowerCase().contains("progress")
+                      ? const Color(0xFF10B981)
+                      : status.toLowerCase().contains("pending")
+                          ? const Color(0xFFF59E0B)
+                          : const Color(0xFF3B82F6),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const WorkListPage(
+                        pageTitle: "Ongoing Work",
+                        typeId: "3",
+                      ),
+                    ),
+                  ),
+                );
+              }),
+
+            const SizedBox(height: 25),
+
+            // Section 2: Payment Report List (5 Rows + See More)
+            _buildSectionHeader(
+              title: "Payment Report",
+              badgeText: isLoadingRecentPaymentReports
+                  ? "Loading..."
+                  : "${recentPaymentReports.take(5).length} Recent",
+              onSeeMore: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ServiceCollectionListPage(
+                    type: 2,
+                    title: "This Month Collection",
+                  ),
+                ),
+              ),
+            ),
+
+            if (isLoadingRecentPaymentReports)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: CircularProgressIndicator(color: Color(0xFF2A86C9)),
+                ),
+              )
+            else if (recentPaymentReports.isEmpty)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  children: const [
+                    Icon(Icons.receipt_long_outlined,
+                        size: 36, color: Colors.grey),
+                    SizedBox(height: 8),
+                    Text(
+                      "No payment reports available",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ...recentPaymentReports.take(5).map((record) {
+                final String invNo = (record.invoiceNumber?.isNotEmpty == true)
+                    ? "Inv #${record.invoiceNumber}"
+                    : ((record.invoiceId?.isNotEmpty == true)
+                        ? "Inv #${record.invoiceId}"
+                        : "Invoice");
+                final String clientName = record.customerName?.isNotEmpty == true
+                    ? record.customerName!
+                    : "Customer";
+                final String serviceTitle = (record.createdByName?.isNotEmpty == true)
+                    ? "Created by: ${record.createdByName}"
+                    : "Service Invoice";
+                final String date = (record.invoiceDate?.isNotEmpty == true)
+                    ? record.invoiceDate!
+                    : (record.createdAt ?? "N/A");
+                final String status = record.paymentStatus?.isNotEmpty == true
+                    ? record.paymentStatus!.toUpperCase()
+                    : "RECEIVED";
+                final num displayAmount = record.totalAmount ?? record.paidAmount ?? 0;
+                final String amount = "+ ₹${_formatAmount(displayAmount)}";
+                final String paymentMode = (record.paidAmount != null && record.paidAmount! > 0)
+                    ? "Paid"
+                    : "Pending";
+
+                return _buildPaymentReportCard(
+                  invoiceNo: invNo,
+                  clientName: clientName,
+                  serviceTitle: serviceTitle,
+                  date: date,
+                  paymentMode: paymentMode,
+                  amount: amount,
+                  status: status,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ServiceCollectionListPage(
+                        type: 2,
+                        title: "This Month Collection",
+                      ),
+                    ),
+                  ),
+                );
+              }),
+
+            const SizedBox(height: 35),
           ],
         ),
       ),
@@ -839,84 +902,102 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildModernWorkCard({
+  Widget _buildModernStatCard({
     required String title,
+    required String value,
     required IconData icon,
-    required Color color,
     required List<Color> gradientColors,
-    required String typeId,
+    required VoidCallback onTap,
   }) {
+    final primaryColor = gradientColors.first;
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => WorkListPage(
-              pageTitle: title,
-              typeId: typeId,
-            ),
-          ),
-        );
-      },
+      onTap: onTap,
       child: Container(
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.white, color.withOpacity(0.05)],
-          ),
-          borderRadius: BorderRadius.circular(20),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.2),
-              blurRadius: 12,
+              color: primaryColor.withOpacity(0.12),
+              blurRadius: 10,
               offset: const Offset(0, 4),
             ),
           ],
-          border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+          border: Border.all(
+            color: primaryColor.withOpacity(0.18),
+            width: 1.2,
+          ),
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Container(
-              width: 65,
-              height: 65,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: gradientColors,
-                ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.4),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: gradientColors,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryColor.withOpacity(0.3),
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Icon(icon, color: Colors.white, size: 30),
+                  child: Icon(icon, color: Colors.white, size: 20),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 10,
+                    color: primaryColor,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: color,
-                fontFamily: "MontserratBold",
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 4),
-            Container(
-              width: 30,
-              height: 3,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(2),
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: primaryColor,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF4A5568),
+                    height: 1.15,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -924,32 +1005,422 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildLegendItem(
-      IconData icon, String label, String value, Color color) {
-    return Row(
-      children: [
-        Icon(icon, color: color, size: 16),
-        const SizedBox(width: 6),
-        Text(label,
-            style: const TextStyle(fontSize: 12, color: Colors.black54)),
-        const SizedBox(width: 6),
-        Text(value,
-            style: TextStyle(
-                fontSize: 14, fontWeight: FontWeight.bold, color: color)),
-      ],
+  Widget _buildSectionHeader({
+    required String title,
+    required String badgeText,
+    required VoidCallback onSeeMore,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2A86C9).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  badgeText,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2A86C9),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          InkWell(
+            onTap: onSeeMore,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              child: Row(
+                children: const [
+                  Text(
+                    "See More",
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF2A86C9),
+                    ),
+                  ),
+                  SizedBox(width: 4),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 11,
+                    color: Color(0xFF2A86C9),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildLegendDot(Color color, String label) {
-    return Row(
-      children: [
-        Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 11)),
-      ],
+  Widget _buildOngoingWorkCard({
+    required String workId,
+    required String workTitle,
+    required String clientName,
+    required String location,
+    required String date,
+    required double progress,
+    required String status,
+    required Color statusColor,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        workId,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade800,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: statusColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            status,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: statusColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  workTitle,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.person_outline,
+                        size: 14, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(
+                      clientName,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF475569),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Icon(Icons.location_on_outlined,
+                        size: 14, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        location,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF475569),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                "Progress",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              Text(
+                                "${(progress * 100).toInt()}%",
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2A86C9),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 5,
+                              backgroundColor: Colors.grey.shade100,
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                  Color(0xFF2A86C9)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 15),
+                    Row(
+                      children: [
+                        const Icon(Icons.calendar_today_outlined,
+                            size: 12, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text(
+                          date,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentReportCard({
+    required String invoiceNo,
+    required String clientName,
+    required String serviceTitle,
+    required String date,
+    required String paymentMode,
+    required String amount,
+    required String status,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.account_balance_wallet_rounded,
+                    color: Color(0xFF10B981),
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            clientName,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                          Text(
+                            amount,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF10B981),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              serviceTitle,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD1FAE5), // Emerald 100
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              status,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF047857), // Emerald 700
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  paymentMode,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF475569),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                invoiceNo,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            date,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
