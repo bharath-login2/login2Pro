@@ -43,6 +43,16 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
   final TextEditingController _invoiceDateController = TextEditingController();
   final TextEditingController _otherExpensesController =
       TextEditingController(text: "0");
+  final TextEditingController _loadingChargesController =
+      TextEditingController(text: "0");
+  final TextEditingController _transportationChargesController =
+      TextEditingController(text: "0");
+  final TextEditingController _discountController =
+      TextEditingController(text: "0");
+  final TextEditingController _damagedChargesController =
+      TextEditingController(text: "0.00");
+  final TextEditingController _missingChargesController =
+      TextEditingController(text: "0.00");
   final TextEditingController _rentReturnIdController =
       TextEditingController(text: "#RRN");
   final TextEditingController _invoiceNoController =
@@ -55,6 +65,7 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
   List<LocationData> _locations = [];
   List<RentIssueItem> _rentalIssues = [];
   List<RentalReturnRow> _productRows = [RentalReturnRow()];
+  List<RentalAddonReturnRow> _addonReturnRows = [];
   List<Staff> _customerStaff = [];
   String? _selectedRentId;
   String? _selectedStaffId;
@@ -68,6 +79,7 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
   List<dynamic> _generalStaff = [];
   double _grandTotal = 0.0;
   double _invoiceAmount = 0.0;
+  double _balanceAmount = 0.0;
   bool _isLoading = false;
   bool _isSubmitting = false;
   final TextEditingController _totalPaidAmountController =
@@ -152,9 +164,11 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
             ..unitPrice = double.tryParse(item.ratePerDay) ?? 0.0
             ..returningQty = int.tryParse(item.returning) ?? 0
             ..damagedQty = int.tryParse(item.damaged) ?? 0
+            ..missingQty = 0
             ..maxQty = int.tryParse(item.qtyRented) ?? 0
             ..isReturning = (int.tryParse(item.returning) ?? 0) > 0
             ..isDamaged = (int.tryParse(item.damaged) ?? 0) > 0
+            ..isMissing = false
             ..ratePerDayController.text = item.ratePerDay
             ..noOfDaysController.text = item.days
             ..totalController.text = item.total;
@@ -167,6 +181,7 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
         _loadCustomerStaff(),
         _loadRentIds(),
       ]);
+      await _fetchReturnDetails();
       
       _calculateSummary();
     }
@@ -203,6 +218,7 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
             if (widget.returnId == null) {
                _selectedRentId = null;
                _productRows = [RentalReturnRow()];
+               _addonReturnRows = [];
                _details = null;
             }
           }
@@ -259,6 +275,7 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
           _details = data.data;
           _invoiceDateController.text = _formatDate(_details!.issuedDate);
           final String issuedDateStr = data.data.issuedDate;
+          
           _productRows = data.data.items.map((item) {
             final row = RentalReturnRow()
               ..selectedProductId = item.id
@@ -267,8 +284,10 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
               ..maxQty = item.qtyRemaining
               ..returningQty = 0
               ..damagedQty = 0
+              ..missingQty = 0
               ..isReturning = false
               ..isDamaged = false
+              ..isMissing = false
               ..noOfDaysController.text = _calculateDuration(issuedDateStr);
 
             row.ratePerDayController.text = row.unitPrice.toStringAsFixed(2);
@@ -279,6 +298,30 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
           if (_productRows.isEmpty) {
             _productRows = [RentalReturnRow()];
           }
+
+          _addonReturnRows = data.data.addonProducts.map((addon) {
+            final aRow = RentalAddonReturnRow()
+              ..id = addon.id
+              ..productId = addon.productId
+              ..productName = addon.productName
+              ..totalQty = addon.qty
+              ..alreadyReturned = addon.alreadyReturned.toDouble()
+              ..returningQty = 0
+              ..damagedQty = 0
+              ..missingQty = 0;
+            aRow.returningController.text = "0";
+            aRow.damagedController.text = "0";
+            aRow.missingController.text = "0";
+            return aRow;
+          }).toList();
+
+          _otherExpensesController.text =
+              _details!.otherExpenses.toStringAsFixed(0);
+          _loadingChargesController.text =
+              _details!.loadingCharges.toStringAsFixed(0);
+          _transportationChargesController.text =
+              _details!.transportationCharges.toStringAsFixed(0);
+
           _calculateSummary();
         });
       }
@@ -302,7 +345,7 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
   }
 
   void _recalculateRowInternal(RentalReturnRow row) {
-    final quantity = (row.returningQty + row.damagedQty).toDouble();
+    final quantity = (row.returningQty + row.damagedQty + row.missingQty).toDouble();
     final ratePerDay = double.tryParse(row.ratePerDayController.text) ?? 0;
     final noOfDays = double.tryParse(row.noOfDaysController.text) ?? 0;
     final grossAmount = quantity * ratePerDay * noOfDays;
@@ -312,7 +355,6 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
     final gstAmount = grossAmount * (gstPercent / 100);
     row.gstAmountController.text = gstAmount.toStringAsFixed(2);
 
-    final total = grossAmount + gstAmount;
     row.totalController.text = grossAmount.toStringAsFixed(2);
   }
 
@@ -327,9 +369,31 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
       totalAmount += double.tryParse(row.totalController.text) ?? 0;
     }
     final otherExpenses = double.tryParse(_otherExpensesController.text) ?? 0;
+    final discount = double.tryParse(_discountController.text) ?? 0;
+    final loadingCharges =
+        double.tryParse(_loadingChargesController.text) ?? 0;
+    final transportationCharges =
+        double.tryParse(_transportationChargesController.text) ?? 0;
+    final damagedCharges =
+        double.tryParse(_damagedChargesController.text) ?? 0;
+    final missingCharges =
+        double.tryParse(_missingChargesController.text) ?? 0;
+
+    final invoiceAmount = totalAmount +
+        otherExpenses +
+        loadingCharges +
+        transportationCharges +
+        damagedCharges +
+        missingCharges -
+        discount;
+
+    final paidAmount = double.tryParse(_totalPaidAmountController.text) ?? 0;
+    final balanceAmount = invoiceAmount - paidAmount;
+
     setState(() {
-      _invoiceAmount = totalAmount + otherExpenses;
       _grandTotal = totalAmount;
+      _invoiceAmount = invoiceAmount < 0 ? 0.0 : invoiceAmount;
+      _balanceAmount = balanceAmount < 0 ? 0.0 : balanceAmount;
     });
   }
 
@@ -341,11 +405,15 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
       return;
     }
 
-    bool hasReturning = _productRows.any((row) => row.returningQty > 0);
-    if (!hasReturning) {
+    bool hasProductAction = _productRows.any((row) =>
+        row.returningQty > 0 || row.damagedQty > 0 || row.missingQty > 0);
+    bool hasAddonAction = _addonReturnRows.any((row) =>
+        row.returningQty > 0 || row.damagedQty > 0 || row.missingQty > 0);
+
+    if (!hasProductAction && !hasAddonAction) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('At least one "Returning" quantity is required.')),
+            content: Text('At least one Returning, Damaged, or Missing quantity is required.')),
       );
       return;
     }
@@ -388,11 +456,17 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
         'staff_id': _selectedStaffId,
         'return_date': _returnDateController.text,
         'invoice_date': _invoiceDateController.text,
-          'invoice_number': widget.invoiceNumber??"",
+        'invoice_number': widget.invoiceNumber ?? "",
         'location': _selectedLocationId,
         'other_expenses': _otherExpensesController.text,
+        'loading_charges': _loadingChargesController.text,
+        'transportation_charges': _transportationChargesController.text,
+        'discount': _discountController.text,
+        'damaged_charges': _damagedChargesController.text,
+        'missing_charges': _missingChargesController.text,
         'grand_total': _grandTotal.toStringAsFixed(2),
         'invoice_amount': _invoiceAmount.toStringAsFixed(2),
+        'balance_amount': _balanceAmount.toStringAsFixed(2),
         'payment_status': _selectedPaymentStatus,
         'total_paid_amount': _totalPaidAmountController.text,
         'payment_method': _selectedPaymentMethod,
@@ -403,7 +477,9 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
             .map((row) => {
                   'material_id': row.selectedProductId,
                   'quantity': row.returningQty.toString(),
+                  'returning_quantity': row.returningQty.toString(),
                   'damaged_quantity': row.damagedQty.toString(),
+                  'missing_quantity': row.missingQty.toString(),
                   'rate_per_day': row.ratePerDayController.text,
                   'no_of_days': row.noOfDaysController.text,
                   'gross_amount': row.grossAmountController.text,
@@ -412,6 +488,21 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
                   'total': row.totalController.text,
                   'returning': row.isReturning ? '1' : '0',
                   'damaged': row.isDamaged ? '1' : '0',
+                  'missing': row.isMissing ? '1' : '0',
+                })
+            .toList(),
+        'addon_products': _addonReturnRows
+            .where((row) => row.productId != null)
+            .map((row) => {
+                  'id': row.id,
+                  'product_id': row.productId,
+                  'quantity': row.returningQty.toString(),
+                  'returning_qty': row.returningQty.toString(),
+                  'damaged_qty': row.damagedQty.toString(),
+                  // 'missing_qty': row.missingQty.toString(),
+                  // 'returning': row.returningQty > 0 ? '1' : '0',
+                  // 'damaged': row.damagedQty > 0 ? '1' : '0',
+                  // 'missing': row.missingQty > 0 ? '1' : '0',
                 })
             .toList(),
       };
@@ -532,7 +623,7 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
                   });
                 },
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               _buildCompactCheckbox(
                 label: 'Damaged',
                 value: row.isDamaged,
@@ -541,13 +632,30 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
                     row.isDamaged = val ?? false;
                     if (!row.isDamaged) {
                       row.damagedQty = 0;
+                      _recalculateRowInternal(row);
+                      _calculateSummary();
+                    }
+                  });
+                },
+              ),
+              const SizedBox(width: 8),
+              _buildCompactCheckbox(
+                label: 'Missing',
+                value: row.isMissing,
+                onChanged: (val) {
+                  setState(() {
+                    row.isMissing = val ?? false;
+                    if (!row.isMissing) {
+                      row.missingQty = 0;
+                      _recalculateRowInternal(row);
+                      _calculateSummary();
                     }
                   });
                 },
               ),
             ],
           ),
-          if (row.isReturning || row.isDamaged) ...[
+          if (row.isReturning || row.isDamaged || row.isMissing) ...[
             const SizedBox(height: 8),
             Row(
               children: [
@@ -555,21 +663,33 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
                   _buildQuantitySelector(
                     'Returning Qty *',
                     row.returningQty,
-                    (row.maxQty - row.damagedQty),
+                    (row.maxQty - row.damagedQty - row.missingQty),
                     (val) => setState(() {
                       row.returningQty = val;
                       _recalculateRowInternal(row);
                       _calculateSummary();
                     }),
                   ),
-                if (row.isReturning && row.isDamaged) const SizedBox(width: 8),
+                if (row.isReturning && (row.isDamaged || row.isMissing)) const SizedBox(width: 6),
                 if (row.isDamaged)
                   _buildQuantitySelector(
                     'Damaged Qty',
                     row.damagedQty,
-                    (row.maxQty - row.returningQty),
+                    (row.maxQty - row.returningQty - row.missingQty),
                     (val) => setState(() {
                       row.damagedQty = val;
+                      _recalculateRowInternal(row);
+                      _calculateSummary();
+                    }),
+                  ),
+                if (row.isDamaged && row.isMissing) const SizedBox(width: 6),
+                if (row.isMissing)
+                  _buildQuantitySelector(
+                    'Missing Qty',
+                    row.missingQty,
+                    (row.maxQty - row.returningQty - row.damagedQty),
+                    (val) => setState(() {
+                      row.missingQty = val;
                       _recalculateRowInternal(row);
                       _calculateSummary();
                     }),
@@ -712,6 +832,311 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAddonProductsSection() {
+    if (_selectedRentId == null) {
+      return const SizedBox.shrink();
+    }
+
+    if (_addonReturnRows.isEmpty) {
+      return _buildSectionCard(
+        title: 'Add-on Products',
+        icon: Icons.extension,
+        children: const [
+          SizedBox(height: 10),
+          Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text(
+              'No add-on products available for this rental issue.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ),
+          SizedBox(height: 6),
+        ],
+      );
+    }
+
+    return _buildSectionCard(
+      title: 'Add-on Products',
+      icon: Icons.extension,
+      children: [
+        const SizedBox(height: 8),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final double minTableWidth =
+                constraints.maxWidth > 580 ? constraints.maxWidth : 580.0;
+
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: minTableWidth),
+                child: Table(
+                  columnWidths: const {
+                    0: FixedColumnWidth(36), // Sl
+                    1: FlexColumnWidth(2.2), // Product
+                    2: FixedColumnWidth(65), // Quantity
+                    3: FixedColumnWidth(75), // Already Returned
+                    4: FixedColumnWidth(75), // Returning *
+                    5: FixedColumnWidth(75), // Damaged
+                    // 6: FixedColumnWidth(75), // Missing
+                  },
+                  border: TableBorder.all(color: Colors.grey.shade300),
+                  children: [
+                    TableRow(
+                      decoration: BoxDecoration(color: Colors.grey.shade100),
+                      children: [
+                        _buildTableHeaderCell('Sl'),
+                        _buildTableHeaderCell('Product'),
+                        _buildTableHeaderCell('Quantity'),
+                        _buildTableHeaderCell('Already Returned'),
+                        _buildTableHeaderCell('Returning *', isMandatory: true),
+                        _buildTableHeaderCell('Damaged'),
+                        // _buildTableHeaderCell('Missing'),
+                      ],
+                    ),
+                    ...List.generate(_addonReturnRows.length, (index) {
+                      final row = _addonReturnRows[index];
+                      final maxAvailable =
+                          (row.totalQty - row.alreadyReturned).toInt();
+
+                      return TableRow(
+                        children: [
+                          _buildTableCell('${index + 1}', align: Alignment.center),
+                          _buildTableCell(row.productName ?? ''),
+                          _buildTableCell(row.totalQty.toStringAsFixed(2),
+                              align: Alignment.center),
+                          _buildTableCell('${row.alreadyReturned.toInt()}',
+                              align: Alignment.center),
+                          _buildTableInputCell(
+                            row.returningController,
+                            row.returningQty,
+                            (maxAvailable - row.damagedQty - row.missingQty),
+                            (val) {
+                              setState(() {
+                                row.returningQty = val;
+                                _calculateSummary();
+                              });
+                            },
+                          ),
+                          _buildTableInputCell(
+                            row.damagedController,
+                            row.damagedQty,
+                            (maxAvailable - row.returningQty - row.missingQty),
+                            (val) {
+                              setState(() {
+                                row.damagedQty = val;
+                                _calculateSummary();
+                              });
+                            },
+                          ),
+                          // _buildTableInputCell(
+                          //   row.missingController,
+                          //   row.missingQty,
+                          //   (maxAvailable - row.returningQty - row.damagedQty),
+                          //   (val) {
+                          //     setState(() {
+                          //       row.missingQty = val;
+                          //       _calculateSummary();
+                          //     });
+                          //   },
+                          // ),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildTableHeaderCell(String text, {bool isMandatory = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+      child: Center(
+        child: RichText(
+          textAlign: TextAlign.center,
+          text: TextSpan(
+            text: text,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+            children: [
+              if (isMandatory)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTableCell(String text, {Alignment align = Alignment.centerLeft}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      alignment: align,
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 12, color: Colors.black87),
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  Widget _buildTableInputCell(
+    TextEditingController controller,
+    int currentValue,
+    int maxAvailable,
+    Function(int) onChanged,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.all(4.0),
+      child: Container(
+        height: 34,
+        alignment: Alignment.center,
+        child: TextFormField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: Color(0xFF2a86c9)),
+            ),
+          ),
+          onChanged: (valStr) {
+            int val = int.tryParse(valStr) ?? 0;
+            if (val < 0) val = 0;
+            int maxAllowed = maxAvailable < 0 ? 0 : maxAvailable;
+            if (val > maxAllowed) {
+              val = maxAllowed;
+              controller.text = val.toString();
+              controller.selection = TextSelection.fromPosition(
+                TextPosition(offset: controller.text.length),
+              );
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Cannot exceed available quantity ($maxAllowed)'),
+                  duration: const Duration(seconds: 1),
+                ),
+              );
+            }
+            onChanged(val);
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard() {
+    return _buildSectionCard(
+      title: 'Summary',
+      icon: Icons.summarize,
+      children: [
+        const SizedBox(height: 10),
+        _buildSummaryGridRow('Grand Total', _grandTotal.toStringAsFixed(2), isReadOnly: true),
+        const SizedBox(height: 8),
+        _buildSummaryGridRow('Other Expenses', null, controller: _otherExpensesController),
+        const SizedBox(height: 8),
+        _buildSummaryGridRow('Balance Amount', _balanceAmount.toStringAsFixed(2), isReadOnly: true),
+        const SizedBox(height: 8),
+        _buildSummaryGridRow('Discount', null, controller: _discountController),
+        const SizedBox(height: 8),
+        _buildSummaryGridRow('Loading charges', null, controller: _loadingChargesController),
+        const SizedBox(height: 8),
+        _buildSummaryGridRow('Transportation Charges', null, controller: _transportationChargesController),
+        const SizedBox(height: 8),
+        _buildSummaryGridRow('Damaged charges', null, controller: _damagedChargesController),
+        const SizedBox(height: 8),
+        _buildSummaryGridRow('Missing Charges', null, controller: _missingChargesController),
+        const SizedBox(height: 8),
+        _buildSummaryGridRow('Invoice Amount', _invoiceAmount.toStringAsFixed(2), isReadOnly: true),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildSummaryGridRow(String label, String? displayValue,
+      {TextEditingController? controller, bool isReadOnly = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 140,
+          child: isReadOnly
+              ? Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEBF1F5),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    displayValue ?? '0.00',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                )
+              : TextFormField(
+                  controller: controller,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 8),
+                    fillColor: Colors.white,
+                    filled: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                  ),
+                  onChanged: (_) => _calculateSummary(),
+                ),
+        ),
+      ],
     );
   }
 
@@ -984,7 +1409,7 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
                     ),
                     const SizedBox(height: 12),
                     _buildSectionCard(
-                      title: 'Products',
+                      title: 'Product Return',
                       isMandatory: true,
                       icon: Icons.shopping_cart,
                       children: [
@@ -996,65 +1421,11 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    _buildSectionCard(
-                      title: 'Summary',
-                      icon: Icons.summarize,
-                      children: [
-                        const SizedBox(height: 8),
-                        _buildSummaryRow('Grand Total',
-                            '₹${_grandTotal.toStringAsFixed(2)}'),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _otherExpensesController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: 'Other Expenses',
-                            isDense: true,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            prefixIcon:
-                                const Icon(Icons.monetization_on, size: 20),
-                          ),
-                          onChanged: (_) => _calculateSummary(),
-                        ),
-
-                        const SizedBox(height: 10),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2a86c9).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF2a86c9)),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Invoice Amount',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2a86c9),
-                                ),
-                              ),
-                              Text(
-                                '₹${_invoiceAmount.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2a86c9),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                    ),
+                    _buildAddonProductsSection(),
                     const SizedBox(height: 12),
-                    widget.returnId != null ? SizedBox():
-                    _buildPaymentSection(),
+                    _buildSummaryCard(),
+                    const SizedBox(height: 12),
+                    widget.returnId != null ? const SizedBox() : _buildPaymentSection(),
                     const SizedBox(height: 20),
                     SizedBox(
                       width: double.infinity,
@@ -1094,32 +1465,7 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, {bool isBold = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-              color: Colors.grey.shade700,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2a86c9),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildPaymentSection() {
     return _buildSectionCard(
@@ -1525,8 +1871,18 @@ class _AddRentalReturnPageState extends State<AddRentalReturnPage> {
     _returnDateController.dispose();
     _invoiceDateController.dispose();
     _otherExpensesController.dispose();
+    _loadingChargesController.dispose();
+    _transportationChargesController.dispose();
+    _discountController.dispose();
+    _damagedChargesController.dispose();
+    _missingChargesController.dispose();
     _rentReturnIdController.dispose();
     _invoiceNoController.dispose();
+    for (var aRow in _addonReturnRows) {
+      aRow.returningController.dispose();
+      aRow.damagedController.dispose();
+      aRow.missingController.dispose();
+    }
     super.dispose();
   }
 }
@@ -1545,8 +1901,31 @@ class RentalReturnRow {
   double unitPrice = 0.0;
   int returningQty = 0;
   int damagedQty = 0;
+  int missingQty = 0;
   int maxQty = 0;
   bool isReturning = false;
   bool isDamaged = false;
+  bool isMissing = false;
   RentalReturnRow();
+}
+
+class RentalAddonReturnRow {
+  String? id;
+  String? productId;
+  String? productName;
+  double totalQty = 0.0;
+  double alreadyReturned = 0.0;
+
+  int returningQty = 0;
+  int damagedQty = 0;
+  int missingQty = 0;
+
+  final TextEditingController returningController =
+      TextEditingController(text: "0");
+  final TextEditingController damagedController =
+      TextEditingController(text: "0");
+  final TextEditingController missingController =
+      TextEditingController(text: "0");
+
+  RentalAddonReturnRow();
 }

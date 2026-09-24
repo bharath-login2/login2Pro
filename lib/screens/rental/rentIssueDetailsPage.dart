@@ -129,7 +129,6 @@ class _RentIssueDetailsPageState extends State<RentIssueDetailsPage> {
               _buildDetailRow("Customer", issue.customerName),
               _buildDetailRow("Work Site", issue.locationName),
               _buildDetailRow("Collected By", issue.collectedStaffName),
-              //_buildDetailRow("Address", issue.address),
             ],
           ),
           const SizedBox(height: 16),
@@ -142,6 +141,15 @@ class _RentIssueDetailsPageState extends State<RentIssueDetailsPage> {
               _buildDetailRow("Discount", "₹ ${issue.discount}",
                   color: Colors.orange),
               _buildDetailRow("Other Expenses", "₹ ${issue.otherExpenses}"),
+              if (issue.transportationCharges.isNotEmpty &&
+                  issue.transportationCharges != "0" &&
+                  issue.transportationCharges != "0.00")
+                _buildDetailRow(
+                    "Transportation Charges", "₹ ${issue.transportationCharges}"),
+              if (issue.loadingCharges.isNotEmpty &&
+                  issue.loadingCharges != "0" &&
+                  issue.loadingCharges != "0.00")
+                _buildDetailRow("Loading Charges", "₹ ${issue.loadingCharges}"),
               const Divider(height: 24),
               _buildDetailRow("Grand Total", "₹ ${issue.grandTotal}",
                   isBold: true, color: const Color(0xFF2a86c9)),
@@ -155,6 +163,12 @@ class _RentIssueDetailsPageState extends State<RentIssueDetailsPage> {
           ),
           const SizedBox(height: 16),
           _buildProductsSection(),
+          const SizedBox(height: 16),
+          _buildAddonProductsSection(),
+          _buildAddressCard(
+              "Billing Address", Icons.location_on_outlined, _details!.data.billingAddress),
+          _buildAddressCard(
+              "Shipping Address", Icons.local_shipping_outlined, _details!.data.shippingAddress),
         ],
       ),
     );
@@ -224,7 +238,7 @@ class _RentIssueDetailsPageState extends State<RentIssueDetailsPage> {
     );
   }
 
-   Widget _buildDetailRowSmall(String label, String value,
+  Widget _buildDetailRowSmall(String label, String value,
       {bool isBold = false, Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -326,6 +340,151 @@ class _RentIssueDetailsPageState extends State<RentIssueDetailsPage> {
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildAddonProductsSection() {
+    final addons = _details!.data.addonProducts;
+    if (addons.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          child: Text("Add-on Products",
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2D3142))),
+        ),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: addons.length,
+          itemBuilder: (context, index) {
+            final item = addons[index];
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade100),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 5,
+                      offset: const Offset(0, 2)),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.grid_view_rounded,
+                        color: Colors.blue, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            item.productName.isNotEmpty
+                                ? item.productName
+                                : "Product ID: ${item.productId}",
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 14)),
+                        Text("Qty: ${item.qty}",
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey[600])),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddressCard(String title, IconData icon, AddressDetail? addr) {
+    if (addr == null) return const SizedBox.shrink();
+
+    bool hasContent = addr.name.isNotEmpty ||
+        addr.address1.isNotEmpty ||
+        addr.contactNo.isNotEmpty ||
+        addr.whatsappNumber.isNotEmpty ||
+        addr.pincode.isNotEmpty ||
+        addr.gstNum.isNotEmpty;
+
+    if (!hasContent) return const SizedBox.shrink();
+
+    List<String> addressLines = [
+      if (addr.address1.isNotEmpty) addr.address1,
+      if (addr.address2.isNotEmpty) addr.address2,
+      if (addr.address3.isNotEmpty) addr.address3,
+      if (addr.postOffice.isNotEmpty) "PO: ${addr.postOffice}",
+      if (addr.pincode.isNotEmpty) "PIN: ${addr.pincode}",
+    ];
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(icon, color: const Color(0xFF2a86c9), size: 20),
+                const SizedBox(width: 8),
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2D3142))),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                if (addr.name.isNotEmpty)
+                  _buildDetailRow("Name", addr.name, isBold: true),
+                if (addressLines.isNotEmpty)
+                  _buildDetailRowSmall("Address", addressLines.join(", ")),
+                if (addr.contactNo.isNotEmpty)
+                  _buildDetailRow("Mobile", "+91 ${addr.contactNo}"),
+                if (addr.whatsappNumber.isNotEmpty)
+                  _buildDetailRow("Whatsapp", "+91 ${addr.whatsappNumber}"),
+                if (addr.gstNum.isNotEmpty)
+                  _buildDetailRow("GST Number", addr.gstNum),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -24,7 +24,7 @@ class FirebaseServices {
 
   Future<void> init(BuildContext context) async {
     _initNotification(context);
-    // await FirebaseMessaging.instance.requestPermission();
+    await FirebaseMessaging.instance.requestPermission();
   }
 
   void _initNotification(BuildContext context) {

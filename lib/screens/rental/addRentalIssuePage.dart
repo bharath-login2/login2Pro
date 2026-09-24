@@ -33,6 +33,10 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
       TextEditingController(text: "0");
   final TextEditingController _otherExpensesController =
       TextEditingController(text: "0");
+  final TextEditingController _transportationChargesController =
+      TextEditingController(text: "0");
+  final TextEditingController _otherTransportationChargesController =
+      TextEditingController(text: "0");
   final TextEditingController _rentIssueIdController =
       TextEditingController(text: "#RIN");
   final TextEditingController _invoiceNoController =
@@ -40,6 +44,29 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
   final TextEditingController _remarksController = TextEditingController();
   final TextEditingController _productSearchController =
       TextEditingController();
+
+  bool _isBillingAddressExpanded = false;
+  bool _isShippingAddressExpanded = false;
+
+  final TextEditingController _billingNameController = TextEditingController();
+  final TextEditingController _billingAddressLine1Controller = TextEditingController();
+  final TextEditingController _billingAddressLine2Controller = TextEditingController();
+  final TextEditingController _billingAddressLine3Controller = TextEditingController();
+  final TextEditingController _billingPincodeController = TextEditingController();
+  final TextEditingController _billingPostOfficeController = TextEditingController();
+  final TextEditingController _billingMobileController = TextEditingController();
+  final TextEditingController _billingWhatsappController = TextEditingController();
+  final TextEditingController _billingGstController = TextEditingController();
+
+  final TextEditingController _shippingNameController = TextEditingController();
+  final TextEditingController _shippingAddressLine1Controller = TextEditingController();
+  final TextEditingController _shippingAddressLine2Controller = TextEditingController();
+  final TextEditingController _shippingAddressLine3Controller = TextEditingController();
+  final TextEditingController _shippingPincodeController = TextEditingController();
+  final TextEditingController _shippingPostOfficeController = TextEditingController();
+  final TextEditingController _shippingMobileController = TextEditingController();
+  final TextEditingController _shippingWhatsappController = TextEditingController();
+  final TextEditingController _shippingGstController = TextEditingController();
 
   String? _selectedCustomerId;
   String? _selectedLocationId;
@@ -58,6 +85,7 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
   final List<String> _paymentMethods = ['Cash', 'Bank'];
   String? _selectedPaymentMethod = 'Cash';
   List<ProductRow> _productRows = [ProductRow()];
+  List<AddonProductRow> _addonProductRows = [AddonProductRow()];
   double _totalGrossAmount = 0.0;
   double _gstAmount = 0.0;
   double _grandTotal = 0.0;
@@ -104,6 +132,35 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
         _advanceAmountController.text = issue.advanceAmount;
         _discountController.text = issue.discount;
         _otherExpensesController.text = issue.otherExpenses;
+        _transportationChargesController.text = issue.transportationCharges;
+        _otherTransportationChargesController.text = issue.loadingCharges;
+
+        final bAddr = response.data.billingAddress;
+        if (bAddr != null) {
+          _billingNameController.text = bAddr.name;
+          _billingAddressLine1Controller.text = bAddr.address1;
+          _billingAddressLine2Controller.text = bAddr.address2;
+          _billingAddressLine3Controller.text = bAddr.address3;
+          _billingPincodeController.text = bAddr.pincode;
+          _billingPostOfficeController.text = bAddr.postOffice;
+          _billingMobileController.text = bAddr.contactNo;
+          _billingWhatsappController.text = bAddr.whatsappNumber;
+          _billingGstController.text = bAddr.gstNum;
+        }
+
+        final sAddr = response.data.shippingAddress;
+        if (sAddr != null) {
+          _shippingNameController.text = sAddr.name;
+          _shippingAddressLine1Controller.text = sAddr.address1;
+          _shippingAddressLine2Controller.text = sAddr.address2;
+          _shippingAddressLine3Controller.text = sAddr.address3;
+          _shippingPincodeController.text = sAddr.pincode;
+          _shippingPostOfficeController.text = sAddr.postOffice;
+          _shippingMobileController.text = sAddr.contactNo;
+          _shippingWhatsappController.text = sAddr.whatsappNumber;
+          _shippingGstController.text = sAddr.gstNum;
+        }
+
         _rentIssueIdController.text = issue.rentNo;
         _invoiceNoController.text = issue.invoiceNo;
         _totalPaidAmountController.text = issue.amountPaid;
@@ -127,6 +184,22 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
         }
         if (_productRows.isEmpty) _productRows.add(ProductRow());
         _recalculateAllRows();
+
+        _addonProductRows.clear();
+        for (var item in response.data.addonProducts) {
+          final aRow = AddonProductRow();
+          aRow.selectedProductId = item.productId;
+          aRow.quantityController.text = item.qty;
+          if (aRow.selectedProductId != null) {
+            final mat = _materials.firstWhere(
+              (m) => m.materialId == aRow.selectedProductId,
+              orElse: () => MaterialData(),
+            );
+            aRow.currentStock = mat.currentStock;
+          }
+          _addonProductRows.add(aRow);
+        }
+        if (_addonProductRows.isEmpty) _addonProductRows.add(AddonProductRow());
       }
     } catch (e) {
       log('Error loading edit data: $e');
@@ -337,10 +410,19 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
     }
     final discount = double.tryParse(_discountController.text) ?? 0;
     final otherExpenses = double.tryParse(_otherExpensesController.text) ?? 0;
+    final transportation =
+        double.tryParse(_transportationChargesController.text) ?? 0;
+    final otherTransportation =
+        double.tryParse(_otherTransportationChargesController.text) ?? 0;
     setState(() {
       _totalGrossAmount = totalGross;
       _gstAmount = totalGST;
-      _grandTotal = totalGross + totalGST - discount + otherExpenses;
+      _grandTotal = totalGross +
+          totalGST -
+          discount +
+          otherExpenses +
+          transportation +
+          otherTransportation;
       if (_selectedPaymentStatus == 'Paid') {
         _totalPaidAmountController.text = _grandTotal.toStringAsFixed(2);
       } else if (_selectedPaymentStatus == 'Unpaid') {
@@ -484,6 +566,27 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
         'total_paid_amount': _totalPaidAmountController.text,
         'discount': _discountController.text,
         'other_expenses': _otherExpensesController.text,
+        'transportation_charges': _transportationChargesController.text,
+        'loading_charges':
+            _otherTransportationChargesController.text,
+        'billing_name': _billingNameController.text,
+        'billing_address1': _billingAddressLine1Controller.text,
+        'billing_address2': _billingAddressLine2Controller.text,
+        'billing_address3': _billingAddressLine3Controller.text,
+        'billing_pincode': _billingPincodeController.text,
+        'billing_post_office': _billingPostOfficeController.text,
+        'billing_contact_no': _billingMobileController.text,
+        'billing_whatsapp_number': _billingWhatsappController.text,
+        'billing_gst': _billingGstController.text,
+        'shipping_name': _shippingNameController.text,
+        'shipping_address1': _shippingAddressLine1Controller.text,
+        'shipping_address2': _shippingAddressLine2Controller.text,
+        'shipping_address3': _shippingAddressLine3Controller.text,
+        'shipping_pincode': _shippingPincodeController.text,
+        'shipping_post_office': _shippingPostOfficeController.text,
+        'shipping_contact_no': _shippingMobileController.text,
+        'shipping_whatsapp_number': _shippingWhatsappController.text,
+        'shipping_gst': _shippingGstController.text,
         'grand_total': _grandTotal.toStringAsFixed(2),
         'collected_by': _selectedCollectedByStaffId,
         'payment_collected_by': _paymentCollectedByStaffId,
@@ -504,6 +607,13 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                       : "0",
                   'gst_amount': row.gstAmountController.text,
                   'total': row.totalController.text,
+                })
+            .toList(),
+        'addon_products': _addonProductRows
+            .where((row) => row.selectedProductId != null)
+            .map((row) => {
+                  'material_id': row.selectedProductId,
+                  'quantity': row.quantityController.text,
                 })
             .toList(),
       };
@@ -1215,6 +1325,40 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildFormRow(
+                                      "Transportation Charges",
+                                      TextFormField(
+                                        controller:
+                                            _transportationChargesController,
+                                        keyboardType: TextInputType.number,
+                                        decoration: _inputDecoration().copyWith(
+                                          fillColor: Colors.white,
+                                        ),
+                                        onChanged: (_) => _calculateSummary(),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildFormRow(
+                                      "Loading Charges",
+                                      TextFormField(
+                                        controller:
+                                            _otherTransportationChargesController,
+                                        keyboardType: TextInputType.number,
+                                        decoration: _inputDecoration().copyWith(
+                                          fillColor: Colors.white,
+                                        ),
+                                        onChanged: (_) => _calculateSummary(),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                               const Divider(height: 24),
                               Row(
                                 mainAxisAlignment:
@@ -1235,6 +1379,53 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                           ),
                         ),
                       ],
+                    ),
+
+                    const SizedBox(height: 12),
+                    _buildAddonProductsSection(),
+
+                    const SizedBox(height: 12),
+                    _buildCollapsibleAddressSection(
+                      title: "Billing Address",
+                      icon: Icons.location_on_outlined,
+                      isExpanded: _isBillingAddressExpanded,
+                      onToggle: () {
+                        setState(() {
+                          _isBillingAddressExpanded =
+                              !_isBillingAddressExpanded;
+                        });
+                      },
+                      nameController: _billingNameController,
+                      addr1Controller: _billingAddressLine1Controller,
+                      addr2Controller: _billingAddressLine2Controller,
+                      addr3Controller: _billingAddressLine3Controller,
+                      pinController: _billingPincodeController,
+                      postController: _billingPostOfficeController,
+                      mobileController: _billingMobileController,
+                      whatsappController: _billingWhatsappController,
+                      gstController: _billingGstController,
+                    ),
+
+                    const SizedBox(height: 12),
+                    _buildCollapsibleAddressSection(
+                      title: "Shipping Address",
+                      icon: Icons.local_shipping_outlined,
+                      isExpanded: _isShippingAddressExpanded,
+                      onToggle: () {
+                        setState(() {
+                          _isShippingAddressExpanded =
+                              !_isShippingAddressExpanded;
+                        });
+                      },
+                      nameController: _shippingNameController,
+                      addr1Controller: _shippingAddressLine1Controller,
+                      addr2Controller: _shippingAddressLine2Controller,
+                      addr3Controller: _shippingAddressLine3Controller,
+                      pinController: _shippingPincodeController,
+                      postController: _shippingPostOfficeController,
+                      mobileController: _shippingMobileController,
+                      whatsappController: _shippingWhatsappController,
+                      gstController: _shippingGstController,
                     ),
 
                     const SizedBox(height: 8),
@@ -1998,7 +2189,641 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
     _invoiceNoController.dispose();
     _remarksController.dispose();
     _productSearchController.dispose();
+    _transportationChargesController.dispose();
+    _otherTransportationChargesController.dispose();
+
+    _billingNameController.dispose();
+    _billingAddressLine1Controller.dispose();
+    _billingAddressLine2Controller.dispose();
+    _billingAddressLine3Controller.dispose();
+    _billingPincodeController.dispose();
+    _billingPostOfficeController.dispose();
+    _billingMobileController.dispose();
+    _billingWhatsappController.dispose();
+    _billingGstController.dispose();
+
+    _shippingNameController.dispose();
+    _shippingAddressLine1Controller.dispose();
+    _shippingAddressLine2Controller.dispose();
+    _shippingAddressLine3Controller.dispose();
+    _shippingPincodeController.dispose();
+    _shippingPostOfficeController.dispose();
+    _shippingMobileController.dispose();
+    _shippingWhatsappController.dispose();
+    _shippingGstController.dispose();
+
+    for (var row in _addonProductRows) {
+      row.quantityController.dispose();
+    }
     super.dispose();
+  }
+
+  Widget _phoneInputField(TextEditingController controller) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(8),
+                bottomLeft: Radius.circular(8),
+              ),
+              border: Border(right: BorderSide(color: Colors.grey.shade300)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.outlined_flag, size: 16, color: Colors.black54),
+                SizedBox(width: 4),
+                Text(
+                  "+91",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TextFormField(
+              controller: controller,
+              keyboardType: TextInputType.phone,
+              style: const TextStyle(fontSize: 13),
+              decoration: const InputDecoration(
+                hintText: "Enter number",
+                hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+                isDense: true,
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCollapsibleAddressSection({
+    required String title,
+    required IconData icon,
+    required bool isExpanded,
+    required VoidCallback onToggle,
+    required TextEditingController nameController,
+    required TextEditingController addr1Controller,
+    required TextEditingController addr2Controller,
+    required TextEditingController addr3Controller,
+    required TextEditingController pinController,
+    required TextEditingController postController,
+    required TextEditingController mobileController,
+    required TextEditingController whatsappController,
+    required TextEditingController gstController,
+  }) {
+    return Card(
+      elevation: 1,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: onToggle,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(icon, color: const Color(0xFF2a86c9), size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Icon(
+                      isExpanded
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      color: const Color(0xFF2a86c9),
+                      size: 24,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (isExpanded) ...[
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildFormRow(
+                      "Name",
+                      TextFormField(
+                        controller: nameController,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: _inputDecoration()
+                            .copyWith(hintText: "Company Name"),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildFormRow(
+                      "Address Line 1",
+                      TextFormField(
+                        controller: addr1Controller,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: _inputDecoration()
+                            .copyWith(hintText: "Address Line 1"),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildFormRow(
+                      "Address Line 2",
+                      TextFormField(
+                        controller: addr2Controller,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: _inputDecoration()
+                            .copyWith(hintText: "Address Line 2"),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildFormRow(
+                      "Address Line 3",
+                      TextFormField(
+                        controller: addr3Controller,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: _inputDecoration()
+                            .copyWith(hintText: "Address Line 3"),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildFormRow(
+                      "Pin Code",
+                      TextFormField(
+                        controller: pinController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(fontSize: 13),
+                        decoration:
+                            _inputDecoration().copyWith(hintText: "Pin Code"),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildFormRow(
+                      "Post Office",
+                      TextFormField(
+                        controller: postController,
+                        style: const TextStyle(fontSize: 13),
+                        decoration:
+                            _inputDecoration().copyWith(hintText: "Post Office"),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildFormRow(
+                      "Mobile Number",
+                      _phoneInputField(mobileController),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildFormRow(
+                      "Whatsapp Number",
+                      _phoneInputField(whatsappController),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildFormRow(
+                      "GST Number",
+                      TextFormField(
+                        controller: gstController,
+                        style: const TextStyle(fontSize: 13),
+                        decoration:
+                            _inputDecoration().copyWith(hintText: "Tax Number"),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(child: SizedBox()),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddonProductsSection() {
+    return _buildSectionCard(
+      title: 'Add-on Products',
+      icon: Icons.grid_view_rounded,
+      children: [
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey.shade300),
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 35,
+                      child: Text(
+                        "Sl",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.black87,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Container(width: 1, height: 18, color: Colors.grey.shade300),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      flex: 5,
+                      child: Text(
+                        "Product",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    Container(width: 1, height: 18, color: Colors.grey.shade300),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      flex: 4,
+                      child: Text(
+                        "Quantity",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    Container(width: 1, height: 18, color: Colors.grey.shade300),
+                    const SizedBox(
+                      width: 55,
+                      child: Text(""),
+                    ),
+                  ],
+                ),
+              ),
+              // Body Rows
+              if (_addonProductRows.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    "No add-on products added.",
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  ),
+                )
+              else
+                ...List.generate(_addonProductRows.length, (index) {
+                  return Column(
+                    children: [
+                      _buildAddonRow(index),
+                      if (index < _addonProductRows.length - 1)
+                        Divider(height: 1, color: Colors.grey.shade300),
+                    ],
+                  );
+                }),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        ElevatedButton(
+          onPressed: () {
+            setState(() {
+              _addonProductRows.add(AddonProductRow());
+            });
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF334155),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          ),
+          child: const Text(
+            "Add Row",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddonRow(int index) {
+    final row = _addonProductRows[index];
+    final mat = _materials.firstWhere(
+      (m) => m.materialId == row.selectedProductId,
+      orElse: () => MaterialData(),
+    );
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Sl No Column
+          SizedBox(
+            width: 35,
+            child: Center(
+              child: Text(
+                "${index + 1}",
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ),
+          Container(width: 1, color: Colors.grey.shade300),
+          // Product Column
+          Expanded(
+            flex: 5,
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: GestureDetector(
+                onTap: () => _showAddonProductSelectionDialog(index),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          row.selectedProductId != null
+                              ? (mat.materialName ?? "Select Product")
+                              : "Select Product",
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: row.selectedProductId != null
+                                ? Colors.black87
+                                : Colors.grey.shade500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (row.selectedProductId != null)
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              row.selectedProductId = null;
+                              row.currentStock = null;
+                            });
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.only(right: 6),
+                            child:
+                                Icon(Icons.close, size: 14, color: Colors.grey),
+                          ),
+                        ),
+                      const Icon(Icons.arrow_drop_down,
+                          size: 20, color: Colors.grey),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Container(width: 1, color: Colors.grey.shade300),
+          // Quantity Column
+          Expanded(
+            flex: 4,
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextFormField(
+                    controller: row.quantityController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide:
+                            const BorderSide(color: Colors.blue, width: 1),
+                      ),
+                    ),
+                  ),
+                  if (row.selectedProductId != null) ...[
+                    const SizedBox(height: 4),
+                    Builder(
+                      builder: (context) {
+                        final stockVal =
+                            double.tryParse(mat.currentStock ?? "0") ?? 0;
+                        final isAvailable = stockVal > 0;
+                        return Text(
+                          "Available stock : ${mat.currentStock ?? '0'}",
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isAvailable
+                                ? const Color(0xFF16A34A)
+                                : Colors.red.shade700,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          Container(width: 1, color: Colors.grey.shade300),
+          // Delete Column
+          SizedBox(
+            width: 55,
+            child: Center(
+              child: Container(
+                height: 36,
+                width: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEE5253),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.delete_outline,
+                      color: Colors.white, size: 18),
+                  onPressed: () {
+                    setState(() {
+                      row.quantityController.dispose();
+                      _addonProductRows.removeAt(index);
+                    });
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddonProductSelectionDialog(int index) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        String searchQuery = "";
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            List<MaterialData> filtered = _materials
+                .where((m) => (m.materialName ?? "")
+                    .toLowerCase()
+                    .contains(searchQuery.toLowerCase()))
+                .toList();
+            return AlertDialog(
+              title: const Text("Select Add-on Product",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      onChanged: (val) =>
+                          setDialogState(() => searchQuery = val),
+                      decoration: const InputDecoration(
+                        hintText: "Search Product...",
+                        prefixIcon: Icon(Icons.search),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: filtered.length,
+                        itemBuilder: (context, idx) {
+                          final mat = filtered[idx];
+                          final stock =
+                              double.tryParse(mat.currentStock ?? "0") ?? 0;
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            title: Text(
+                              mat.materialName ?? "Unknown Product",
+                              style: const TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: Text(
+                              "Stock: ${mat.currentStock ?? '0'} | Price: ₹${mat.unitPrice ?? '0'}",
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: stock > 0
+                                    ? Colors.green.shade700
+                                    : Colors.red.shade700,
+                              ),
+                            ),
+                            onTap: () {
+                              setState(() {
+                                _addonProductRows[index].selectedProductId =
+                                    mat.materialId;
+                                _addonProductRows[index].currentStock =
+                                    mat.currentStock;
+                              });
+                              Navigator.pop(context);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 }
 
@@ -2021,4 +2846,15 @@ class ProductRow {
   bool isExpanded = false;
 
   ProductRow();
+}
+
+class AddonProductRow {
+  String? selectedProductId;
+  final TextEditingController quantityController =
+      TextEditingController(text: "1");
+  String? currentStock;
+
+  AddonProductRow({this.selectedProductId, String qty = "1", this.currentStock}) {
+    quantityController.text = qty;
+  }
 }

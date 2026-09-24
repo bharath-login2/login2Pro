@@ -12495,7 +12495,7 @@ class HttpService {
           "rent_id": rentId,
         }),
       );
-
+    print('response:$response');
       if (response.statusCode == 200) {
         final data = response.data;
         if (data['status'] == true) {
@@ -12525,11 +12525,10 @@ class HttpService {
         "${await Config.getUrl()}get_rent_issue_by_customer_list_post", // Update with your actual endpoint
         data: FormData.fromMap({
           "token": token,
-          "customer_id": customerId,
+          "customer_id": customerId, 
           "location_id": locationId,
         }),
       );
-
       if (response.statusCode == 200) {
         final data = response.data;
         if (data['status'] == true) {
