@@ -5022,12 +5022,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
           pageName: 'Dashboard',
           autoExpandFollowup: autoExpandFollowup,
           onDataChanged: () {
-            // Programmatically trigger the pull-to-refresh visual spinner and sequence
-            if (_listTabRefreshIndicatorKey.currentState != null) {
-              _listTabRefreshIndicatorKey.currentState!.show();
-            } else {
-              getData(widget.token, fromDate, toDate, isRefresh: true);
-            }
+            _refreshLeadData(index);
           },
         ),
       );

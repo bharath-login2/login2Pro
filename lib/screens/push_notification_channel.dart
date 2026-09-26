@@ -5,7 +5,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:login2/core/common.dart';
 import 'package:login2/screens/leadManagement/AssignReport.dart';
-import 'package:login2/screens/leadManagement/dashboard.dart';
 import 'package:login2/screens/leadManagement/dashboardLeadsNewUpdated2.dart';
 // import '../models/pushNotificationModel.dart';
 import '../models/pushNotificationModel.dart';
@@ -23,21 +22,42 @@ class FirebaseServices {
       FlutterLocalNotificationsPlugin();
 
   Future<void> init(BuildContext context) async {
-    _initNotification(context);
-    await FirebaseMessaging.instance.requestPermission();
+    await _initNotification(context);
+    await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
   }
 
-  void _initNotification(BuildContext context) {
+  Future<void> _initNotification(BuildContext context) async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const DarwinInitializationSettings initializationSettingsDarwin =
+        DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    const InitializationSettings initializationSettings =
+        InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsDarwin,
+    );
+    await notificationsPlugin.initialize(initializationSettings);
+
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       _showNotification(message);
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      onNotificationTap(message, context);
+      if (context.mounted) {
+        onNotificationTap(message, context);
+      }
     });
 
     // FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
       alert: true,
       badge: true,
       sound: true,
@@ -58,12 +78,17 @@ class FirebaseServices {
         icon: '@mipmap/ic_launcher',
       );
 
+      String? soundName = message.notification?.apple?.sound?.name;
+      if (soundName == 'default' || soundName == null || soundName.isEmpty) {
+        soundName = null;
+      }
+
       // iOS-specific configuration
       var iosPlatformChannelSpecifics = DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
-        sound: message.notification?.apple?.sound?.name ?? 'default',
+        sound: soundName,
       );
 
       var platformChannelSpecifics = NotificationDetails(
@@ -73,8 +98,8 @@ class FirebaseServices {
 
       await notificationsPlugin.show(
         notification.notificationId ?? 0,
-        notification.title,
-        notification.message,
+        notification.title ?? message.notification?.title,
+        notification.message ?? message.notification?.body,
         platformChannelSpecifics,
         payload: notification.toString(),
       );

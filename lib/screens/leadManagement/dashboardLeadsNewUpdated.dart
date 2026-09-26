@@ -4342,7 +4342,7 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
           pageName: 'Dashboard',
           autoExpandFollowup: autoExpandFollowup,
           onDataChanged: () {
-            getData(widget.token, fromDate, toDate, isRefresh: true);
+            _refreshLeadData(index);
           },
         ),
       );
@@ -4350,6 +4350,35 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
       if (mounted) Navigator.pop(context);
       log("Error loading lead details: $e");
       Common.toastMessaage("Error loading details", accentRed);
+    }
+  }
+
+  Future<void> _refreshLeadData(int index) async {
+    if (index < 0 || index >= listTabLeads.length) return;
+    String cmId = listTabLeads[index].callMasterId;
+    try {
+      final response = await HttpService.leadDetails(widget.token!, cmId);
+      if (response != null && response.data != null) {
+        final d = response.data!;
+        if (mounted) {
+          setState(() {
+            var lead = listTabLeads[index];
+            lead.clientName = d.clientName ?? lead.clientName;
+            lead.contactNumber1 = d.contactNumber1 ?? lead.contactNumber1;
+            lead.calledDate = d.calledDate ?? lead.calledDate;
+            lead.lastCalledDate = d.calledDate ?? lead.lastCalledDate;
+            lead.nextFollowupDate = d.nextFollowupDate ?? lead.nextFollowupDate;
+            lead.callResult = d.callResult ?? lead.callResult;
+            lead.callResultId =
+                int.tryParse(d.callResultId ?? '') ?? lead.callResultId;
+            lead.leadCategory = d.leadCategory ?? lead.leadCategory;
+            lead.priority = d.priorityId ?? lead.priority;
+            lead.priorityName = d.priority ?? lead.priorityName;
+          });
+        }
+      }
+    } catch (e) {
+      log("Error refreshing single lead data: $e");
     }
   }
 

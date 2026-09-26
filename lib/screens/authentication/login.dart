@@ -1253,7 +1253,7 @@ class _LoginState extends State<Login> with TickerProviderStateMixin {
 
                                         const SizedBox(height: 30),
                                         Text(
-                                          "Version 3.0.6",
+                                          "Version 3.0.9",
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: Colors.grey.shade400,

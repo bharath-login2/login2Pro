@@ -258,7 +258,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
   LeadSettings? leadSettings;
   bool isLoadingSettings = false;
   bool isDifrent = false;
-  bool isMoreDetails = false;
+  bool isMoreDetails = true;
   bool timeOut = false;
   bool result = true;
   bool isChecked = false;
@@ -3665,39 +3665,9 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                   //     });
                   //   },
                   // ),
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        isMoreDetails = !isMoreDetails;
-                      });
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Text(
-                            isMoreDetails ? 'Less Details' : 'More Details',
-                            style: TextStyle(
-                              color: Colors.blue.shade700,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Icon(
-                            isMoreDetails
-                                ? Icons.keyboard_arrow_up
-                                : Icons.keyboard_arrow_down,
-                            color: Colors.blue.shade700,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Visibility(
-                    visible: isMoreDetails,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                         const Text(
                           'Priority',
                           style: TextStyle(
@@ -4042,7 +4012,6 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                         const SizedBox(height: 12),
                       ],
                     ),
-                  ),
                   const SizedBox(height: 12),
 
                   // Create Order and Create Customer Checkboxes
@@ -12204,7 +12173,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
     );
   }
 
-  Future<void> _saveContact(BuildContext context, StateSetter setState) async {
+  Future<void> _saveContact(BuildContext dialogContext, StateSetter setState) async {
     if (contactFName.text.isEmpty) {
       Common.toastMessaage('Please enter first name', Colors.red);
       return;
@@ -12218,40 +12187,56 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
     try {
       PermissionStatus permission = await Permission.contacts.status;
 
-      if (permission != PermissionStatus.granted) {
+      if (!permission.isGranted) {
         permission = await Permission.contacts.request();
+        if (!permission.isGranted) {
+          permission = await Permission.contacts.status;
+        }
       }
 
-      if (permission == PermissionStatus.granted) {
-        if (context.mounted) {
-          Navigator.of(context, rootNavigator: true).pop();
-          Common.showProgressDialog(context, "Saving contact...");
+      if (permission.isGranted) {
+        if (dialogContext.mounted) {
+          Navigator.of(dialogContext).pop();
         }
 
-        final newContact = Contact(
-          name: Name(
-            first: contactFName.text.trim(),
-            last: contactLName.text.trim(),
-          ),
-          displayName:
-              "${contactFName.text.trim()} ${contactLName.text.trim()}".trim(),
-          phones: [Phone(contactMobile.text.trim())],
-        );
+        if (!mounted) return;
 
-        await newContact.insert();
+        Common.showProgressDialog(context, "Saving contact...");
+        bool progressShown = true;
 
-        if (context.mounted) {
-          Navigator.of(context, rootNavigator: true)
-              .pop(); // Close progress dialog
-          Common.toastMessaage('Contact saved successfully!', Colors.green);
+        try {
+          final newContact = Contact(
+            name: Name(
+              first: contactFName.text.trim(),
+              last: contactLName.text.trim(),
+            ),
+            displayName:
+                "${contactFName.text.trim()} ${contactLName.text.trim()}".trim(),
+            phones: [Phone(contactMobile.text.trim())],
+          );
+
+          await newContact.insert();
+
+          if (mounted) {
+            Common.toastMessaage('Contact saved successfully!', Colors.green);
+          }
+        } catch (e) {
+          if (mounted) {
+            Common.toastMessaage(
+                'Failed to save contact: ${e.toString()}', Colors.red);
+          }
+        } finally {
+          if (mounted && progressShown) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
         }
       } else {
-        if (context.mounted) {
+        if (mounted) {
           _showPermissionDeniedDialog(context);
         }
       }
     } catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         Common.toastMessaage(
             'Failed to save contact: ${e.toString()}', Colors.red);
       }

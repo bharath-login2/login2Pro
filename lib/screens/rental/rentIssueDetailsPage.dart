@@ -135,7 +135,7 @@ class _RentIssueDetailsPageState extends State<RentIssueDetailsPage> {
           _buildInfoCard(
             title: "Financial Summary",
             icon: Icons.account_balance_wallet_outlined,
-            children: [
+            children: [ 
               _buildDetailRow("Sub Total", "₹ ${issue.subTotal}"),
               _buildDetailRow("GST Total", "₹ ${issue.gstTotal}"),
               _buildDetailRow("Discount", "₹ ${issue.discount}",

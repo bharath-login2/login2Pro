@@ -16,6 +16,7 @@ import 'package:login2/screens/rental/rentIssueListPage.dart';
 import 'package:login2/screens/rental/rentalReturnList.dart';
 import 'package:login2/screens/rental/damagedListPage.dart';
 import 'package:login2/screens/rental/expiredListPage.dart';
+import 'package:login2/screens/rental/overdueReturnsPage.dart';
 import 'package:login2/screens/drawerScreen.dart';
 import 'package:login2/service/service.dart';
 
@@ -814,6 +815,7 @@ class _RentalDashboardState extends State<RentalDashboard> {
   Widget _buildOverdueReturns() {
     final overdueList = dashboardData?.data.overdueList ?? [];
     final overdueCount = dashboardData?.data.overdueCount ?? 0;
+    final displayList = overdueList.take(5).toList();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -847,6 +849,46 @@ class _RentalDashboardState extends State<RentalDashboard> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (overdueList.isNotEmpty)
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => OverdueReturnsListPage(
+                          token: widget.token,
+                          initialOverdueList: overdueList,
+                          selectedDateString:
+                              _apiDateFormat.format(_selectedDate),
+                        ),
+                      ),
+                    ).then((_) => _loadDashboardData());
+                  },
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'See More',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.blue[700],
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 13,
+                          color: Colors.blue[700],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 8),
@@ -858,13 +900,13 @@ class _RentalDashboardState extends State<RentalDashboard> {
             ),
           ),
           const SizedBox(height: 20),
-          if (overdueList.isEmpty) _buildEmptyState(),
+          if (displayList.isEmpty) _buildEmptyState(),
           Column(
-            children: overdueList.map((item) {
+            children: displayList.map((item) {
               return Column(
                 children: [
                   _overdueRow(item: item),
-                  if (overdueList.indexOf(item) < overdueList.length - 1)
+                  if (displayList.indexOf(item) < displayList.length - 1)
                     const SizedBox(height: 16),
                 ],
               );

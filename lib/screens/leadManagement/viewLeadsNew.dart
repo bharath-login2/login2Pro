@@ -832,7 +832,8 @@ class _ViewLeadsNewState extends State<ViewLeadsNew>
           leadType: widget.leadType,
           autoExpandFollowup: autoExpandFollowup,
           onDataChanged: () {
-            _refreshList();
+            _updateSingleLead(
+                index, targetCallMasterId, _searchQuery.isNotEmpty);
           },
         ),
       );
@@ -1104,7 +1105,7 @@ class _ViewLeadsNewState extends State<ViewLeadsNew>
           category: widget.category,
           leadType: widget.leadType,
           onDataChanged: () {
-            getData(currentSortOrder, true, status);
+            _updateSingleLead(-1, cmId, _searchQuery.isNotEmpty);
           },
         ),
       );
