@@ -75,6 +75,8 @@ class _CallLogsState extends State<CallLogs> {
   String roleId = "";
   // String selectedSim = "";
   // String selectedSimId = "";
+  String _selectedSimFilter = 'SIM 1';
+  List<Map<dynamic, dynamic>> _activeSims = [];
   List<Map<String, dynamic>> simList = [];
   String phoneNumber = "";
   String callType = 'All';
@@ -208,8 +210,8 @@ class _CallLogsState extends State<CallLogs> {
         historyIndex.clear();
 
         // Add all call log entries to history
-        for (int i = 0; i < _callLogEntries.length; i++) {
-          final entry = _callLogEntries.elementAt(i);
+        for (int i = 0; i < _filteredCallLogEntries.length; i++) {
+          final entry = _filteredCallLogEntries.elementAt(i);
 
           // Skip if already uploaded
           bool isUploaded = fullHiveData.any((item) =>
@@ -240,8 +242,8 @@ class _CallLogsState extends State<CallLogs> {
       history.clear();
       historyIndex.clear();
 
-      for (int i = 0; i < _callLogEntries.length; i++) {
-        final entry = _callLogEntries.elementAt(i);
+      for (int i = 0; i < _filteredCallLogEntries.length; i++) {
+          final entry = _filteredCallLogEntries.elementAt(i);
 
         // Skip if already uploaded
         bool isUploaded = fullHiveData.any((item) =>
@@ -383,390 +385,42 @@ class _CallLogsState extends State<CallLogs> {
   }
 
   void askUserNeedsOld(BuildContext context, bool showPopUp) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    List<String> callTypes = prefs.getStringList('callTypes') ?? [];
-    // List<String> simOptions = prefs.getStringList('simOptions') ?? [];
-
-    if (callTypes.isEmpty || showPopUp) {
-      // working dialog starts 31/05/2025
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) {
-          return WillPopScope(
-            onWillPop: () async => false, // Prevent back button dismiss
-            child: StatefulBuilder(
-              builder: (context, setState) {
-                return AlertDialog(
-                  title: const Center(child: Text('Permission Required')),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Center(
-                          child: Text(
-                        'Please allow permission to access call logs.',
-                        textAlign: TextAlign.center,
-                      )),
-                      const SizedBox(height: 10),
-
-                      //! Call Type Selection
-                      const Text('Select Call Type'),
-                      const SizedBox(height: 5),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                if (callTypes.contains('Incoming')) {
-                                  callTypes.remove('Incoming');
-                                } else {
-                                  callTypes.add('Incoming');
-                                }
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 10, horizontal: 15),
-                              decoration: BoxDecoration(
-                                color: callTypes.contains('Incoming')
-                                    ? Colors.green
-                                    : Colors.grey[300],
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.call_received,
-                                      color: Colors.red),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    'Incoming',
-                                    style: TextStyle(
-                                      color: callTypes.contains('Incoming')
-                                          ? Colors.white
-                                          : Colors.black,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                if (callTypes.contains('Outgoing')) {
-                                  callTypes.remove('Outgoing');
-                                } else {
-                                  callTypes.add('Outgoing');
-                                }
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 10, horizontal: 15),
-                              decoration: BoxDecoration(
-                                color: callTypes.contains('Outgoing')
-                                    ? Colors.green
-                                    : Colors.grey[300],
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.call_made,
-                                      color: Colors.blue),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    'Outgoing',
-                                    style: TextStyle(
-                                      color: callTypes.contains('Outgoing')
-                                          ? Colors.white
-                                          : Colors.black,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 15),
-                    ],
-                  ),
-                  actions: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          // if (callTypes.isEmpty) {
-                          //   ScaffoldMessenger.of(context).showSnackBar(
-                          //     const SnackBar(
-                          //       content: Text(
-                          //           'Please select at least one Call Type'),
-                          //     ),
-                          //   );
-                          //   return;
-                          // }
-
-                          await prefs.setStringList('callTypes', callTypes);
-                          // await prefs.setStringList('simOptions', simOptions);
-                          await prefs.setString('callLogsStartingTime',
-                              DateTime.now().toString());
-                          //!
-                          // 🔄 Save toggle history for incoming/outgoing
-                          // if (callTypes.contains("Incoming")) {
-                          //   await ToggleStorage.addToggleEvent(CallLogToggleEvent(
-                          //     type: "Incoming",
-                          //     isEnabled: true,
-                          //     timestamp: DateTime.now().millisecondsSinceEpoch,
-                          //   ));
-                          // } else {
-                          //   await ToggleStorage.addToggleEvent(CallLogToggleEvent(
-                          //     type: "Incoming",
-                          //     isEnabled: false,
-                          //     timestamp: DateTime.now().millisecondsSinceEpoch,
-                          //   ));
-                          // }
-
-                          // if (callTypes.contains("Outgoing")) {
-                          //   await ToggleStorage.addToggleEvent(CallLogToggleEvent(
-                          //     type: "Outgoing",
-                          //     isEnabled: true,
-                          //     timestamp: DateTime.now().millisecondsSinceEpoch,
-                          //   ));
-                          // } else {
-                          //   await ToggleStorage.addToggleEvent(CallLogToggleEvent(
-                          //     type: "Outgoing",
-                          //     isEnabled: false,
-                          //     timestamp: DateTime.now().millisecondsSinceEpoch,
-                          //   ));
-                          // }
-                          List<String> callTypesQ =
-                              prefs.getStringList('callTypes') ?? [];
-                          log('callTypes : $callTypesQ');
-
-                          Navigator.of(context).pop();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                        ),
-                        child: const Text(
-                          'Submit',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          );
-        },
-      );
-    }
+    askUserNeeds(context, showPopUp);
   }
 
   void askUserNeeds(BuildContext context, bool showPopUp) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
 
     List<String> callTypes = prefs.getStringList('callTypes') ?? [];
-    // List<String> simOptions = prefs.getStringList('simOptions') ?? [];
+    if (await Permission.phone.status.isDenied) {
+      await Permission.phone.request();
+    }
+    if (_activeSims.isEmpty) {
+      try {
+        final result = await _simChannel.invokeMethod('getActiveSims');
+        if (result != null) {
+          _activeSims = List<Map<dynamic, dynamic>>.from(result);
+        }
+      } catch (e) {
+        log('Error getting active SIMs for dialog: $e');
+      }
+    }
+
+    final hasSim2 = _activeSims.any((s) => s['simSlotIndex'] == 1 || s['simSlotIndex'] == '1') || _activeSims.length >= 2;
+    List<String> simOptions = ['SIM 1'];
+    if (hasSim2) {
+      simOptions.add('SIM 2');
+    }
+
+    String? savedSim = prefs.getString('selectedSim');
+    String selectedDialogSim = (savedSim == 'SIM 2' && hasSim2) ? 'SIM 2' : 'SIM 1';
+    if (_selectedSimFilter == 'SIM 2' && hasSim2) {
+      selectedDialogSim = 'SIM 2';
+    } else if (_selectedSimFilter == 'SIM 1') {
+      selectedDialogSim = 'SIM 1';
+    }
 
     if (callTypes.isEmpty || showPopUp) {
-      // working dialog starts 31/05/2025
-      // showDialog(
-      //   context: context,
-      //   barrierDismissible: false,
-      //   builder: (context) {
-      //     return WillPopScope(
-      //       onWillPop: () async => false, // Prevent back button dismiss
-      //       child: StatefulBuilder(
-      //         builder: (context, setState) {
-      //           return AlertDialog(
-      //             title: const Center(child: Text('Permission Required')),
-      //             content: Column(
-      //               mainAxisSize: MainAxisSize.min,
-      //               children: [
-      //                 const Center(
-      //                     child: Text(
-      //                   'Please allow permission to access call logs.',
-      //                   textAlign: TextAlign.center,
-      //                 )),
-      //                 const SizedBox(height: 10),
-
-      //                 //! Call Type Selection
-      //                 const Text('Select Call Type'),
-      //                 const SizedBox(height: 5),
-      //                 Row(
-      //                   mainAxisAlignment: MainAxisAlignment.center,
-      //                   children: [
-      //                     GestureDetector(
-      //                       onTap: () {
-      //                         setState(() {
-      //                           if (callTypes.contains('Incoming')) {
-      //                             callTypes.remove('Incoming');
-      //                           } else {
-      //                             callTypes.add('Incoming');
-      //                           }
-      //                         });
-      //                       },
-      //                       child: Container(
-      //                         padding: const EdgeInsets.symmetric(
-      //                             vertical: 10, horizontal: 15),
-      //                         decoration: BoxDecoration(
-      //                           color: callTypes.contains('Incoming')
-      //                               ? Colors.green
-      //                               : Colors.grey[300],
-      //                           borderRadius: BorderRadius.circular(10),
-      //                         ),
-      //                         child: Row(
-      //                           children: [
-      //                             const Icon(Icons.call_received,
-      //                                 color: Colors.red),
-      //                             const SizedBox(width: 5),
-      //                             Text(
-      //                               'Incoming',
-      //                               style: TextStyle(
-      //                                 color: callTypes.contains('Incoming')
-      //                                     ? Colors.white
-      //                                     : Colors.black,
-      //                               ),
-      //                             ),
-      //                           ],
-      //                         ),
-      //                       ),
-      //                     ),
-      //                     const SizedBox(width: 10),
-      //                     GestureDetector(
-      //                       onTap: () {
-      //                         setState(() {
-      //                           if (callTypes.contains('Outgoing')) {
-      //                             callTypes.remove('Outgoing');
-      //                           } else {
-      //                             callTypes.add('Outgoing');
-      //                           }
-      //                         });
-      //                       },
-      //                       child: Container(
-      //                         padding: const EdgeInsets.symmetric(
-      //                             vertical: 10, horizontal: 15),
-      //                         decoration: BoxDecoration(
-      //                           color: callTypes.contains('Outgoing')
-      //                               ? Colors.green
-      //                               : Colors.grey[300],
-      //                           borderRadius: BorderRadius.circular(10),
-      //                         ),
-      //                         child: Row(
-      //                           children: [
-      //                             const Icon(Icons.call_made,
-      //                                 color: Colors.blue),
-      //                             const SizedBox(width: 5),
-      //                             Text(
-      //                               'Outgoing',
-      //                               style: TextStyle(
-      //                                 color: callTypes.contains('Outgoing')
-      //                                     ? Colors.white
-      //                                     : Colors.black,
-      //                               ),
-      //                             ),
-      //                           ],
-      //                         ),
-      //                       ),
-      //                     ),
-      //                   ],
-      //                 ),
-      //                 const SizedBox(height: 15),
-      //               ],
-      //             ),
-      //             actions: [
-      //               SizedBox(
-      //                 width: double.infinity,
-      //                 child: ElevatedButton(
-      //                   onPressed: () async {
-      //                     // if (callTypes.isEmpty) {
-      //                     //   ScaffoldMessenger.of(context).showSnackBar(
-      //                     //     const SnackBar(
-      //                     //       content: Text(
-      //                     //           'Please select at least one Call Type'),
-      //                     //     ),
-      //                     //   );
-      //                     //   return;
-      //                     // }
-
-      //                     await prefs.setStringList('callTypes', callTypes);
-      //                     // await prefs.setStringList('simOptions', simOptions);
-      //                     await prefs.setString('callLogsStartingTime',
-      //                         DateTime.now().toString());
-      //                     //!
-      //                     // 🔄 Save toggle history for incoming/outgoing
-      //                     // if (callTypes.contains("Incoming")) {
-      //                     //   await ToggleStorage.addToggleEvent(CallLogToggleEvent(
-      //                     //     type: "Incoming",
-      //                     //     isEnabled: true,
-      //                     //     timestamp: DateTime.now().millisecondsSinceEpoch,
-      //                     //   ));
-      //                     // } else {
-      //                     //   await ToggleStorage.addToggleEvent(CallLogToggleEvent(
-      //                     //     type: "Incoming",
-      //                     //     isEnabled: false,
-      //                     //     timestamp: DateTime.now().millisecondsSinceEpoch,
-      //                     //   ));
-      //                     // }
-
-      //                     // if (callTypes.contains("Outgoing")) {
-      //                     //   await ToggleStorage.addToggleEvent(CallLogToggleEvent(
-      //                     //     type: "Outgoing",
-      //                     //     isEnabled: true,
-      //                     //     timestamp: DateTime.now().millisecondsSinceEpoch,
-      //                     //   ));
-      //                     // } else {
-      //                     //   await ToggleStorage.addToggleEvent(CallLogToggleEvent(
-      //                     //     type: "Outgoing",
-      //                     //     isEnabled: false,
-      //                     //     timestamp: DateTime.now().millisecondsSinceEpoch,
-      //                     //   ));
-      //                     // }
-      //                     List<String> callTypesQ =
-      //                         prefs.getStringList('callTypes') ?? [];
-      //                     log('callTypes : $callTypesQ');
-
-      //                     Navigator.of(context).pop();
-      //                   },
-      //                   style: ElevatedButton.styleFrom(
-      //                     backgroundColor: Colors.blue,
-      //                     shape: RoundedRectangleBorder(
-      //                       borderRadius: BorderRadius.circular(10),
-      //                     ),
-      //                     padding: const EdgeInsets.symmetric(vertical: 15),
-      //                   ),
-      //                   child: const Text(
-      //                     'Submit',
-      //                     style: TextStyle(
-      //                       fontSize: 16,
-      //                       fontWeight: FontWeight.bold,
-      //                       color: Colors.white,
-      //                     ),
-      //                   ),
-      //                 ),
-      //               ),
-      //             ],
-      //           );
-      //         },
-      //       ),
-      //     );
-      //   },
-      // );
-
-      // working dialog ends 31/05/2025
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -774,7 +428,7 @@ class _CallLogsState extends State<CallLogs> {
           return WillPopScope(
             onWillPop: () async => false,
             child: StatefulBuilder(
-              builder: (context, setState) {
+              builder: (context, setDialogState) {
                 return AlertDialog(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -784,23 +438,16 @@ class _CallLogsState extends State<CallLogs> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // const Center(
-                        //   child: Text(
-                        //     'Please allow permission to access call logs.',
-                        //     textAlign: TextAlign.center,
-                        //   ),
-                        // ),
-                        // const SizedBox(height: 10),
-
                         //! Call Type Selection
-                        const Text('Select Call Type'),
-                        const SizedBox(height: 5),
+                        const Text('Select Call Type',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             GestureDetector(
                               onTap: () {
-                                setState(() {
+                                setDialogState(() {
                                   if (callTypes.contains('Incoming')) {
                                     callTypes.remove('Incoming');
                                   } else {
@@ -837,7 +484,7 @@ class _CallLogsState extends State<CallLogs> {
                             const SizedBox(width: 10),
                             GestureDetector(
                               onTap: () {
-                                setState(() {
+                                setDialogState(() {
                                   if (callTypes.contains('Outgoing')) {
                                     callTypes.remove('Outgoing');
                                   } else {
@@ -875,6 +522,57 @@ class _CallLogsState extends State<CallLogs> {
                         ),
 
                         const SizedBox(height: 15),
+                        const Text('Select SIM',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: simOptions.map((simName) {
+                            final isSelected = selectedDialogSim == simName;
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 5),
+                              child: GestureDetector(
+                                onTap: () {
+                                  setDialogState(() {
+                                    selectedDialogSim = simName;
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 10, horizontal: 15),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? Colors.green
+                                        : Colors.grey[300],
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.sim_card,
+                                          size: 18,
+                                          color: isSelected
+                                              ? Colors.white
+                                              : Colors.blueGrey),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        simName,
+                                        style: TextStyle(
+                                          color: isSelected
+                                              ? Colors.white
+                                              : Colors.black,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+
+                        const SizedBox(height: 15),
 
                         Container(
                           padding: const EdgeInsets.all(10),
@@ -892,51 +590,6 @@ class _CallLogsState extends State<CallLogs> {
                             textAlign: TextAlign.justify,
                           ),
                         ),
-
-                        // Display Over App Permission Toggle
-                        // Container(
-                        //   margin: const EdgeInsets.symmetric(vertical: 5),
-                        //   decoration: BoxDecoration(
-                        //     color: Colors.white,
-                        //     borderRadius: BorderRadius.circular(10),
-                        //     boxShadow: [
-                        //       BoxShadow(
-                        //         color: Colors.grey.withOpacity(0.2),
-                        //         spreadRadius: 1,
-                        //         blurRadius: 3,
-                        //         offset: const Offset(0, 2),
-                        //       ),
-                        //     ],
-                        //   ),
-                        //   child: SwitchListTile(
-                        //     title: const Text(
-                        //       "Display Caller ID",
-                        //       style: TextStyle(
-                        //         fontWeight: FontWeight.bold,
-                        //         fontSize: 16,
-                        //       ),
-                        //     ),
-                        //     subtitle: const Text(
-                        //       "Show caller details over other apps",
-                        //       style: TextStyle(fontSize: 12),
-                        //     ),
-                        //     value: displayOverApps,
-                        //     onChanged: (bool value) async {
-                        //       if (value) {
-                        //         bool status = await FlutterOverlayWindow
-                        //             .isPermissionGranted();
-                        //         if (!status) {
-                        //           await FlutterOverlayWindow
-                        //               .requestPermission();
-                        //         }
-                        //       }
-                        //       await checkPermission();
-                        //     },
-                        //     secondary:
-                        //         const Icon(Icons.layers, color: Colors.blue),
-                        //   ),
-                        // ),
-
                         const SizedBox(height: 10),
                       ],
                     ),
@@ -979,14 +632,18 @@ class _CallLogsState extends State<CallLogs> {
                               await prefs.setStringList('callTypes', callTypes);
                               await prefs.setString('callLogsStartingTime',
                                   DateTime.now().toString());
+                              await prefs.setString('selectedSim', selectedDialogSim);
                               await Permission.phone.request();
                               await Common.saveSharedPref(
                                   "callLogPermission", 'true');
-                              Navigator.of(context).pop();
-                              setState(() {
-                                refresh = true;
-                              });
-                              getSharedData();
+                              if (mounted) {
+                                setState(() {
+                                  _selectedSimFilter = selectedDialogSim;
+                                  refresh = true;
+                                });
+                                Navigator.of(context).pop();
+                                getSharedData();
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green,
@@ -1019,6 +676,68 @@ class _CallLogsState extends State<CallLogs> {
 
   List<HiveCaallHistoryModel> fullHiveData = [];
 
+  static const MethodChannel _simChannel = MethodChannel('com.login2Pro/sim_info');
+
+  Future<Iterable<CallLogEntry>> _queryAndDebugCallLogs(
+      int? dateFrom, int? dateTo) async {
+    try {
+      final result = await _simChannel.invokeMethod('getActiveSims');
+      if (result != null) {
+        _activeSims = List<Map<dynamic, dynamic>>.from(result);
+      }
+    } catch (e) {
+      log('Error getting active SIMs: $e');
+    }
+
+    // Reset filter if selected SIM is no longer available
+    final hasSim2 = _activeSims.any((s) => s['simSlotIndex'] == 1 || s['simSlotIndex'] == '1') || _activeSims.length >= 2;
+    if (_selectedSimFilter == 'SIM 2' && !hasSim2) {
+      _selectedSimFilter = 'SIM 1';
+    }
+
+    final Iterable<CallLogEntry> callResult = await CallLog.query(
+      dateFrom: dateFrom,
+      dateTo: dateTo,
+    );
+    return callResult;
+  }
+
+  /// Returns the simSlotIndex for a call log entry by matching
+  /// entry.phoneAccountId against native active SIM subscriptionId.
+  /// Returns 0 for SIM 1, 1 for SIM 2, -1 for unknown/unmatched.
+  int _getSimSlotForEntry(CallLogEntry entry) {
+    final phoneAccountId = entry.phoneAccountId;
+    if (phoneAccountId == null || phoneAccountId.isEmpty) return -1;
+    for (var sim in _activeSims) {
+      final subId = sim['subscriptionId']?.toString();
+      if (subId != null && subId.isNotEmpty && phoneAccountId == subId) {
+        final slotIdx = sim['simSlotIndex'];
+        if (slotIdx is int) return slotIdx;
+        return int.tryParse(slotIdx?.toString() ?? '') ?? -1;
+      }
+    }
+    return -1;
+  }
+
+  /// Returns the filtered call log entries based on the current SIM filter.
+  /// 'All' shows everything, 'SIM 1' shows simSlotIndex == 0,
+  /// 'SIM 2' shows simSlotIndex == 1.
+  /// Unknown/unmatched entries are shown under 'All' only.
+  /// Returns the filtered call log entries based on the current SIM filter.
+  /// 'SIM 1' shows simSlotIndex == 0,
+  /// 'SIM 2' shows simSlotIndex == 1.
+  /// If SIM detection has no data, falls back to all call logs safely.
+  List<CallLogEntry> get _filteredCallLogEntries {
+    if (_activeSims.isEmpty) {
+      return _callLogEntries.toList();
+    }
+    final targetSlot = _selectedSimFilter == 'SIM 2' ? 1 : 0;
+    return _callLogEntries.where((entry) {
+      return _getSimSlotForEntry(entry) == targetSlot;
+    }).toList();
+  }
+
+  
   getSharedData() async {
     log('getSharedData called');
     try {
@@ -1030,14 +749,11 @@ class _CallLogsState extends State<CallLogs> {
       String? deleteAccessStr =
           await Common.getSharedPref("accessCallHistoryPermission");
       roleId = await Common.getSharedPref("roleId");
-      // var sim = await Common.getSharedPref("simName");
-      // if (sim != null) {
-      //   selectedSim = await Common.getSharedPref("simName");
-      //   selectedSimId = await Common.getSharedPref("simId");
-      // } else {
-      //   selectedSim = "Tap to select";
-      //   selectedSimId = "";
-      // }
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? savedSimPref = prefs.getString('selectedSim');
+      if (savedSimPref != null && (savedSimPref == 'SIM 1' || savedSimPref == 'SIM 2')) {
+        _selectedSimFilter = savedSimPref;
+      }
       if (uploadPermission != "true" && Platform.isIOS) {
         selectedIndex = -1;
       }
@@ -1050,10 +766,8 @@ class _CallLogsState extends State<CallLogs> {
               await ToggleStorage.getToggleHistory();
           int to = DateTime.now().millisecondsSinceEpoch;
 
-          final Iterable<CallLogEntry> result = await CallLog.query(
-            dateFrom: from,
-            dateTo: to,
-          );
+          final Iterable<CallLogEntry> result =
+              await _queryAndDebugCallLogs(from, to);
           final filteredLogs = result.where((entry) {
             return isLogAllowed(
                 entry.timestamp ?? 0, entry.callType!, toggleHistory);
@@ -1079,7 +793,7 @@ class _CallLogsState extends State<CallLogs> {
       }
       // !   UPDATE MISSING CALL LOG
       final int callLogCount = await HiveUtil.getCallLogCount();
-      SharedPreferences prefs = await SharedPreferences.getInstance();
+      prefs = await SharedPreferences.getInstance();
       List<HiveCaallHistoryModel> callLogData = <HiveCaallHistoryModel>[];
       callLogData.clear();
       final String dateTimeFrom =
@@ -1092,10 +806,8 @@ class _CallLogsState extends State<CallLogs> {
         final DateTime startingTime = DateTime.parse(dateTimeFrom);
         // final List<CallLogToggleEvent> toggleHistory = await ToggleStorage.getToggleHistory();
         int to = DateTime.now().millisecondsSinceEpoch;
-        final Iterable<CallLogEntry> result = await CallLog.query(
-          dateFrom: from,
-          dateTo: to,
-        );
+        final Iterable<CallLogEntry> result =
+            await _queryAndDebugCallLogs(from, to);
         final List<CallLogEntry> filteredLogs = result.where((entry) {
           final DateTime callTime =
               DateTime.fromMillisecondsSinceEpoch(entry.timestamp ?? 0);
@@ -1176,10 +888,8 @@ class _CallLogsState extends State<CallLogs> {
         final DateTime startingTime = DateTime.parse(dateTimeFrom);
         // final List<CallLogToggleEvent> toggleHistory = await ToggleStorage.getToggleHistory();
         int to = DateTime.now().millisecondsSinceEpoch;
-        final Iterable<CallLogEntry> result = await CallLog.query(
-          dateFrom: from,
-          dateTo: to,
-        );
+        final Iterable<CallLogEntry> result =
+            await _queryAndDebugCallLogs(from, to);
 
         //!
         final List<CallLogEntry> callLogsFromDevice = result.where((entry) {
@@ -1302,10 +1012,8 @@ class _CallLogsState extends State<CallLogs> {
           final DateTime startingTime = DateTime.parse(dateTimeFrom);
           // final List<CallLogToggleEvent> toggleHistory = await ToggleStorage.getToggleHistory();
 
-          final Iterable<CallLogEntry> result = await CallLog.query(
-            dateFrom: from,
-            dateTo: to,
-          );
+          final Iterable<CallLogEntry> result =
+              await _queryAndDebugCallLogs(from, to);
           log('result : ${result.length}');
           final List<CallLogEntry> allCallLogsAfterHiveLatestData =
               result.where((entry) {
@@ -2092,7 +1800,7 @@ class _CallLogsState extends State<CallLogs> {
                                       ),
                                     ),
                                     Text(
-                                      ' (${_callLogEntries.length})',
+                                      ' (${_filteredCallLogEntries.length})',
                                       style: TextStyle(
                                         color: Platform.isIOS
                                             ? Colors.grey.shade300
@@ -2185,18 +1893,18 @@ class _CallLogsState extends State<CallLogs> {
                                           textAlign: TextAlign.center,
                                         ),
                                         const SizedBox(
-                                          height: 10,
-                                        ),
-                                        _callLogEntries.isNotEmpty
+                                            height: 10,
+                                          ),
+                                        _filteredCallLogEntries.isNotEmpty
                                             ? ListView.builder(
                                                 shrinkWrap: true,
                                                 itemCount:
-                                                    _callLogEntries.length,
+                                                    _filteredCallLogEntries.length,
                                                 physics:
                                                     const NeverScrollableScrollPhysics(),
                                                 itemBuilder:
                                                     (context, indexStaff) {
-                                                  final entry = _callLogEntries
+                                                  final entry = _filteredCallLogEntries
                                                       .elementAt(indexStaff);
                                                   //  bool isUploaded = fullHiveData.any((item) => item.id == entry.timestamp.toString());
                                                   bool isUploaded =
@@ -2362,14 +2070,14 @@ class _CallLogsState extends State<CallLogs> {
                                                                               .elementAt(indexStaff)
                                                                               .callType
                                                                               .toString()
-                                                                              .substring(_callLogEntries.elementAt(indexStaff).callType.toString().indexOf('.') + 1),
+                                                                              .substring(_filteredCallLogEntries.elementAt(indexStaff).callType.toString().indexOf('.') + 1),
                                                                           "time":
-                                                                              '${DateTime.fromMillisecondsSinceEpoch(_callLogEntries.elementAt(indexStaff).timestamp!)}',
+                                                                              '${DateTime.fromMillisecondsSinceEpoch(_filteredCallLogEntries.elementAt(indexStaff).timestamp!)}',
                                                                           "duration": _callLogEntries
                                                                               .elementAt(indexStaff)
                                                                               .duration,
                                                                           "simName":
-                                                                              _callLogEntries.elementAt(indexStaff).simDisplayName ?? "NIL",
+                                                                              _filteredCallLogEntries.elementAt(indexStaff).simDisplayName ?? "NIL",
                                                                           "timeStamp": _callLogEntries
                                                                               .elementAt(indexStaff)
                                                                               .timestamp,
@@ -2402,7 +2110,7 @@ class _CallLogsState extends State<CallLogs> {
                                                                               .indexOf('.') +
                                                                           1),
                                                                   "time":
-                                                                      '${DateTime.fromMillisecondsSinceEpoch(_callLogEntries.elementAt(indexStaff).timestamp!)}',
+                                                                      '${DateTime.fromMillisecondsSinceEpoch(_filteredCallLogEntries.elementAt(indexStaff).timestamp!)}',
                                                                   "duration": _callLogEntries
                                                                       .elementAt(
                                                                           indexStaff)
@@ -2437,19 +2145,19 @@ class _CallLogsState extends State<CallLogs> {
                                                                           item,
                                                                           ({
                                                                             "name":
-                                                                                _callLogEntries.elementAt(indexStaff).name,
+                                                                                _filteredCallLogEntries.elementAt(indexStaff).name,
                                                                             "phone_number":
-                                                                                _callLogEntries.elementAt(indexStaff).number,
+                                                                                _filteredCallLogEntries.elementAt(indexStaff).number,
                                                                             "callTypes":
-                                                                                _callLogEntries.elementAt(indexStaff).callType.toString().substring(_callLogEntries.elementAt(indexStaff).callType.toString().indexOf('.') + 1),
+                                                                                _filteredCallLogEntries.elementAt(indexStaff).callType.toString().substring(_filteredCallLogEntries.elementAt(indexStaff).callType.toString().indexOf('.') + 1),
                                                                             "time":
-                                                                                '${DateTime.fromMillisecondsSinceEpoch(_callLogEntries.elementAt(indexStaff).timestamp!)}',
+                                                                                '${DateTime.fromMillisecondsSinceEpoch(_filteredCallLogEntries.elementAt(indexStaff).timestamp!)}',
                                                                             "duration":
-                                                                                _callLogEntries.elementAt(indexStaff).duration,
+                                                                                _filteredCallLogEntries.elementAt(indexStaff).duration,
                                                                             "simName":
-                                                                                _callLogEntries.elementAt(indexStaff).simDisplayName,
+                                                                                _filteredCallLogEntries.elementAt(indexStaff).simDisplayName,
                                                                             "timeStamp":
-                                                                                _callLogEntries.elementAt(indexStaff).timestamp,
+                                                                                _filteredCallLogEntries.elementAt(indexStaff).timestamp,
                                                                           })),
                                                                 );
                                                               } else {
@@ -2476,7 +2184,7 @@ class _CallLogsState extends State<CallLogs> {
                                                                               .indexOf('.') +
                                                                           1),
                                                                   "time":
-                                                                      '${DateTime.fromMillisecondsSinceEpoch(_callLogEntries.elementAt(indexStaff).timestamp!)}',
+                                                                      '${DateTime.fromMillisecondsSinceEpoch(_filteredCallLogEntries.elementAt(indexStaff).timestamp!)}',
                                                                   "duration": _callLogEntries
                                                                       .elementAt(
                                                                           indexStaff)
@@ -2559,9 +2267,9 @@ class _CallLogsState extends State<CallLogs> {
                                                                               .start,
                                                                       children: [
                                                                         // Text(
-                                                                        //     'F. NUMBER  : ${_callLogEntries.elementAt(indexStaff).formattedNumber}'),
+                                                                        //     'F. NUMBER  : ${_filteredCallLogEntries.elementAt(indexStaff).formattedNumber}'),
                                                                         // Text(
-                                                                        //     'C.M. NUMBER: ${_callLogEntries.elementAt(indexStaff).cachedMatchedNumber}'),
+                                                                        //     'C.M. NUMBER: ${_filteredCallLogEntries.elementAt(indexStaff).cachedMatchedNumber}'),
                                                                         Row(
                                                                           children: [
                                                                             Container(
@@ -2599,14 +2307,14 @@ class _CallLogsState extends State<CallLogs> {
                                                                                     crossAxisAlignment: CrossAxisAlignment.start,
                                                                                     children: [
                                                                                       Text(
-                                                                                        _callLogEntries.elementAt(indexStaff).name ?? "Unknown",
+                                                                                        _filteredCallLogEntries.elementAt(indexStaff).name ?? "Unknown",
                                                                                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                                                                                       ),
                                                                                       const SizedBox(
                                                                                         height: 3,
                                                                                       ),
                                                                                       Text(
-                                                                                        _callLogEntries.elementAt(indexStaff).number.toString(),
+                                                                                        _filteredCallLogEntries.elementAt(indexStaff).number.toString(),
                                                                                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w400),
                                                                                       ),
                                                                                     ],
@@ -2618,13 +2326,13 @@ class _CallLogsState extends State<CallLogs> {
                                                                                           Common.showProgressDialog(context, "Loading..");
                                                                                           history.clear();
                                                                                           history.add({
-                                                                                            "name": _callLogEntries.elementAt(indexStaff).name ?? "",
-                                                                                            "phone_number": _callLogEntries.elementAt(indexStaff).number,
-                                                                                            "callTypes": _callLogEntries.elementAt(indexStaff).callType.toString().substring(_callLogEntries.elementAt(indexStaff).callType.toString().indexOf('.') + 1),
-                                                                                            "time": '${DateTime.fromMillisecondsSinceEpoch(_callLogEntries.elementAt(indexStaff).timestamp!)}',
-                                                                                            "duration": _callLogEntries.elementAt(indexStaff).duration,
-                                                                                            "simName": _callLogEntries.elementAt(indexStaff).simDisplayName ?? "NIL",
-                                                                                            "timeStamp": _callLogEntries.elementAt(indexStaff).timestamp,
+                                                                                            "name": _filteredCallLogEntries.elementAt(indexStaff).name ?? "",
+                                                                                            "phone_number": _filteredCallLogEntries.elementAt(indexStaff).number,
+                                                                                            "callTypes": _filteredCallLogEntries.elementAt(indexStaff).callType.toString().substring(_filteredCallLogEntries.elementAt(indexStaff).callType.toString().indexOf('.') + 1),
+                                                                                            "time": '${DateTime.fromMillisecondsSinceEpoch(_filteredCallLogEntries.elementAt(indexStaff).timestamp!)}',
+                                                                                            "duration": _filteredCallLogEntries.elementAt(indexStaff).duration,
+                                                                                            "simName": _filteredCallLogEntries.elementAt(indexStaff).simDisplayName ?? "NIL",
+                                                                                            "timeStamp": _filteredCallLogEntries.elementAt(indexStaff).timestamp,
                                                                                           });
                                                                                           historyIndex.add(indexStaff);
                                                                                           Map<String, dynamic> body = {
@@ -2634,27 +2342,27 @@ class _CallLogsState extends State<CallLogs> {
                                                                                           CallLogUploadModel object1 = await HttpService.callLogUpload(body);
                                                                                           if (object1.data == true) {
                                                                                             Common.toastMessaage(object1.message, Colors.green);
-                                                                                            bool isThisAlreadyInHiveCallLogDb = await HiveUtil.isCallLogWithIdAndNumberExists(_callLogEntries.elementAt(indexStaff).timestamp.toString(), _callLogEntries.elementAt(indexStaff).number.toString());
+                                                                                            bool isThisAlreadyInHiveCallLogDb = await HiveUtil.isCallLogWithIdAndNumberExists(_filteredCallLogEntries.elementAt(indexStaff).timestamp.toString(), _filteredCallLogEntries.elementAt(indexStaff).number.toString());
                                                                                             log('isThisAlreadyInHiveCallLogDb : $isThisAlreadyInHiveCallLogDb');
                                                                                             if (isThisAlreadyInHiveCallLogDb) {
                                                                                               log('already in hive');
-                                                                                              await HiveUtil.markCallLogAsUploaded(_callLogEntries.elementAt(indexStaff).timestamp.toString());
+                                                                                              await HiveUtil.markCallLogAsUploaded(_filteredCallLogEntries.elementAt(indexStaff).timestamp.toString());
                                                                                               log('updated in hive');
                                                                                             } else {
                                                                                               log('not in hive');
                                                                                               try {
                                                                                                 HiveCaallHistoryModel hiveCallLog = HiveCaallHistoryModel(
-                                                                                                    id: _callLogEntries.elementAt(indexStaff).timestamp.toString(),
-                                                                                                    name: _callLogEntries.elementAt(indexStaff).name.toString(),
-                                                                                                    phoneNumber: _callLogEntries.elementAt(indexStaff).number.toString(),
-                                                                                                    callType: _callLogEntries.elementAt(indexStaff).callType.toString().substring(_callLogEntries.elementAt(indexStaff).callType.toString().indexOf('.') + 1),
-                                                                                                    duration: _callLogEntries.elementAt(indexStaff).duration.toString(),
-                                                                                                    // timeStamp: '${DateTime.fromMillisecondsSinceEpoch( int.parse(_callLogEntries.elementAt(indexStaff).timestamp))}',
-                                                                                                    // timeStamp: _callLogEntries.elementAt(indexStaff).timestamp.toString(),
-                                                                                                    timeStamp: _callLogEntries.elementAt(indexStaff).timestamp!.toString(),
+                                                                                                    id: _filteredCallLogEntries.elementAt(indexStaff).timestamp.toString(),
+                                                                                                    name: _filteredCallLogEntries.elementAt(indexStaff).name.toString(),
+                                                                                                    phoneNumber: _filteredCallLogEntries.elementAt(indexStaff).number.toString(),
+                                                                                                    callType: _filteredCallLogEntries.elementAt(indexStaff).callType.toString().substring(_filteredCallLogEntries.elementAt(indexStaff).callType.toString().indexOf('.') + 1),
+                                                                                                    duration: _filteredCallLogEntries.elementAt(indexStaff).duration.toString(),
+                                                                                                    // timeStamp: '${DateTime.fromMillisecondsSinceEpoch( int.parse(_filteredCallLogEntries.elementAt(indexStaff).timestamp))}',
+                                                                                                    // timeStamp: _filteredCallLogEntries.elementAt(indexStaff).timestamp.toString(),
+                                                                                                    timeStamp: _filteredCallLogEntries.elementAt(indexStaff).timestamp!.toString(),
                                                                                                     //   DateTime.fromMillisecondsSinceEpoch(
-                                                                                                    // _callLogEntries.elementAt(indexStaff).timestamp!  ).toIso8601String(),
-                                                                                                    simSlot: _callLogEntries.elementAt(indexStaff).simDisplayName ?? "NIL",
+                                                                                                    // _filteredCallLogEntries.elementAt(indexStaff).timestamp!  ).toIso8601String(),
+                                                                                                    simSlot: _filteredCallLogEntries.elementAt(indexStaff).simDisplayName ?? "NIL",
                                                                                                     callRecordFilePath: "",
                                                                                                     isUploaded: true,
                                                                                                     isDeleted: false,
@@ -2710,7 +2418,7 @@ class _CallLogsState extends State<CallLogs> {
                                                                                   width: 15,
                                                                                 ),
                                                                                 Text(
-                                                                                  DateFormat('dd-M-yyyy HH:mm a').format(DateTime.fromMillisecondsSinceEpoch(_callLogEntries.elementAt(indexStaff).timestamp!)),
+                                                                                  DateFormat('dd-M-yyyy HH:mm a').format(DateTime.fromMillisecondsSinceEpoch(_filteredCallLogEntries.elementAt(indexStaff).timestamp!)),
                                                                                 ),
                                                                               ],
                                                                             ),
@@ -2723,7 +2431,7 @@ class _CallLogsState extends State<CallLogs> {
                                                                                 Padding(
                                                                                   padding: const EdgeInsets.only(right: 10),
                                                                                   child: Text(
-                                                                                    '${(Duration(seconds: _callLogEntries.elementAt(indexStaff).duration!))}'.split('.')[0].padLeft(8, '0'),
+                                                                                    '${(Duration(seconds: _filteredCallLogEntries.elementAt(indexStaff).duration!))}'.split('.')[0].padLeft(8, '0'),
                                                                                     style: const TextStyle(fontSize: 15, color: Colors.green),
                                                                                   ),
                                                                                 ),
@@ -2740,7 +2448,7 @@ class _CallLogsState extends State<CallLogs> {
                                                                               MainAxisAlignment.spaceBetween,
                                                                           children: [
                                                                             Text(
-                                                                              'Type  : ${_callLogEntries.elementAt(indexStaff).callType.toString().substring(_callLogEntries.elementAt(indexStaff).callType.toString().indexOf('.') + 1)}',
+                                                                              'Type  : ${_filteredCallLogEntries.elementAt(indexStaff).callType.toString().substring(_filteredCallLogEntries.elementAt(indexStaff).callType.toString().indexOf('.') + 1)}',
                                                                             ),
                                                                             const SizedBox()
                                                                             // Container(
@@ -2756,7 +2464,7 @@ class _CallLogsState extends State<CallLogs> {
                                                                             //         bottom: 5),
                                                                             //     child:
                                                                             //         Text(
-                                                                            //       '${_callLogEntries.elementAt(indexStaff).simDisplayName}',
+                                                                            //       '${_filteredCallLogEntries.elementAt(indexStaff).simDisplayName}',
                                                                             //     ),
                                                                             //   ),
                                                                             // ),
@@ -3544,7 +3252,7 @@ class _CallLogsState extends State<CallLogs> {
                                                                               height: 10,
                                                                             )
                                                                             // Text(
-                                                                            //     'ACCOUNT ID : ${_callLogEntries.elementAt(indexStaff).phoneAccountId}',
+                                                                            //     'ACCOUNT ID : ${_filteredCallLogEntries.elementAt(indexStaff).phoneAccountId}',
                                                                             //     ),
                                                                           ],
                                                                         ),

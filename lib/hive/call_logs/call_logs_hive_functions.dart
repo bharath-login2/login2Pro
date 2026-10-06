@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer';
 import 'package:call_e_log/call_log.dart';
+import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:login2/hive/call_logs/HiveCaallHistoryModel.dart';
@@ -558,6 +559,8 @@ Future<List<CallLogEntry>> getFilteredCallLogs(DateTime startingTime) async {
     dateTimeFrom: startingTime,
   );
 
+  await debugLogSimInfo(allLogs);
+
   log('+ Total logs from device: ${allLogs.length}');
 
   List<CallLogEntry> filteredLogs = allLogs.where((log) {
@@ -751,3 +754,60 @@ class ToggleStorage {
     await prefs.setStringList(key, encoded);
   }
 }
+
+const MethodChannel _simChannel = MethodChannel('com.login2Pro/sim_info');
+
+Future<void> debugLogSimInfo(Iterable<CallLogEntry> allLogs) async {
+  List<Map<dynamic, dynamic>> activeSims = [];
+  try {
+    final result = await _simChannel.invokeMethod('getActiveSims');
+    if (result != null) {
+      activeSims = List<Map<dynamic, dynamic>>.from(result);
+    }
+  } catch (e) {
+    log('Error calling MethodChannel getActiveSims: $e');
+  }
+
+  for (var entry in allLogs) {
+    String phoneAccountId = entry.phoneAccountId ?? 'null';
+    String simDisplayName = entry.simDisplayName ?? 'NIL';
+    String subscriptionId = 'Unknown';
+    String simSlotIndex = 'Unknown';
+    String resolvedSim = 'Unknown';
+
+    for (var sim in activeSims) {
+      String subId = sim['subscriptionId']?.toString() ?? '';
+      String slotIdx = sim['simSlotIndex']?.toString() ?? '';
+      String dispName = sim['displayName']?.toString() ?? '';
+      String carrierName = sim['carrierName']?.toString() ?? '';
+
+      if (subId.isNotEmpty && phoneAccountId == subId) {
+        subscriptionId = subId;
+        simSlotIndex = slotIdx;
+        resolvedSim = slotIdx == '0' ? 'SIM 1' : (slotIdx == '1' ? 'SIM 2' : 'SIM ${int.parse(slotIdx) + 1}');
+        break;
+      } else if (phoneAccountId == slotIdx) {
+        subscriptionId = subId;
+        simSlotIndex = slotIdx;
+        resolvedSim = slotIdx == '0' ? 'SIM 1' : (slotIdx == '1' ? 'SIM 2' : 'SIM ${int.parse(slotIdx) + 1}');
+        break;
+      } else if (simDisplayName != 'NIL' &&
+          (simDisplayName.toLowerCase() == dispName.toLowerCase() ||
+           simDisplayName.toLowerCase() == carrierName.toLowerCase())) {
+        subscriptionId = subId;
+        simSlotIndex = slotIdx;
+        resolvedSim = slotIdx == '0' ? 'SIM 1' : (slotIdx == '1' ? 'SIM 2' : 'SIM ${int.parse(slotIdx) + 1}');
+        break;
+      }
+    }
+
+    log('''
+CALL LOG SIM DEBUG
+phoneAccountId: $phoneAccountId
+simDisplayName: $simDisplayName
+subscriptionId: $subscriptionId
+simSlotIndex: $simSlotIndex
+resolvedSim: $resolvedSim''');
+  }
+}
+
