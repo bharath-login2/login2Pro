@@ -11873,13 +11873,13 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
       context: context,
       pageBuilder: (context, _, __) {
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (dialogContext, setState) {
             return SafeArea(
               child: Align(
                 alignment: Alignment.bottomCenter,
                 child: Padding(
                   padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                    bottom: MediaQuery.of(dialogContext).viewInsets.bottom,
                   ),
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -11967,7 +11967,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                                   ),
                                   IconButton(
                                     onPressed: () =>
-                                        Navigator.of(context).pop(),
+                                        Navigator.of(dialogContext).pop(),
                                     icon: Icon(
                                       Icons.close_rounded,
                                       color: isDark
@@ -12018,7 +12018,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                                   Expanded(
                                     child: TextButton(
                                       onPressed: () =>
-                                          Navigator.of(context).pop(),
+                                          Navigator.of(dialogContext).pop(),
                                       style: TextButton.styleFrom(
                                         padding: const EdgeInsets.symmetric(
                                             vertical: 16),
@@ -12048,7 +12048,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                                   Expanded(
                                     child: ElevatedButton(
                                       onPressed: () =>
-                                          _saveContact(context, setState),
+                                          _saveContact(dialogContext, setState),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: primaryColor,
                                         foregroundColor: Colors.white,
@@ -12173,75 +12173,85 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
     );
   }
 
-  Future<void> _saveContact(BuildContext dialogContext, StateSetter setState) async {
-    if (contactFName.text.isEmpty) {
+  Future<void> _saveContact(
+      BuildContext dialogContext, StateSetter setState) async {
+    final firstName = contactFName.text.trim();
+    final lastName = contactLName.text.trim();
+    final phoneNum = contactMobile.text.trim();
+
+    if (firstName.isEmpty) {
       Common.toastMessaage('Please enter first name', Colors.red);
       return;
     }
 
-    if (contactMobile.text.isEmpty) {
+    if (phoneNum.isEmpty) {
       Common.toastMessaage('Please enter mobile number', Colors.red);
       return;
     }
 
     try {
-      PermissionStatus permission = await Permission.contacts.status;
-
-      if (!permission.isGranted) {
-        permission = await Permission.contacts.request();
-        if (!permission.isGranted) {
-          permission = await Permission.contacts.status;
-        }
+      bool isGranted = await FlutterContacts.requestPermission();
+      if (!isGranted) {
+        PermissionStatus permStatus = await Permission.contacts.request();
+        isGranted = permStatus.isGranted;
       }
 
-      if (permission.isGranted) {
+      if (!isGranted) {
+        if (dialogContext.mounted) {
+          _showPermissionDeniedDialog(dialogContext);
+        }
+        return;
+      }
+
+      // Show progress dialog "Saving contact..."
+      if (dialogContext.mounted) {
+        Common.showProgressDialog(dialogContext, "Saving contact...");
+      }
+
+      bool isProgressOpen = true;
+
+      try {
+        final newContact = Contact(
+          name: Name(
+            first: firstName,
+            last: lastName,
+          ),
+          displayName: "$firstName $lastName".trim(),
+          phones: [
+            Phone(phoneNum),
+          ],
+        );
+
+        await FlutterContacts.insertContact(newContact);
+
+        // Close progress dialog
+        if (dialogContext.mounted && isProgressOpen) {
+          Navigator.of(dialogContext).pop();
+          isProgressOpen = false;
+        }
+
+        // Close contact dialog
         if (dialogContext.mounted) {
           Navigator.of(dialogContext).pop();
         }
 
-        if (!mounted) return;
-
-        Common.showProgressDialog(context, "Saving contact...");
-        bool progressShown = true;
-
-        try {
-          final newContact = Contact(
-            name: Name(
-              first: contactFName.text.trim(),
-              last: contactLName.text.trim(),
-            ),
-            displayName:
-                "${contactFName.text.trim()} ${contactLName.text.trim()}".trim(),
-            phones: [Phone(contactMobile.text.trim())],
-          );
-
-          await newContact.insert();
-
-          if (mounted) {
-            Common.toastMessaage('Contact saved successfully!', Colors.green);
-          }
-        } catch (e) {
-          if (mounted) {
-            Common.toastMessaage(
-                'Failed to save contact: ${e.toString()}', Colors.red);
-          }
-        } finally {
-          if (mounted && progressShown) {
-            Navigator.of(context, rootNavigator: true).pop();
-          }
+        Common.toastMessaage('Contact saved successfully!', Colors.green);
+      } catch (e) {
+        log("Error inserting contact: $e");
+        if (dialogContext.mounted && isProgressOpen) {
+          Navigator.of(dialogContext).pop();
+          isProgressOpen = false;
         }
-      } else {
-        if (mounted) {
-          _showPermissionDeniedDialog(context);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
         Common.toastMessaage(
             'Failed to save contact: ${e.toString()}', Colors.red);
       }
+    } catch (e) {
+      log("Error in _saveContact: $e");
+      Common.toastMessaage(
+          'Failed to save contact: ${e.toString()}', Colors.red);
     }
   }
+
 
   void _showPermissionDeniedDialog(BuildContext context) {
     showDialog(
