@@ -719,6 +719,16 @@ class _CallLogsState extends State<CallLogs> {
     return -1;
   }
 
+  /// Returns 'SIM 1' or 'SIM 2' based on the call's resolved simSlotIndex.
+  /// Preserves entry.simDisplayName ?? 'NIL' if the SIM slot cannot be determined.
+  String _getSimNameForEntry(CallLogEntry entry) {
+    final slot = _getSimSlotForEntry(entry);
+    if (slot == 0) return 'SIM 1';
+    if (slot == 1) return 'SIM 2';
+    if (slot > 1) return 'SIM ${slot + 1}';
+    return entry.simDisplayName ?? 'NIL';
+  }
+
   /// Returns the filtered call log entries based on the current SIM filter.
   /// 'All' shows everything, 'SIM 1' shows simSlotIndex == 0,
   /// 'SIM 2' shows simSlotIndex == 1.
@@ -736,6 +746,98 @@ class _CallLogsState extends State<CallLogs> {
       return _getSimSlotForEntry(entry) == targetSlot;
     }).toList();
   }
+
+  /// Filters CallLogEntry list by the selected SIM for automatic upload.
+  /// SIM 1 -> simSlotIndex == 0
+  /// SIM 2 -> simSlotIndex == 1
+  /// If SIM detection has no data, returns entries unchanged.
+  List<CallLogEntry> _filterBySelectedSim(List<CallLogEntry> entries) {
+    if (_activeSims.isEmpty) {
+      return entries;
+    }
+    final targetSlot = _selectedSimFilter == 'SIM 2' ? 1 : 0;
+    return entries.where((entry) {
+      return _getSimSlotForEntry(entry) == targetSlot;
+    }).toList();
+  }
+
+  /// Filters Hive call log records by the selected SIM for automatic upload (Path B).
+  /// 1. First tries matching each Hive record with device CallLogEntry by phoneNumber + timeStamp or timeStamp.
+  /// 2. If matched, resolves SIM using _getSimSlotForEntry().
+  /// 3. Fallback: checks if hiveLog.simSlot matches a uniquely identifiable active SIM name.
+  /// If SIM detection has no data, returns hiveLogs unchanged.
+  List<HiveCaallHistoryModel> _filterHiveLogsBySelectedSim(
+      List<HiveCaallHistoryModel> hiveLogs, Iterable<CallLogEntry> deviceLogs) {
+    if (_activeSims.isEmpty) {
+      return hiveLogs;
+    }
+    final targetSlot = _selectedSimFilter == 'SIM 2' ? 1 : 0;
+
+    // Build lookup map of device entries
+    Map<String, CallLogEntry> deviceMap = {};
+    for (var entry in deviceLogs) {
+      if (entry.number != null && entry.timestamp != null) {
+        deviceMap["${entry.number}_${entry.timestamp}"] = entry;
+      }
+      if (entry.timestamp != null) {
+        deviceMap["${entry.timestamp}"] = entry;
+      }
+    }
+
+    // Determine distinct SIM names for slot 0 vs slot 1 for safe fallback
+    Set<String> slot0Names = {};
+    Set<String> slot1Names = {};
+    for (var sim in _activeSims) {
+      final slotIdx = sim['simSlotIndex'] is int
+          ? sim['simSlotIndex'] as int
+          : int.tryParse(sim['simSlotIndex']?.toString() ?? '') ?? -1;
+      final disp = sim['displayName']?.toString().trim();
+      final carrier = sim['carrierName']?.toString().trim();
+      if (slotIdx == 0) {
+        if (disp != null && disp.isNotEmpty) slot0Names.add(disp.toLowerCase());
+        if (carrier != null && carrier.isNotEmpty) slot0Names.add(carrier.toLowerCase());
+      } else if (slotIdx == 1) {
+        if (disp != null && disp.isNotEmpty) slot1Names.add(disp.toLowerCase());
+        if (carrier != null && carrier.isNotEmpty) slot1Names.add(carrier.toLowerCase());
+      }
+    }
+    bool hasDistinctSimNames = slot0Names.isNotEmpty &&
+        slot1Names.isNotEmpty &&
+        slot0Names.intersection(slot1Names).isEmpty;
+
+    return hiveLogs.where((hiveLog) {
+      // Step 1: Match against device entries
+      CallLogEntry? matchedDeviceEntry =
+          deviceMap["${hiveLog.phoneNumber}_${hiveLog.timeStamp}"] ??
+              deviceMap[hiveLog.timeStamp] ??
+              deviceMap[hiveLog.id];
+
+      if (matchedDeviceEntry != null) {
+        final slot = _getSimSlotForEntry(matchedDeviceEntry);
+        if (slot != -1) {
+          return slot == targetSlot;
+        }
+      }
+
+      // Step 2: Fallback to simSlot if uniquely identifiable and distinct
+      if (hasDistinctSimNames &&
+          hiveLog.simSlot.isNotEmpty &&
+          hiveLog.simSlot != "NIL") {
+        final cleanSimSlot = hiveLog.simSlot.trim().toLowerCase();
+        final inSlot0 = slot0Names.contains(cleanSimSlot);
+        final inSlot1 = slot1Names.contains(cleanSimSlot);
+        if (inSlot0 && !inSlot1) {
+          return targetSlot == 0;
+        } else if (inSlot1 && !inSlot0) {
+          return targetSlot == 1;
+        }
+      }
+
+      // Step 3: Cannot reliably resolve - do not guess slot
+      return false;
+    }).toList();
+  }
+
 
   
   getSharedData() async {
@@ -808,13 +910,14 @@ class _CallLogsState extends State<CallLogs> {
         int to = DateTime.now().millisecondsSinceEpoch;
         final Iterable<CallLogEntry> result =
             await _queryAndDebugCallLogs(from, to);
-        final List<CallLogEntry> filteredLogs = result.where((entry) {
+        List<CallLogEntry> filteredLogs = result.where((entry) {
           final DateTime callTime =
               DateTime.fromMillisecondsSinceEpoch(entry.timestamp ?? 0);
 
           // Only logs AFTER startingTime + pass your custom toggle filter
           return callTime.isAfter(startingTime);
         }).toList();
+        filteredLogs = _filterBySelectedSim(filteredLogs);
         log('filteredLogs : ${filteredLogs.length}');
         if (filteredLogs.isNotEmpty) {
           List<String> callTypesQ = prefs.getStringList('callTypes') ?? [];
@@ -844,7 +947,7 @@ class _CallLogsState extends State<CallLogs> {
                 duration: callLog.duration.toString(),
                 timeStamp: callLog.timestamp!.toString(),
                 // timeStamp: '${DateTime.fromMillisecondsSinceEpoch(callLog.timestamp!)}',
-                simSlot: callLog.simDisplayName ?? "NIL",
+                simSlot: _getSimNameForEntry(callLog),
                 callRecordFilePath: "",
                 isUploaded: false,
                 isDeleted: false,
@@ -963,12 +1066,14 @@ class _CallLogsState extends State<CallLogs> {
             await HiveUtil.getLatestCallLogByTime() ?? hiveData.first;
         log('latestHiveCallLog2 : ${latestHiveCallLog2.name} || ${latestHiveCallLog2.phoneNumber} || ${latestHiveCallLog2.isUploaded} || ${latestHiveCallLog2.isEnabled}');
 
-        final List<HiveCaallHistoryModel> unuploadedHiveLogs = hiveData
+        List<HiveCaallHistoryModel> unuploadedHiveLogs = hiveData
             .where((log) =>
                 log.isUploaded == false &&
                 log.isEnabled == true &&
                 log.isDeleted == false)
             .toList();
+        unuploadedHiveLogs =
+            _filterHiveLogsBySelectedSim(unuploadedHiveLogs, result);
 
         if (unuploadedHiveLogs.isNotEmpty) {
           log('Found ${unuploadedHiveLogs.length} unuploaded logs in Hive');
@@ -1015,7 +1120,7 @@ class _CallLogsState extends State<CallLogs> {
           final Iterable<CallLogEntry> result =
               await _queryAndDebugCallLogs(from, to);
           log('result : ${result.length}');
-          final List<CallLogEntry> allCallLogsAfterHiveLatestData =
+          List<CallLogEntry> allCallLogsAfterHiveLatestData =
               result.where((entry) {
             final DateTime callTime =
                 DateTime.fromMillisecondsSinceEpoch(entry.timestamp ?? 0);
@@ -1023,6 +1128,8 @@ class _CallLogsState extends State<CallLogs> {
             // Only logs AFTER startingTime + pass your custom toggle filter
             return callTime.isAfter(startingTime);
           }).toList();
+          allCallLogsAfterHiveLatestData =
+              _filterBySelectedSim(allCallLogsAfterHiveLatestData);
           // final List<CallLogEntry> allCallLogsAfterHiveLatestData = result.where((entry) {
           //   final DateTime callTime = DateTime.fromMillisecondsSinceEpoch(entry.timestamp ?? 0);
 
@@ -1066,7 +1173,7 @@ class _CallLogsState extends State<CallLogs> {
                 duration: callLog.duration.toString(),
                 timeStamp: callLog.timestamp!
                     .toString(), //'${DateTime.fromMillisecondsSinceEpoch(callLog.timestamp!)}',
-                simSlot: callLog.simDisplayName ?? "NIL",
+                simSlot: _getSimNameForEntry(callLog),
                 callRecordFilePath: "",
                 isUploaded: false,
                 isDeleted: false,
