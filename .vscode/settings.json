@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "C:/Users/USER/Documents/GitHub/login2Pro/linux"
+  "cmake.sourceDirectory": "C:/Users/USER/Documents/GitHub/login2Pro/linux",
+  "dart.flutterSdkPath": ".fvm/versions/3.38.2"
 }

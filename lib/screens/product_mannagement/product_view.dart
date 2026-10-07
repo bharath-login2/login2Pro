@@ -12,6 +12,7 @@ import 'package:login2/screens/product_mannagement/update_products.dart';
 import 'package:login2/service/service.dart';
 import 'package:login2/screens/purchase/purchaseBillPage.dart';
 import 'package:login2/models/lead_management/materialModel.dart';
+import 'package:login2/models/product_mannagement/rental_history_model.dart';
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:html/parser.dart';
 
@@ -26,24 +27,24 @@ class ProductView extends StatefulWidget {
 }
 
 class _ProductViewState extends State<ProductView>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+    with TickerProviderStateMixin {
+  TabController? _tabController;
   bool isLoading = true;
   ProdectsByIdModel? productsResponse;
   DeleteProductModel? deleteResponse;
+  ProductHistoryModel? productHistoryResponse;
   Future<ProductHistoryRentalModel?>? _historyFuture;
   final ScreenshotController _screenshotController = ScreenshotController();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _loadData();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController?.dispose();
     super.dispose();
   }
 
@@ -51,17 +52,37 @@ class _ProductViewState extends State<ProductView>
     setState(() {
       isLoading = true;
     });
+
     try {
       productsResponse = await HttpService.getProductById(widget.productId);
+
       if (productsResponse != null) {
+        final isRental =
+            productsResponse!.data.productType.trim().toLowerCase() == "rental";
+
+        // Create controller based on product type
+        _tabController = TabController(
+          length: isRental ? 5 : 4,
+          vsync: this,
+        );
+
+        // Existing stock history - DON'T CHANGE
         _historyFuture = HttpService.getStockHistoryRental(widget.productId);
+
+        // New rental history
+        if (isRental) {
+          productHistoryResponse =
+              await HttpService.getRentalHistory(widget.productId);
+        }
       }
     } catch (e) {
       debugPrint("Error loading product details: $e");
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -84,9 +105,11 @@ class _ProductViewState extends State<ProductView>
       Common.toastMessaage("Error: $e", Colors.red);
     }
   }
-String removeHtmlTags(String htmlText) {
-  return htmlText.replaceAll(RegExp(r'<[^>]*>'), '');
-}
+
+  String removeHtmlTags(String htmlText) {
+    return htmlText.replaceAll(RegExp(r'<[^>]*>'), '');
+  }
+
   void _showAddStockDialog() {
     if (productsResponse == null) return;
     final qtyController = TextEditingController();
@@ -247,8 +270,9 @@ String removeHtmlTags(String htmlText) {
                       autofocus: true,
                       decoration: InputDecoration(
                         hintText: "Enter quantity",
-                        suffixText:
-                            product.unitName.isNotEmpty ? product.unitName : 'PCS',
+                        suffixText: product.unitName.isNotEmpty
+                            ? product.unitName
+                            : 'PCS',
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12)),
                         contentPadding: const EdgeInsets.symmetric(
@@ -359,6 +383,7 @@ String removeHtmlTags(String htmlText) {
               : NestedScrollView(
                   headerSliverBuilder: (context, innerBoxIsScrolled) {
                     final product = productsResponse!.data;
+                    print(product);
                     return [
                       SliverAppBar(
                         expandedHeight: 280.0,
@@ -501,7 +526,7 @@ String removeHtmlTags(String htmlText) {
                                         ],
                                       ),
                                     ),
-                                      const SizedBox(height: 6),
+                                    const SizedBox(height: 6),
                                     if (product.brand.isNotEmpty)
                                       Container(
                                         padding: const EdgeInsets.symmetric(
@@ -520,7 +545,6 @@ String removeHtmlTags(String htmlText) {
                                               letterSpacing: 1.1),
                                         ),
                                       ),
-                                  
                                   ],
                                 ),
                               ),
@@ -532,7 +556,8 @@ String removeHtmlTags(String htmlText) {
                         pinned: true,
                         delegate: _SliverAppBarDelegate(
                           TabBar(
-                            controller: _tabController,
+                            controller: _tabController!,
+                            isScrollable: true,
                             indicatorColor: themeColor,
                             labelColor: themeColor,
                             unselectedLabelColor: Colors.grey[600],
@@ -541,9 +566,15 @@ String removeHtmlTags(String htmlText) {
                                 fontWeight: FontWeight.bold, fontSize: 15),
                             unselectedLabelStyle: const TextStyle(
                                 fontWeight: FontWeight.normal, fontSize: 15),
-                            tabs: const [
-                              Tab(text: "Specifications"),
-                              Tab(text: "Stock & History"),
+                            tabs: [
+                              const Tab(text: "Specifications"),
+                              const Tab(text: "Stock & History"),
+                              if (product.productType.trim().toLowerCase() ==
+                                  "rental") ...[
+                                const Tab(text: "Rental History"),
+                              ],
+                              const Tab(text: "Service History"),
+                              const Tab(text: "Payment History"),
                             ],
                           ),
                         ),
@@ -555,9 +586,233 @@ String removeHtmlTags(String htmlText) {
                     children: [
                       _buildDetailsTab(productsResponse!.data),
                       _buildStockHistoryTab(productsResponse!.data),
+                      if (productsResponse!.data.productType
+                              .trim()
+                              .toLowerCase() ==
+                          "rental") ...[
+                        _buildRentalHistoryTab(),
+                      ],
+                      const Center(
+                        child: Text("Service History"),
+                      ),
+                      const Center(
+                        child: Text("Payment History"),
+                      ),
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _buildRentalHistoryTab() {
+    final history = productHistoryResponse?.data ?? [];
+
+    if (history.isEmpty) {
+      return const Center(
+        child: Text("No rental history found"),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: history.length,
+      itemBuilder: (context, index) {
+        final item = history[index];
+        final isLast = index == history.length - 1;
+        final isReturned = item.returnDate.isNotEmpty;
+
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 30,
+                child: Column(
+                  children: [
+                    Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isReturned ? Colors.green : Colors.orange,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    if (!isLast)
+                      Expanded(
+                        child: Container(
+                          width: 2,
+                          color: Colors.grey.shade300,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 20),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.grey.shade200,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            item.rentNo,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isReturned
+                                  ? Colors.green.withOpacity(0.1)
+                                  : Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              isReturned ? "Returned" : "Active",
+                              style: TextStyle(
+                                color:
+                                    isReturned ? Colors.green : Colors.orange,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _buildRentalHistoryRow(
+                        Icons.person_outline,
+                        "Customer",
+                        item.customerName,
+                      ),
+                      _buildRentalHistoryRow(
+                        Icons.location_on_outlined,
+                        "Location",
+                        item.locationName,
+                      ),
+                      _buildRentalHistoryRow(
+                        Icons.calendar_today_outlined,
+                        "Rental Period",
+                        "${item.fromDate} → ${item.toDate}",
+                      ),
+                      _buildRentalHistoryRow(
+                        Icons.timelapse_outlined,
+                        "Total Days",
+                        item.totalDays,
+                      ),
+                      _buildRentalHistoryRow(
+                        Icons.inventory_2_outlined,
+                        "Issued Quantity",
+                        item.issuedQuantity,
+                      ),
+                      _buildRentalHistoryRow(
+                        Icons.assignment_return_outlined,
+                        "Returned Quantity",
+                        item.returnedQuantity,
+                      ),
+                      if (item.returnDate.isNotEmpty)
+                        _buildRentalHistoryRow(
+                          Icons.assignment_return_outlined,
+                          "Return Date",
+                          item.returnDate,
+                        ),
+                      _buildRentalHistoryRow(
+                        Icons.receipt_long_outlined,
+                        "Invoice",
+                        item.invoiceNo,
+                      ),
+                      // const Divider(height: 20),
+                      // Row(
+                      //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      //   children: [
+                      //     const Text(
+                      //       "Amount Paid",
+                      //       style: TextStyle(
+                      //         color: Colors.grey,
+                      //         fontSize: 13,
+                      //       ),
+                      //     ),
+                      //     Text(
+                      //       "₹${item.amountPaid}",
+                      //       style: const TextStyle(
+                      //         fontWeight: FontWeight.bold,
+                      //         fontSize: 16,
+                      //       ),
+                      //     ),
+                      //   ],
+                      // ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRentalHistoryRow(
+    IconData icon,
+    String title,
+    String value,
+  ) {
+    if (value.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            size: 18,
+            color: Colors.grey.shade600,
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 95,
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -581,11 +836,12 @@ String removeHtmlTags(String htmlText) {
                 product.brand.isNotEmpty ? product.brand : "No Brand"),
             _buildInfoRow(
                 Icons.label_outline, "Product Type", product.productType),
-            _buildInfoRow(
-                Icons.barcode_reader, "BarCode Value", product.barCode.isNotEmpty ? product.barCode : "Not Set"),
+            _buildInfoRow(Icons.barcode_reader, "BarCode Value",
+                product.barCode.isNotEmpty ? product.barCode : "Not Set"),
             if (product.barCode.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -606,7 +862,8 @@ String removeHtmlTags(String htmlText) {
                             height: 80,
                             width: 200,
                             errorBuilder: (context, error) => Center(
-                              child: Text(error, style: const TextStyle(color: Colors.red)),
+                              child: Text(error,
+                                  style: const TextStyle(color: Colors.red)),
                             ),
                           ),
                         ),
@@ -615,20 +872,25 @@ String removeHtmlTags(String htmlText) {
                       OutlinedButton.icon(
                         onPressed: () async {
                           try {
-                            Common.showProgressDialog(context, "Preparing image...");
+                            Common.showProgressDialog(
+                                context, "Preparing image...");
                             final image = await _screenshotController.capture();
                             Navigator.pop(context);
                             if (image != null) {
                               final directory = await getTemporaryDirectory();
-                              final imagePath = await File('${directory.path}/barcode_${product.barCode}.png').create();
+                              final imagePath = await File(
+                                      '${directory.path}/barcode_${product.barCode}.png')
+                                  .create();
                               await imagePath.writeAsBytes(image);
-                              await Share.shareXFiles([XFile(imagePath.path)], text: 'Barcode for ${product.productName}');
+                              await Share.shareXFiles([XFile(imagePath.path)],
+                                  text: 'Barcode for ${product.productName}');
                             }
                           } catch (e) {
                             if (Navigator.canPop(context)) {
                               Navigator.pop(context);
                             }
-                            Common.toastMessaage("Could not share barcode: $e", Colors.red);
+                            Common.toastMessaage(
+                                "Could not share barcode: $e", Colors.red);
                           }
                         },
                         icon: const Icon(Icons.download_rounded, size: 18),
@@ -636,7 +898,8 @@ String removeHtmlTags(String htmlText) {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF2a86c9),
                           side: const BorderSide(color: Color(0xFF2a86c9)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
                         ),
                       ),
                     ],
@@ -672,13 +935,10 @@ String removeHtmlTags(String htmlText) {
                   ? product.publishStatus
                   : "Draft",
             ),
-
             _buildInfoRow(
               Icons.visibility_outlined,
               "Visibility",
-              product.visibility.isNotEmpty
-                  ? product.visibility
-                  : "Private",
+              product.visibility.isNotEmpty ? product.visibility : "Private",
             ),
           ]),
           const SizedBox(height: 16),
@@ -852,8 +1112,7 @@ String removeHtmlTags(String htmlText) {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildPricingDetail("Tax/GST",
-                  "${product.taxPercent}%" ),
+              _buildPricingDetail("Tax/GST", "${product.taxPercent}%"),
               _buildPricingDetail(
                   "Discount Amount",
                   product.discountAmount.isNotEmpty
@@ -1024,7 +1283,9 @@ String removeHtmlTags(String htmlText) {
                         materialId: pData.id,
                         materialName: pData.productName,
                         unitName: pData.unitName,
-                        unitPrice: pData.purchaseAmount.isNotEmpty ? pData.purchaseAmount : pData.sellingPrice,
+                        unitPrice: pData.purchaseAmount.isNotEmpty
+                            ? pData.purchaseAmount
+                            : pData.sellingPrice,
                         gstPercentage: pData.taxPercent,
                       );
 

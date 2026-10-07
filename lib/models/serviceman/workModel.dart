@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:developer';
+
 class WorkModelPage {
   final bool? status;
   final String? message;
@@ -186,6 +189,19 @@ class WorkOrder {
           .toList(), // ✅ added here
     };
   }
+
+  /// Helper to get the latest non-empty pipeline progress from history
+  List<PipelineProgress>? get effectivePipelineProgress {
+    if (history != null && history!.isNotEmpty) {
+      for (int i = history!.length - 1; i >= 0; i--) {
+        final p = history![i].pipelineProgress;
+        if (p != null && p.isNotEmpty) {
+          return p;
+        }
+      }
+    }
+    return null;
+  }
 }
 
 class AddProduct {
@@ -318,7 +334,49 @@ class History {
     this.pipelineProgress,
   });
 
+  static List<PipelineProgress>? parsePipelineProgress(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is String) {
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty || trimmed == "null") return null;
+      try {
+        final decoded = jsonDecode(trimmed);
+        return parsePipelineProgress(decoded);
+      } catch (e) {
+        log("Error decoding pipeline progress JSON string: $e");
+        return null;
+      }
+    }
+    if (raw is List) {
+      return raw
+          .map((e) {
+            if (e is Map<String, dynamic>) {
+              return PipelineProgress.fromJson(e);
+            } else if (e is Map) {
+              return PipelineProgress.fromJson(Map<String, dynamic>.from(e));
+            } else if (e is String && e.isNotEmpty) {
+              return PipelineProgress(name: e, status: 0);
+            }
+            return null;
+          })
+          .whereType<PipelineProgress>()
+          .toList();
+    }
+    if (raw is Map<String, dynamic>) {
+      return [PipelineProgress.fromJson(raw)];
+    }
+    return null;
+  }
+
   factory History.fromJson(Map<String, dynamic> json) {
+    final rawPipeline = json['pipeline_progress'] ??
+        json['val_pipeline_progress'] ??
+        json['pipelineProgress'] ??
+        json['milestone'] ??
+        json['val_milestone'] ??
+        json['stoppipeline_name'] ??
+        json['val_stoppipeline_name'];
+
     return History(
       histID: json['HistID'] ?? "",
       actionType: json['ActionType'] ?? "",
@@ -351,9 +409,7 @@ class History {
       valStatus: json['val_Status'] ?? "",
       valCreatedBy: json['val_CreatedBy'] ?? "",
       valCreatedAt: json['val_CreatedAt'] ?? "",
-      pipelineProgress: (json['pipeline_progress'] as List<dynamic>?)
-          ?.map((e) => PipelineProgress.fromJson(e))
-          .toList(),
+      pipelineProgress: parsePipelineProgress(rawPipeline),
     );
   }
 
@@ -402,8 +458,8 @@ class PipelineProgress {
 
   factory PipelineProgress.fromJson(Map<String, dynamic> json) {
     return PipelineProgress(
-      name: json['name'] ?? "",
-      status: json['status'] ?? 0,
+      name: (json['name'] ?? json['pipeline_name'] ?? json['milestone_name'] ?? json['title'] ?? '').toString(),
+      status: int.tryParse((json['status'] ?? json['val_status'] ?? 0).toString()) ?? 0,
     );
   }
 

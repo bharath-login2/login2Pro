@@ -60,6 +60,7 @@ import 'package:login2/screens/authentication/googleDriveFilesModel.dart';
 import 'package:login2/models/lead_management/deleteGoogleDriveFileModel.dart';
 import 'package:login2/models/lead_management/renameGdriveApiModel.dart';
 import 'package:dropdown_search/dropdown_search.dart';
+
 class LeadDetailsPopup extends StatefulWidget {
   final String token;
   final bool editLead;
@@ -195,8 +196,10 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
   String drivePath = '';
 
   // Followup form variables
-  String callResultId = '2';
-  String callResult = 'Followup';
+  // String callResultId = '2';
+  // String callResult = 'Followup';
+  String callResultId = '';
+  String callResult = '';
   String callResponseId = '';
   String callResponse = 'Call Response';
   String leadTypeId = '';
@@ -503,7 +506,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
     whatsappOfficial = await Common.getSharedPref("officialWhatsapp");
     name = await Common.getSharedPref("name");
     userId = await Common.getSharedPref("userId");
-     viewLeadCategoryOnly =
+    viewLeadCategoryOnly =
         await Common.getSharedPref("viewLeadCategoryOnly") ?? '';
     viewAllCategory = await Common.getSharedPref("viewAllCategory") ?? '';
     phoneCallLogPermission =
@@ -587,7 +590,8 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
 
       contactPermission = await Common.getSharedPref("getContactPermission");
       transferPermission = await Common.getSharedPref("transferLeads");
-      cloudCallPermission = await Common.getSharedPref("cloudCallPermission") ?? "";
+      cloudCallPermission =
+          await Common.getSharedPref("cloudCallPermission") ?? "";
       whatsappOfficial = await Common.getSharedPref("officialWhatsapp") ?? "";
 
       if (uploadPermission != "true" && Platform.isIOS) {
@@ -1710,7 +1714,8 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                       ),
                     ),
                   ),
-                  if (data.leadCategories != null &&
+                  if (viewAllCategory == "true" &&
+                      data.leadCategories != null &&
                       data.leadCategories!.length > 1) ...[
                     const SizedBox(height: 8),
                     PopupMenuButton<int>(
@@ -1992,7 +1997,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                           ];
                         },
                         onSelected: (value) {
-                            if (viewLeadCategoryOnly == "true") return;
+                          if (viewLeadCategoryOnly == "true") return;
                           _refreshData(value.toString());
                         }),
                   ]
@@ -2339,7 +2344,8 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                             email: leadDetails!.data!.emailId,
                             cost: leadDetails!.data!.cost,
                             leadCategoryId: leadDetails!.data!.leadCategoryId,
-                            leadSubCategoryId: leadDetails!.data!.leadSubCategoryId,
+                            leadSubCategoryId:
+                                leadDetails!.data!.leadSubCategoryId,
                             priorityId: leadDetails!.data!.priorityId,
                             leadSourceId: leadDetails!.data!.leadSourceId,
                             remarks: leadDetails!.data!.remarks,
@@ -2704,7 +2710,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
           remarks.text,
           callMasterId ?? (callMasterId ?? widget.callMasterId),
           calledDate1.text,
-          '', 
+          '',
           priorityId,
           checked,
           timeBefore.text,
@@ -2749,7 +2755,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
         //     isChecked = false;
         //     checked = false;
         //   });
-        // } 
+        // }
         if (result.status == true) {
           Common.toastMessaage(result.message, Colors.green);
 
@@ -2766,12 +2772,15 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
             callResponseId = '';
             callResultReasonId = '';
 
+            // Reset Lead Stage selection for the next follow-up
+            callResultId = '';
+            callResult = '';
+
             isExpand = false;
             isChecked = false;
             checked = false;
           });
-        }
-        else {
+        } else {
           Common.toastMessaage(result.message, Colors.red);
         }
       }
@@ -3119,6 +3128,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                     label: 'Lead Stages',
                     isMandatory: true,
                     value: callResultId.isEmpty ? null : callResultId,
+                    // value: null,
                     items: commonDetails!.data.callResult.map((item) {
                       return DropdownMenuItem(
                         value: item.callResultId.toString(),
@@ -3668,350 +3678,346 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                        const Text(
-                          'Priority',
-                          style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w500),
+                      const Text(
+                        'Priority',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 50,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: commonDetails!.data.priority.length,
+                          itemBuilder: (context, i) {
+                            final p = commonDetails!.data.priority[i];
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 20),
+                              child: Column(
+                                children: [
+                                  SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: Radio<String>(
+                                      activeColor: p.priorityId.toString() ==
+                                              '1'
+                                          ? Colors.grey
+                                          : p.priorityId.toString() == '2'
+                                              ? Colors.green
+                                              : p.priorityId.toString() == '3'
+                                                  ? Colors.red
+                                                  : Colors.purple,
+                                      value: p.priorityId.toString(),
+                                      groupValue: priorityId,
+                                      onChanged: (String? value) {
+                                        setState(() {
+                                          priorityId = value!;
+                                          priority = p.priority;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  Text(p.priority,
+                                      style: const TextStyle(fontSize: 12)),
+                                ],
+                              ),
+                            );
+                          },
                         ),
-                        const SizedBox(height: 8),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Category
+                      // _buildDropdown(
+                      //   label: 'Category',
+                      //   value: leadTypeId.isEmpty ? null : leadTypeId,
+                      //   items: commonDetails!.data.leadCategory.map((item) {
+                      //     return DropdownMenuItem(
+                      //       value: item.leadCategoryId.toString(),
+                      //       child: Text(item.leadCategory),
+                      //     );
+                      //   }).toList(),
+                      //   onChanged: (value) {
+                      //     setState(() {
+                      //       leadTypeId = value!;
+                      //       leadType = commonDetails!.data.leadCategory
+                      //           .firstWhere((element) =>
+                      //               element.leadCategoryId.toString() ==
+                      //               value)
+                      //           .leadCategory;
+                      //       _fetchLeadSubType();
+                      //     });
+                      //   },
+                      // ),
+                      // const SizedBox(height: 12),
+
+                      // // Sub Category
+                      // _buildDropdown(
+                      //   label: 'Sub Category',
+                      //   value: leadSubTypeId.isEmpty ? null : leadSubTypeId,
+                      //   items: (leadSubTypeList?.data ?? []).map((item) {
+                      //     return DropdownMenuItem(
+                      //       value: item.leadSubCategoryId.toString(),
+                      //       child: Text(item.leadSubCategory ?? ''),
+                      //     );
+                      //   }).toList(),
+                      //   onChanged: (value) {
+                      //     setState(() {
+                      //       leadSubTypeId = value!;
+                      //       leadSubType = leadSubTypeList!.data!
+                      //           .firstWhere((element) =>
+                      //               element.leadSubCategoryId.toString() ==
+                      //               value)
+                      //           .leadSubCategory!;
+                      //     });
+                      //   },
+                      // ),
+                      const SizedBox(height: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'WhatsApp Number',
+                            style: TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 4),
+                          TextField(
+                            controller: whatsappLead,
+                            keyboardType: TextInputType.phone,
+                            decoration: InputDecoration(
+                              hintText: 'WhatsApp Number',
+                              border: const OutlineInputBorder(),
+                              contentPadding: const EdgeInsets.all(12),
+                              prefixIcon: const Icon(FontAwesomeIcons.whatsapp,
+                                  size: 18, color: Colors.green),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Email ID',
+                            style: TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 4),
+                          TextField(
+                            controller: emailLead,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              hintText: 'Email ID',
+                              border: const OutlineInputBorder(),
+                              contentPadding: const EdgeInsets.all(12),
+                              prefixIcon: const Icon(Icons.email,
+                                  size: 18, color: Colors.blue),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // const SizedBox(height: 12),
+
+                      // const Text(
+                      //   'Products',
+                      //   style: TextStyle(
+                      //       fontSize: 13, fontWeight: FontWeight.w500),
+                      // ),
+                      // const SizedBox(height: 8),
+                      // TextField(
+                      //   controller: _productSearchCtrl,
+                      //   onChanged: _onFollowupProductSearch,
+                      //   decoration: InputDecoration(
+                      //     hintText: 'Search Product...',
+                      //     prefixIcon: const Icon(Icons.search, size: 20),
+                      //     isDense: true,
+                      //     filled: true,
+                      //     fillColor: Colors.grey.shade50,
+                      //     border: OutlineInputBorder(
+                      //       borderRadius: BorderRadius.circular(8),
+                      //       borderSide:
+                      //           BorderSide(color: Colors.grey.shade300),
+                      //     ),
+                      //   ),
+                      // ),
+                      // if (_productSearchResults.isNotEmpty)
+                      //   Container(
+                      //     constraints: const BoxConstraints(maxHeight: 200),
+                      //     margin: const EdgeInsets.only(top: 4),
+                      //     decoration: BoxDecoration(
+                      //       color: Colors.white,
+                      //       borderRadius: BorderRadius.circular(8),
+                      //       boxShadow: [
+                      //         BoxShadow(
+                      //           color: Colors.black.withOpacity(0.1),
+                      //           blurRadius: 4,
+                      //           offset: const Offset(0, 2),
+                      //         )
+                      //       ],
+                      //     ),
+                      //     child: ListView.builder(
+                      //       shrinkWrap: true,
+                      //       itemCount: _productSearchResults.length,
+                      //       itemBuilder: (ctx, i) {
+                      //         final p = _productSearchResults[i];
+                      //         return ListTile(
+                      //           title: Text(p.productName ?? ''),
+                      //           subtitle: Text("₹ ${p.totalAmount}"),
+                      //           onTap: () => _addFollowupProduct(p),
+                      //         );
+                      //       },
+                      //     ),
+                      //   ),
+                      // const SizedBox(height: 8),
+                      // Wrap(
+                      //   spacing: 8,
+                      //   children: _selectedProducts
+                      //       .map((p) => Chip(
+                      //             label: Text(p.productName ?? ''),
+                      //             onDeleted: () => _removeFollowupProduct(p),
+                      //             backgroundColor: Colors.blue.shade50,
+                      //             deleteIconColor: Colors.red,
+                      //           ))
+                      //       .toList(),
+                      // ),
+                      // const SizedBox(height: 12),
+
+                      // Row(
+                      //   children: [
+                      //     Expanded(
+                      //       child: TextField(
+                      //         controller: cost,
+                      //         keyboardType: TextInputType.number,
+                      //         decoration: const InputDecoration(
+                      //           labelText: 'Cost',
+                      //           border: OutlineInputBorder(),
+                      //           contentPadding: EdgeInsets.all(12),
+                      //           prefixIcon:
+                      //               Icon(Icons.currency_rupee, size: 18),
+                      //         ),
+                      //       ),
+                      //     ),
+                      //     // const SizedBox(width: 12),
+                      //     // Expanded(
+                      //     //   child: TextField(
+                      //     //     controller: address,
+                      //     //     decoration: const InputDecoration(
+                      //     //       labelText: 'Address',
+                      //     //       border: OutlineInputBorder(),
+                      //     //       contentPadding: EdgeInsets.all(12),
+                      //     //       prefixIcon: Icon(Icons.home, size: 18),
+                      //     //     ),
+                      //     //   ),
+                      //     // ),
+                      //   ],
+                      // ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          // Expanded(
+                          //   child: TextField(
+                          //     controller: cost,
+                          //     keyboardType: TextInputType.number,
+                          //     decoration: const InputDecoration(
+                          //       labelText: 'Cost',
+                          //       border: OutlineInputBorder(),
+                          //       contentPadding: EdgeInsets.all(12),
+                          //       prefixIcon:
+                          //           Icon(Icons.currency_rupee, size: 18),
+                          //     ),
+                          //   ),
+                          // ),
+                          // const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              controller: address,
+                              decoration: const InputDecoration(
+                                labelText: 'Address',
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.all(12),
+                                prefixIcon: Icon(Icons.home, size: 18),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (commonDetails != null &&
+                          commonDetails!.data.callResponse.isNotEmpty)
                         SizedBox(
-                          height: 50,
+                          height: 35,
                           child: ListView.builder(
                             scrollDirection: Axis.horizontal,
-                            itemCount: commonDetails!.data.priority.length,
+                            itemCount: commonDetails!.data.callResponse.length,
                             itemBuilder: (context, i) {
-                              final p = commonDetails!.data.priority[i];
                               return Padding(
-                                padding: const EdgeInsets.only(right: 20),
-                                child: Column(
-                                  children: [
-                                    SizedBox(
-                                      height: 24,
-                                      width: 24,
-                                      child: Radio<String>(
-                                        activeColor: p.priorityId.toString() ==
-                                                '1'
-                                            ? Colors.grey
-                                            : p.priorityId.toString() == '2'
-                                                ? Colors.green
-                                                : p.priorityId.toString() == '3'
-                                                    ? Colors.red
-                                                    : Colors.purple,
-                                        value: p.priorityId.toString(),
-                                        groupValue: priorityId,
-                                        onChanged: (String? value) {
-                                          setState(() {
-                                            priorityId = value!;
-                                            priority = p.priority;
-                                          });
-                                        },
+                                padding: const EdgeInsets.only(right: 8),
+                                child: InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      remarks.text = commonDetails!
+                                          .data.callResponse[i]
+                                          .toString();
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.grey),
+                                      borderRadius: BorderRadius.circular(16),
+                                      color: Colors.white,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        commonDetails!.data.callResponse[i]
+                                            .toString(),
+                                        style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.black54),
                                       ),
                                     ),
-                                    Text(p.priority,
-                                        style: const TextStyle(fontSize: 12)),
-                                  ],
+                                  ),
                                 ),
                               );
                             },
                           ),
                         ),
-                        const SizedBox(height: 12),
+                      const SizedBox(height: 8),
 
-                        // Category
-                        // _buildDropdown(
-                        //   label: 'Category',
-                        //   value: leadTypeId.isEmpty ? null : leadTypeId,
-                        //   items: commonDetails!.data.leadCategory.map((item) {
-                        //     return DropdownMenuItem(
-                        //       value: item.leadCategoryId.toString(),
-                        //       child: Text(item.leadCategory),
-                        //     );
-                        //   }).toList(),
-                        //   onChanged: (value) {
-                        //     setState(() {
-                        //       leadTypeId = value!;
-                        //       leadType = commonDetails!.data.leadCategory
-                        //           .firstWhere((element) =>
-                        //               element.leadCategoryId.toString() ==
-                        //               value)
-                        //           .leadCategory;
-                        //       _fetchLeadSubType();
-                        //     });
-                        //   },
-                        // ),
-                        // const SizedBox(height: 12),
-
-                        // // Sub Category
-                        // _buildDropdown(
-                        //   label: 'Sub Category',
-                        //   value: leadSubTypeId.isEmpty ? null : leadSubTypeId,
-                        //   items: (leadSubTypeList?.data ?? []).map((item) {
-                        //     return DropdownMenuItem(
-                        //       value: item.leadSubCategoryId.toString(),
-                        //       child: Text(item.leadSubCategory ?? ''),
-                        //     );
-                        //   }).toList(),
-                        //   onChanged: (value) {
-                        //     setState(() {
-                        //       leadSubTypeId = value!;
-                        //       leadSubType = leadSubTypeList!.data!
-                        //           .firstWhere((element) =>
-                        //               element.leadSubCategoryId.toString() ==
-                        //               value)
-                        //           .leadSubCategory!;
-                        //     });
-                        //   },
-                        // ),
-                        const SizedBox(height: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'WhatsApp Number',
-                              style: TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w500),
-                            ),
-                            const SizedBox(height: 4),
-                            TextField(
-                              controller: whatsappLead,
-                              keyboardType: TextInputType.phone,
-                              decoration: InputDecoration(
-                                hintText: 'WhatsApp Number',
-                                border: const OutlineInputBorder(),
-                                contentPadding: const EdgeInsets.all(12),
-                                prefixIcon: const Icon(
-                                    FontAwesomeIcons.whatsapp,
-                                    size: 18,
-                                    color: Colors.green),
-                              ),
-                            ),
-                          ],
+                      // Remarks
+                      TextField(
+                        controller: remarks,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: 'Remarks',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.all(12),
                         ),
-                        const SizedBox(height: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Email ID',
-                              style: TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w500),
-                            ),
-                            const SizedBox(height: 4),
-                            TextField(
-                              controller: emailLead,
-                              keyboardType: TextInputType.emailAddress,
-                              decoration: InputDecoration(
-                                hintText: 'Email ID',
-                                border: const OutlineInputBorder(),
-                                contentPadding: const EdgeInsets.all(12),
-                                prefixIcon: const Icon(Icons.email,
-                                    size: 18, color: Colors.blue),
-                              ),
-                            ),
-                          ],
-                        ),
-                        // const SizedBox(height: 12),
+                      ),
+                      const SizedBox(height: 12),
 
-                        // const Text(
-                        //   'Products',
-                        //   style: TextStyle(
-                        //       fontSize: 13, fontWeight: FontWeight.w500),
-                        // ),
-                        // const SizedBox(height: 8),
-                        // TextField(
-                        //   controller: _productSearchCtrl,
-                        //   onChanged: _onFollowupProductSearch,
-                        //   decoration: InputDecoration(
-                        //     hintText: 'Search Product...',
-                        //     prefixIcon: const Icon(Icons.search, size: 20),
-                        //     isDense: true,
-                        //     filled: true,
-                        //     fillColor: Colors.grey.shade50,
-                        //     border: OutlineInputBorder(
-                        //       borderRadius: BorderRadius.circular(8),
-                        //       borderSide:
-                        //           BorderSide(color: Colors.grey.shade300),
-                        //     ),
-                        //   ),
-                        // ),
-                        // if (_productSearchResults.isNotEmpty)
-                        //   Container(
-                        //     constraints: const BoxConstraints(maxHeight: 200),
-                        //     margin: const EdgeInsets.only(top: 4),
-                        //     decoration: BoxDecoration(
-                        //       color: Colors.white,
-                        //       borderRadius: BorderRadius.circular(8),
-                        //       boxShadow: [
-                        //         BoxShadow(
-                        //           color: Colors.black.withOpacity(0.1),
-                        //           blurRadius: 4,
-                        //           offset: const Offset(0, 2),
-                        //         )
-                        //       ],
-                        //     ),
-                        //     child: ListView.builder(
-                        //       shrinkWrap: true,
-                        //       itemCount: _productSearchResults.length,
-                        //       itemBuilder: (ctx, i) {
-                        //         final p = _productSearchResults[i];
-                        //         return ListTile(
-                        //           title: Text(p.productName ?? ''),
-                        //           subtitle: Text("₹ ${p.totalAmount}"),
-                        //           onTap: () => _addFollowupProduct(p),
-                        //         );
-                        //       },
-                        //     ),
-                        //   ),
-                        // const SizedBox(height: 8),
-                        // Wrap(
-                        //   spacing: 8,
-                        //   children: _selectedProducts
-                        //       .map((p) => Chip(
-                        //             label: Text(p.productName ?? ''),
-                        //             onDeleted: () => _removeFollowupProduct(p),
-                        //             backgroundColor: Colors.blue.shade50,
-                        //             deleteIconColor: Colors.red,
-                        //           ))
-                        //       .toList(),
-                        // ),
-                        // const SizedBox(height: 12),
-
-                        // Row(
-                        //   children: [
-                        //     Expanded(
-                        //       child: TextField(
-                        //         controller: cost,
-                        //         keyboardType: TextInputType.number,
-                        //         decoration: const InputDecoration(
-                        //           labelText: 'Cost',
-                        //           border: OutlineInputBorder(),
-                        //           contentPadding: EdgeInsets.all(12),
-                        //           prefixIcon:
-                        //               Icon(Icons.currency_rupee, size: 18),
-                        //         ),
-                        //       ),
-                        //     ),
-                        //     // const SizedBox(width: 12),
-                        //     // Expanded(
-                        //     //   child: TextField(
-                        //     //     controller: address,
-                        //     //     decoration: const InputDecoration(
-                        //     //       labelText: 'Address',
-                        //     //       border: OutlineInputBorder(),
-                        //     //       contentPadding: EdgeInsets.all(12),
-                        //     //       prefixIcon: Icon(Icons.home, size: 18),
-                        //     //     ),
-                        //     //   ),
-                        //     // ),
-                        //   ],
-                        // ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            // Expanded(
-                            //   child: TextField(
-                            //     controller: cost,
-                            //     keyboardType: TextInputType.number,
-                            //     decoration: const InputDecoration(
-                            //       labelText: 'Cost',
-                            //       border: OutlineInputBorder(),
-                            //       contentPadding: EdgeInsets.all(12),
-                            //       prefixIcon:
-                            //           Icon(Icons.currency_rupee, size: 18),
-                            //     ),
-                            //   ),
-                            // ),
-                            // const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: address,
-                                decoration: const InputDecoration(
-                                  labelText: 'Address',
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.all(12),
-                                  prefixIcon: Icon(Icons.home, size: 18),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        if (commonDetails != null &&
-                            commonDetails!.data.callResponse.isNotEmpty)
-                          SizedBox(
-                            height: 35,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount:
-                                  commonDetails!.data.callResponse.length,
-                              itemBuilder: (context, i) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: InkWell(
-                                    onTap: () {
-                                      setState(() {
-                                        remarks.text = commonDetails!
-                                            .data.callResponse[i]
-                                            .toString();
-                                      });
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(color: Colors.grey),
-                                        borderRadius: BorderRadius.circular(16),
-                                        color: Colors.white,
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          commonDetails!.data.callResponse[i]
-                                              .toString(),
-                                          style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.black54),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
+                      if (commonDetails?.data.additionalFields != null &&
+                          commonDetails!.data.additionalFields.isNotEmpty) ...[
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8.0, top: 4.0),
+                          child: Text(
+                            "Additional Fields",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: Colors.black87,
                             ),
                           ),
-                        const SizedBox(height: 8),
-
-                        // Remarks
-                        TextField(
-                          controller: remarks,
-                          maxLines: 2,
-                          decoration: const InputDecoration(
-                            labelText: 'Remarks',
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.all(12),
-                          ),
                         ),
-                        const SizedBox(height: 12),
-
-                        if (commonDetails?.data.additionalFields != null &&
-                            commonDetails!
-                                .data.additionalFields.isNotEmpty) ...[
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 8.0, top: 4.0),
-                            child: Text(
-                              "Additional Fields",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ),
-                          ..._buildAdditionalFieldsUI(),
-                        ],
-
-                        const SizedBox(height: 12),
+                        ..._buildAdditionalFieldsUI(),
                       ],
-                    ),
+
+                      const SizedBox(height: 12),
+                    ],
+                  ),
                   const SizedBox(height: 12),
 
                   // Create Order and Create Customer Checkboxes
@@ -10112,12 +10118,14 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                     leadDetails!.data!.contactNumber1,
                   );
                   if (context.mounted) {
-                  //  Navigator.pop(context);
+                    //  Navigator.pop(context);
                     if (result != null && result.data == true) {
                       Common.toastMessaage(result.message, Colors.green);
                       Navigator.pop(context);
                     } else {
-                      Common.toastMessaage(result?.message ?? "Failed to initiate call", Colors.red);
+                      Common.toastMessaage(
+                          result?.message ?? "Failed to initiate call",
+                          Colors.red);
                     }
                   }
                 },
@@ -10270,59 +10278,56 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
 
                       // Dropdown Replacement / Themed Selection
                       Container(
-  decoration: BoxDecoration(
-    color: Colors.grey.shade50,
-    borderRadius: BorderRadius.circular(12),
-    border: Border.all(color: Colors.grey.shade200),
-  ),
-  child: DropdownSearch<String>(
-    selectedItem: selectedStaff,
-    items: (filter, infiniteScrollProps) {
-      return commonDetails?.data.transferStaffs
-              .map((staff) => staff.tranStaffId)
-              .toList() ??
-          [];
-    },
-
-    itemAsString: (id) {
-      try {
-        final staff = commonDetails!.data.transferStaffs.firstWhere(
-          (e) => e.tranStaffId == id,
-        );
-        return staff.tranStaffName ?? '';
-      } catch (e) {
-        return '';
-      }
-    },
-
-    decoratorProps: const DropDownDecoratorProps(
-      decoration: InputDecoration(
-        hintText: "Choose staff member",
-        border: InputBorder.none,
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 12,
-        ),
-      ),
-    ),
-
-    popupProps: const PopupProps.menu(
-      showSearchBox: true,
-      searchFieldProps: TextFieldProps(
-        decoration: InputDecoration(
-          hintText: "Search staff...",
-          prefixIcon: Icon(Icons.search),
-        ),
-      ),
-    ),
-
-    onChanged: (value) {
-      setDialogState(() {
-        selectedStaff = value;
-      });
-    },
-  ),
-),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: DropdownSearch<String>(
+                          selectedItem: selectedStaff,
+                          items: (filter, infiniteScrollProps) {
+                            return commonDetails?.data.transferStaffs
+                                    .map((staff) => staff.tranStaffId)
+                                    .toList() ??
+                                [];
+                          },
+                          itemAsString: (id) {
+                            try {
+                              final staff =
+                                  commonDetails!.data.transferStaffs.firstWhere(
+                                (e) => e.tranStaffId == id,
+                              );
+                              return staff.tranStaffName ?? '';
+                            } catch (e) {
+                              return '';
+                            }
+                          },
+                          decoratorProps: const DropDownDecoratorProps(
+                            decoration: InputDecoration(
+                              hintText: "Choose staff member",
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                            ),
+                          ),
+                          popupProps: const PopupProps.menu(
+                            showSearchBox: true,
+                            searchFieldProps: TextFieldProps(
+                              decoration: InputDecoration(
+                                hintText: "Search staff...",
+                                prefixIcon: Icon(Icons.search),
+                              ),
+                            ),
+                          ),
+                          onChanged: (value) {
+                            setDialogState(() {
+                              selectedStaff = value;
+                            });
+                          },
+                        ),
+                      ),
                       const SizedBox(height: 20),
 
                       // Remark Label
@@ -12251,7 +12256,6 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
           'Failed to save contact: ${e.toString()}', Colors.red);
     }
   }
-
 
   void _showPermissionDeniedDialog(BuildContext context) {
     showDialog(

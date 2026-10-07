@@ -11,7 +11,7 @@ class Config {
     String? api = '/version3_0_10/Api/';
     if (url != null) {
       baseUrl = url.toString() + api;
-    } else {  
+    } else {
       baseUrl = '';
     }
     return baseUrl;

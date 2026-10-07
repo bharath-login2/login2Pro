@@ -36,6 +36,9 @@ class _WorkListPageState extends State<WorkListPage>
   String? addWork;
   String? startAndStop;
   List<MaterialData> materials = [];
+  //milestone
+  int selectedMilestoneIndex = 0;
+  final Set<String> selectedMilestones = {};
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   bool isWorkStarted = false;
@@ -228,8 +231,12 @@ class _WorkListPageState extends State<WorkListPage>
 
     String? selectedProduct;
     String? selectedStatus = "New";
-    String? selectedMilestone;
+
+    // Complete pipeline progress that will be sent to backend
+    List<Map<String, dynamic>> selectedPipelineProgress = [];
+
     String? selectedCustomerId;
+
     final List<String> statusOptions = [
       "New",
       "In Progress",
@@ -244,16 +251,20 @@ class _WorkListPageState extends State<WorkListPage>
     // Initialize selectedMaterials with existing add_products if available
     List<Map<String, dynamic>> selectedMaterials =
         work.addProducts?.map<Map<String, dynamic>>((product) {
-              final String qty = (product.consumedQty != null && product.consumedQty!.isNotEmpty)
+              final String qty = (product.consumedQty != null &&
+                      product.consumedQty!.isNotEmpty)
                   ? product.consumedQty!
                   : ((product.quantity != null && product.quantity!.isNotEmpty)
                       ? product.quantity!
                       : "1");
-              final String rateVal = (product.unitPrice != null && product.unitPrice!.isNotEmpty)
-                  ? product.unitPrice!
-                  : ((product.rate != null && product.rate!.isNotEmpty)
-                      ? product.rate!
-                      : "0");
+
+              final String rateVal =
+                  (product.unitPrice != null && product.unitPrice!.isNotEmpty)
+                      ? product.unitPrice!
+                      : ((product.rate != null && product.rate!.isNotEmpty)
+                          ? product.rate!
+                          : "0");
+
               return <String, dynamic>{
                 "material_id": product.productId ?? "",
                 "material_name": product.productName ?? "",
@@ -273,34 +284,37 @@ class _WorkListPageState extends State<WorkListPage>
     bool isLoadingWorkTypes = true;
     bool isLoadingMaterials = true;
 
-    final latestHistory =
-        work.history?.isNotEmpty == true ? work.history!.last : null;
-    PipelineProgress? firstPendingMilestone;
+    final List<PipelineProgress> initialMilestones =
+        (work.history?.isNotEmpty == true &&
+                work.history!.last.pipelineProgress?.isNotEmpty == true)
+            ? work.history!.last.pipelineProgress!
+            : (work.effectivePipelineProgress ?? []);
 
-    if (latestHistory?.pipelineProgress != null &&
-        latestHistory!.pipelineProgress!.isNotEmpty) {
-      try {
-        firstPendingMilestone = latestHistory.pipelineProgress!.firstWhere(
-          (p) => p.status == 0,
-          orElse: () => PipelineProgress(),
-        );
-      } catch (e) {
-        firstPendingMilestone = null;
-      }
+    // ---------------------------------------------------------
+    // INITIALIZE PIPELINE PROGRESS FROM API
+    // ---------------------------------------------------------
+    if (initialMilestones.isNotEmpty) {
+      selectedPipelineProgress = initialMilestones.map((milestone) {
+        return <String, dynamic>{
+          "name": milestone.name ?? "",
+          "status": milestone.status ?? 0,
+        };
+      }).toList();
     }
 
-    if (firstPendingMilestone != null &&
-        (firstPendingMilestone.name?.isNotEmpty ?? false)) {
-      selectedMilestone = firstPendingMilestone.name!;
-    }
-    selectedCustomerId = work.custId ?? work.custId;
+    selectedCustomerId = work.custId;
 
     final TextEditingController remarkController = TextEditingController();
 
+    // ---------------------------------------------------------
+    // LOAD WORK TYPES
+    // ---------------------------------------------------------
     Future<void> _loadWorkTypes() async {
       try {
         final httpService = HttpService();
+
         final workTypeModel = await httpService.getWorkType();
+
         if (workTypeModel != null && workTypeModel.data.isNotEmpty) {
           workTypes = workTypeModel.data;
         }
@@ -311,10 +325,13 @@ class _WorkListPageState extends State<WorkListPage>
       }
     }
 
+    // ---------------------------------------------------------
+    // LOAD MATERIALS
+    // ---------------------------------------------------------
     Future<void> _loadMaterials() async {
       try {
-        final httpService = HttpService();
         final materialModel = await HttpService.getMaterials();
+
         if (materialModel != null && materialModel.status == true) {
           materialsList = materialModel.data ?? [];
         }
@@ -325,25 +342,44 @@ class _WorkListPageState extends State<WorkListPage>
       }
     }
 
-    await Future.wait([_loadWorkTypes(), _loadMaterials()]);
+    await Future.wait([
+      _loadWorkTypes(),
+      _loadMaterials(),
+    ]);
+
     if (workTypes.isNotEmpty) {
       selectedProduct = workTypes.first.id;
     }
 
+    // ---------------------------------------------------------
+    // SHOW CONFIRM DIALOG
+    // ---------------------------------------------------------
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            void updateQuantity(int index, bool increase) {
-              if (selectedMaterials[index]["is_existing"] == true) return;
-              final stock =
-                  int.tryParse(selectedMaterials[index]["stock"].toString()) ??
-                      0;
+            // ---------------------------------------------------------
+            // UPDATE MATERIAL QUANTITY
+            // ---------------------------------------------------------
+            void updateQuantity(
+              int index,
+              bool increase,
+            ) {
+              if (selectedMaterials[index]["is_existing"] == true) {
+                return;
+              }
+
+              final stock = int.tryParse(
+                    selectedMaterials[index]["stock"].toString(),
+                  ) ??
+                  0;
+
               int quantity = int.tryParse(
                     selectedMaterials[index]["quantity"].toString(),
                   ) ??
                   0;
+
               final double unitPrice = double.tryParse(
                     selectedMaterials[index]["unit_price"].toString(),
                   ) ??
@@ -354,11 +390,14 @@ class _WorkListPageState extends State<WorkListPage>
                     !selectedMaterials[index]["is_existing"]) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text("Cannot exceed available stock ($stock)."),
+                      content: Text(
+                        "Cannot exceed available stock ($stock).",
+                      ),
                     ),
                   );
                   return;
                 }
+
                 quantity++;
               } else {
                 if (quantity > 1) {
@@ -367,42 +406,61 @@ class _WorkListPageState extends State<WorkListPage>
                   return;
                 }
               }
+
               selectedMaterials[index]["quantity"] = quantity.toString();
+
               selectedMaterials[index]["total_price"] =
                   (unitPrice * quantity).toStringAsFixed(2);
+
               selectedMaterials[index]["amount"] =
                   (unitPrice * quantity).toStringAsFixed(2);
+
               setState(() {});
             }
 
+            // ---------------------------------------------------------
+            // ADD MATERIAL
+            // ---------------------------------------------------------
             void addMaterial(MaterialData material) {
               final existingIndex = selectedMaterials.indexWhere(
                 (m) => m["material_id"] == material.materialId,
               );
+
               if (existingIndex != -1) {
                 updateQuantity(existingIndex, true);
               } else {
                 final double unitPrice =
                     double.tryParse(material.unitPrice ?? "0") ?? 0.0;
-                selectedMaterials.add(<String, dynamic>{
-                  "material_id": material.materialId,
-                  "material_name": material.materialName,
-                  "product_name": material.materialName,
-                  "unit_price": material.unitPrice ?? "0",
-                  "rate": material.unitPrice ?? "0",
-                  "quantity": "1",
-                  "total_price": unitPrice.toStringAsFixed(2),
-                  "amount": unitPrice.toStringAsFixed(2),
-                  "stock": material.currentStock ?? "0",
-                  "is_existing": false,
-                });
+
+                selectedMaterials.add(
+                  <String, dynamic>{
+                    "material_id": material.materialId,
+                    "material_name": material.materialName,
+                    "product_name": material.materialName,
+                    "unit_price": material.unitPrice ?? "0",
+                    "rate": material.unitPrice ?? "0",
+                    "quantity": "1",
+                    "total_price": unitPrice.toStringAsFixed(2),
+                    "amount": unitPrice.toStringAsFixed(2),
+                    "stock": material.currentStock ?? "0",
+                    "is_existing": false,
+                  },
+                );
+
                 setState(() {});
               }
             }
 
+            // ---------------------------------------------------------
+            // REMOVE MATERIAL
+            // ---------------------------------------------------------
             void removeMaterial(int index) {
-              if (selectedMaterials[index]["is_existing"] == true) return;
+              if (selectedMaterials[index]["is_existing"] == true) {
+                return;
+              }
+
               selectedMaterials.removeAt(index);
+
               setState(() {});
             }
 
@@ -419,11 +477,19 @@ class _WorkListPageState extends State<WorkListPage>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Are you sure you want to proceed?"),
+                    const Text(
+                      "Are you sure you want to proceed?",
+                    ),
+
                     const SizedBox(height: 16),
 
+                    // ---------------------------------------------------------
+                    // PRODUCT
+                    // ---------------------------------------------------------
                     if (isLoadingWorkTypes)
-                      const Center(child: CircularProgressIndicator())
+                      const Center(
+                        child: CircularProgressIndicator(),
+                      )
                     else if (selectedProduct != null && workTypes.isNotEmpty)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,43 +508,39 @@ class _WorkListPageState extends State<WorkListPage>
                             decoration: BoxDecoration(
                               color: Colors.grey.shade100,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade300),
+                              border: Border.all(
+                                color: Colors.grey.shade300,
+                              ),
                             ),
                             child: Text(
                               "${workTypes.first.productName} (${workTypes.first.productType})",
-                              style: const TextStyle(fontSize: 14),
+                              style: const TextStyle(
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    const SizedBox(height: 12),
-                    if (selectedMilestone != null)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Milestone",
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 6),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: Text(
-                              selectedMilestone!,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          ),
-                        ],
-                      ),
-                    const SizedBox(height: 16),
 
-                    // Show existing materials info if available
+                    const SizedBox(height: 12),
+
+                    // ---------------------------------------------------------
+                    // MILESTONE / CHECKPOINT
+                    // ---------------------------------------------------------
+                    _milestoneTimeline(
+                      work,
+                      onMilestoneChanged: (updatedPipelineProgress) {
+                        setState(() {
+                          selectedPipelineProgress = updatedPipelineProgress;
+                        });
+                      },
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // ---------------------------------------------------------
+                    // EXISTING MATERIALS
+                    // ---------------------------------------------------------
                     if (work.addProducts?.isNotEmpty == true)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -503,18 +565,30 @@ class _WorkListPageState extends State<WorkListPage>
                         ],
                       ),
 
+                    // ---------------------------------------------------------
+                    // SELECT MATERIALS
+                    // ---------------------------------------------------------
                     const Text(
                       "Select Materials",
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
+
                     const SizedBox(height: 6),
+
                     DropdownButtonFormField<MaterialData>(
                       value: null,
-                      hint: const Text("Select Materials"),
+                      hint: const Text(
+                        "Select Materials",
+                      ),
                       isExpanded: true,
                       items: materialsList.map((mat) {
-                        final stock =
-                            int.tryParse(mat.currentStock ?? "0") ?? 0;
+                        final stock = int.tryParse(
+                              mat.currentStock ?? "0",
+                            ) ??
+                            0;
+
                         return DropdownMenuItem<MaterialData>(
                           enabled: stock > 0,
                           value: mat,
@@ -527,7 +601,9 @@ class _WorkListPageState extends State<WorkListPage>
                         );
                       }).toList(),
                       onChanged: (mat) {
-                        if (mat != null) addMaterial(mat);
+                        if (mat != null) {
+                          addMaterial(mat);
+                        }
                       },
                       decoration: InputDecoration(
                         border: OutlineInputBorder(
@@ -535,8 +611,12 @@ class _WorkListPageState extends State<WorkListPage>
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 10),
 
+                    // ---------------------------------------------------------
+                    // SELECTED MATERIALS
+                    // ---------------------------------------------------------
                     if (selectedMaterials.isNotEmpty)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -545,10 +625,13 @@ class _WorkListPageState extends State<WorkListPage>
                             (entry) {
                               final index = entry.key;
                               final mat = entry.value;
+
                               final isExisting = mat["is_existing"] == true;
 
                               return Container(
-                                margin: const EdgeInsets.only(bottom: 10),
+                                margin: const EdgeInsets.only(
+                                  bottom: 10,
+                                ),
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: isExisting
@@ -575,7 +658,9 @@ class _WorkListPageState extends State<WorkListPage>
                                       children: [
                                         Expanded(
                                           child: Text(
-                                            mat["material_name"] ?? mat["product_name"] ?? "",
+                                            mat["material_name"] ??
+                                                mat["product_name"] ??
+                                                "",
                                             style: TextStyle(
                                               fontSize: 15,
                                               fontWeight: FontWeight.bold,
@@ -676,10 +761,13 @@ class _WorkListPageState extends State<WorkListPage>
                                               ),
                                             ),
                                             if (!isExisting) ...[
-                                              const SizedBox(width: 12),
+                                              const SizedBox(
+                                                width: 12,
+                                              ),
                                               InkWell(
-                                                onTap: () =>
-                                                    removeMaterial(index),
+                                                onTap: () => removeMaterial(
+                                                  index,
+                                                ),
                                                 child: const Icon(
                                                   Icons.delete_outline,
                                                   color: Color(0xFFE57373),
@@ -696,8 +784,15 @@ class _WorkListPageState extends State<WorkListPage>
                               );
                             },
                           ).toList(),
+
+                          // ---------------------------------------------------------
+                          // TOTAL AMOUNT
+                          // ---------------------------------------------------------
                           Container(
-                            margin: const EdgeInsets.only(top: 2, bottom: 8),
+                            margin: const EdgeInsets.only(
+                              top: 2,
+                              bottom: 8,
+                            ),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 14,
@@ -718,7 +813,15 @@ class _WorkListPageState extends State<WorkListPage>
                                   ),
                                 ),
                                 Text(
-                                  "₹${selectedMaterials.fold<double>(0.0, (sum, mat) => sum + (double.tryParse(mat["total_price"].toString()) ?? 0.0)).toStringAsFixed(2)}",
+                                  "₹${selectedMaterials.fold<double>(
+                                        0.0,
+                                        (sum, mat) =>
+                                            sum +
+                                            (double.tryParse(
+                                                  mat["total_price"].toString(),
+                                                ) ??
+                                                0.0),
+                                      ).toStringAsFixed(2)}",
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
@@ -730,12 +833,21 @@ class _WorkListPageState extends State<WorkListPage>
                           ),
                         ],
                       ),
+
                     const SizedBox(height: 16),
+
+                    // ---------------------------------------------------------
+                    // STATUS
+                    // ---------------------------------------------------------
                     const Text(
                       "Status",
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
+
                     const SizedBox(height: 6),
+
                     DropdownButtonFormField<String>(
                       value: selectedStatus,
                       items: statusOptions.map((status) {
@@ -744,20 +856,32 @@ class _WorkListPageState extends State<WorkListPage>
                           child: Text(status),
                         );
                       }).toList(),
-                      onChanged: (value) =>
-                          setState(() => selectedStatus = value),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedStatus = value;
+                        });
+                      },
                       decoration: InputDecoration(
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 16),
+
+                    // ---------------------------------------------------------
+                    // REMARKS
+                    // ---------------------------------------------------------
                     const Text(
                       "Remarks",
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
+
                     const SizedBox(height: 6),
+
                     TextField(
                       controller: remarkController,
                       maxLines: 3,
@@ -771,10 +895,16 @@ class _WorkListPageState extends State<WorkListPage>
                   ],
                 ),
               ),
+
+              // ---------------------------------------------------------
+              // ACTIONS
+              // ---------------------------------------------------------
               actions: [
                 TextButton(
                   child: const Text("Cancel"),
-                  onPressed: () => Navigator.pop(context, false),
+                  onPressed: () {
+                    Navigator.pop(context, false);
+                  },
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -785,11 +915,14 @@ class _WorkListPageState extends State<WorkListPage>
                     if (selectedProduct == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text("Please fill all required fields."),
+                          content: Text(
+                            "Please fill all required fields.",
+                          ),
                         ),
                       );
                       return;
                     }
+
                     Navigator.pop(context, true);
                   },
                   child: const Text("Confirm"),
@@ -801,13 +934,16 @@ class _WorkListPageState extends State<WorkListPage>
       },
     );
 
+    // ---------------------------------------------------------
+    // PERFORM ACTION
+    // ---------------------------------------------------------
     if (confirmed == true) {
       await _performWorkAction(
         workId,
         action,
         selectedStatus!,
         remarkController.text,
-        selectedMilestone,
+        selectedPipelineProgress,
         selectedProduct,
         selectedMaterials,
         selectedCustomerId,
@@ -825,7 +961,7 @@ class _WorkListPageState extends State<WorkListPage>
 
     String? selectedProduct;
     String? selectedStatus = "In Progress";
-    String? selectedMilestone;
+    List<Map<String, dynamic>> selectedPipelineProgress = [];
     String? selectedCustomerId;
     final List<String> statusOptions = [
       "In Progress",
@@ -840,16 +976,18 @@ class _WorkListPageState extends State<WorkListPage>
     // Initialize selectedMaterials with existing add_products if available
     List<Map<String, dynamic>> selectedMaterials =
         work.addProducts?.map<Map<String, dynamic>>((product) {
-              final String qty = (product.consumedQty != null && product.consumedQty!.isNotEmpty)
+              final String qty = (product.consumedQty != null &&
+                      product.consumedQty!.isNotEmpty)
                   ? product.consumedQty!
                   : ((product.quantity != null && product.quantity!.isNotEmpty)
                       ? product.quantity!
                       : "1");
-              final String rateVal = (product.unitPrice != null && product.unitPrice!.isNotEmpty)
-                  ? product.unitPrice!
-                  : ((product.rate != null && product.rate!.isNotEmpty)
-                      ? product.rate!
-                      : "0");
+              final String rateVal =
+                  (product.unitPrice != null && product.unitPrice!.isNotEmpty)
+                      ? product.unitPrice!
+                      : ((product.rate != null && product.rate!.isNotEmpty)
+                          ? product.rate!
+                          : "0");
               return <String, dynamic>{
                 "material_id": product.productId ?? "",
                 "material_name": product.productName ?? "",
@@ -869,27 +1007,25 @@ class _WorkListPageState extends State<WorkListPage>
     bool isLoadingWorkTypes = true;
     bool isLoadingMaterials = true;
 
-    final latestHistory =
-        work.history?.isNotEmpty == true ? work.history!.last : null;
-    PipelineProgress? firstPendingMilestone;
+    final List<PipelineProgress> initialMilestones =
+        (work.history?.isNotEmpty == true &&
+                work.history!.last.pipelineProgress?.isNotEmpty == true)
+            ? work.history!.last.pipelineProgress!
+            : (work.effectivePipelineProgress ?? []);
 
-    if (latestHistory?.pipelineProgress != null &&
-        latestHistory!.pipelineProgress!.isNotEmpty) {
-      try {
-        firstPendingMilestone = latestHistory.pipelineProgress!.firstWhere(
-          (p) => p.status == 0,
-          orElse: () => PipelineProgress(),
-        );
-      } catch (e) {
-        firstPendingMilestone = null;
-      }
+    // ---------------------------------------------------------
+    // INITIALIZE PIPELINE PROGRESS FROM API
+    // ---------------------------------------------------------
+    if (initialMilestones.isNotEmpty) {
+      selectedPipelineProgress = initialMilestones.map((milestone) {
+        return <String, dynamic>{
+          "name": milestone.name ?? "",
+          "status": milestone.status ?? 0,
+        };
+      }).toList();
     }
 
-    if (firstPendingMilestone != null &&
-        (firstPendingMilestone.name?.isNotEmpty ?? false)) {
-      selectedMilestone = firstPendingMilestone.name!;
-    }
-    selectedCustomerId = work.custId ?? work.custId;
+    selectedCustomerId = work.custId;
 
     final TextEditingController remarkController = TextEditingController();
 
@@ -1053,43 +1189,19 @@ class _WorkListPageState extends State<WorkListPage>
 
                     const SizedBox(height: 12),
 
-                    if (selectedMilestone != null)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Milestone",
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: Text(
-                              selectedMilestone!,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          ),
-                        ],
-                      )
-                    else
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: Text(
-                          "No pending milestones",
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ),
+                    // ---------------------------------------------------------
+                    // MILESTONE / CHECKPOINT
+                    // ---------------------------------------------------------
+                    _milestoneTimeline(
+                      work,
+                      onMilestoneChanged: (updatedPipelineProgress) {
+                        setState(() {
+                          selectedPipelineProgress = updatedPipelineProgress;
+                        });
+                      },
+                    ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
 
                     // Show existing materials info if available
                     if (work.addProducts?.isNotEmpty == true)
@@ -1201,7 +1313,9 @@ class _WorkListPageState extends State<WorkListPage>
                                       children: [
                                         Expanded(
                                           child: Text(
-                                            mat["material_name"] ?? mat["product_name"] ?? "",
+                                            mat["material_name"] ??
+                                                mat["product_name"] ??
+                                                "",
                                             style: TextStyle(
                                               fontSize: 15,
                                               fontWeight: FontWeight.bold,
@@ -1441,12 +1555,12 @@ class _WorkListPageState extends State<WorkListPage>
     );
 
     if (confirmed == true) {
-      await _performWorkActionStop(
+      await _performWorkAction(
         workId,
         action,
         selectedStatus!,
         remarkController.text,
-        selectedMilestone,
+        selectedPipelineProgress,
         selectedProduct,
         selectedMaterials,
         selectedCustomerId,
@@ -1463,22 +1577,24 @@ class _WorkListPageState extends State<WorkListPage>
     if (workId == null) return;
 
     String? selectedStatus = "On Hold";
-    String? selectedMilestone;
+    List<Map<String, dynamic>> selectedPipelineProgress = [];
     String? selectedProduct;
 
     // Initialize selectedMaterials with existing add_products if available
     List<Map<String, dynamic>> selectedMaterials =
         work.addProducts?.map<Map<String, dynamic>>((product) {
-              final String qty = (product.consumedQty != null && product.consumedQty!.isNotEmpty)
+              final String qty = (product.consumedQty != null &&
+                      product.consumedQty!.isNotEmpty)
                   ? product.consumedQty!
                   : ((product.quantity != null && product.quantity!.isNotEmpty)
                       ? product.quantity!
                       : "1");
-              final String rateVal = (product.unitPrice != null && product.unitPrice!.isNotEmpty)
-                  ? product.unitPrice!
-                  : ((product.rate != null && product.rate!.isNotEmpty)
-                      ? product.rate!
-                      : "0");
+              final String rateVal =
+                  (product.unitPrice != null && product.unitPrice!.isNotEmpty)
+                      ? product.unitPrice!
+                      : ((product.rate != null && product.rate!.isNotEmpty)
+                          ? product.rate!
+                          : "0");
               return <String, dynamic>{
                 "material_id": product.productId ?? "",
                 "material_name": product.productName ?? "",
@@ -1509,27 +1625,25 @@ class _WorkListPageState extends State<WorkListPage>
     bool isLoadingWorkTypes = true;
     bool isLoadingMaterials = true;
 
-    final latestHistory =
-        work.history?.isNotEmpty == true ? work.history!.last : null;
-    PipelineProgress? firstPendingMilestone;
+    final List<PipelineProgress> initialMilestones =
+        (work.history?.isNotEmpty == true &&
+                work.history!.last.pipelineProgress?.isNotEmpty == true)
+            ? work.history!.last.pipelineProgress!
+            : (work.effectivePipelineProgress ?? []);
 
-    if (latestHistory?.pipelineProgress != null &&
-        latestHistory!.pipelineProgress!.isNotEmpty) {
-      try {
-        firstPendingMilestone = latestHistory.pipelineProgress!.firstWhere(
-          (p) => p.status == 0,
-          orElse: () => PipelineProgress(),
-        );
-      } catch (e) {
-        firstPendingMilestone = null;
-      }
+    // ---------------------------------------------------------
+    // INITIALIZE PIPELINE PROGRESS FROM API
+    // ---------------------------------------------------------
+    if (initialMilestones.isNotEmpty) {
+      selectedPipelineProgress = initialMilestones.map((milestone) {
+        return <String, dynamic>{
+          "name": milestone.name ?? "",
+          "status": milestone.status ?? 0,
+        };
+      }).toList();
     }
 
-    if (firstPendingMilestone != null &&
-        (firstPendingMilestone.name?.isNotEmpty ?? false)) {
-      selectedMilestone = firstPendingMilestone.name!;
-    }
-    selectedCustomerId = work.custId ?? work.custId;
+    selectedCustomerId = work.custId;
 
     final TextEditingController remarkController = TextEditingController();
 
@@ -1690,41 +1804,17 @@ class _WorkListPageState extends State<WorkListPage>
                         style: TextStyle(color: Colors.grey),
                       ),
                     const SizedBox(height: 12),
-                    if (selectedMilestone != null)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Milestone",
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: Text(
-                              selectedMilestone!,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          ),
-                        ],
-                      )
-                    else
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: Text(
-                          "No pending milestones",
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ),
+                    // ---------------------------------------------------------
+                    // MILESTONE / CHECKPOINT
+                    // ---------------------------------------------------------
+                    _milestoneTimeline(
+                      work,
+                      onMilestoneChanged: (updatedPipelineProgress) {
+                        setState(() {
+                          selectedPipelineProgress = updatedPipelineProgress;
+                        });
+                      },
+                    ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       value: selectedStatus,
@@ -1851,7 +1941,9 @@ class _WorkListPageState extends State<WorkListPage>
                                       children: [
                                         Expanded(
                                           child: Text(
-                                            mat["material_name"] ?? mat["product_name"] ?? "",
+                                            mat["material_name"] ??
+                                                mat["product_name"] ??
+                                                "",
                                             style: TextStyle(
                                               fontSize: 15,
                                               fontWeight: FontWeight.bold,
@@ -2049,15 +2141,16 @@ class _WorkListPageState extends State<WorkListPage>
     );
 
     if (confirmed == true) {
-      await _performWorkActionRestart(
-          workId,
-          action,
-          selectedStatus!,
-          remarkController.text,
-          selectedMilestone,
-          selectedProduct,
-          selectedMaterials,
-          selectedCustomerId);
+      await _performWorkAction(
+        workId,
+        action,
+        selectedStatus!,
+        remarkController.text,
+        selectedPipelineProgress,
+        selectedProduct,
+        selectedMaterials,
+        selectedCustomerId,
+      );
     }
   }
 
@@ -2066,7 +2159,7 @@ class _WorkListPageState extends State<WorkListPage>
     String action,
     String status,
     String remarks,
-    String? milestone,
+    List<Map<String, dynamic>> pipelineProgress,
     String? productId,
     List<Map<String, dynamic>> selectedMaterials,
     String? selectedCustomerId,
@@ -2079,25 +2172,39 @@ class _WorkListPageState extends State<WorkListPage>
         response = await http.startWorkService(
           workId,
           remarks,
-          milestone,
+          pipelineProgress,
           productId,
           selectedMaterials,
           selectedCustomerId,
         );
       } else if (action == "pause") {
-        response =
-            await http.pauseWorkService(workId, status, remarks, milestone);
+        response = await http.pauseWorkService(
+          workId,
+          status,
+          remarks,
+          pipelineProgress,
+        );
       } else if (action == "stop") {
         response = await http.stopWorkService(
           workId,
           status,
           remarks,
-          milestone,
+          pipelineProgress,
+          productId,
+          selectedMaterials,
+          selectedCustomerId,
+        );
+      } else if (action == "restart") {
+        response = await http.restartWorkService(
+          workId,
+          remarks,
+          pipelineProgress,
           productId,
           selectedMaterials,
           selectedCustomerId,
         );
       }
+
       if (response["status"] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -2105,19 +2212,24 @@ class _WorkListPageState extends State<WorkListPage>
             content: Text("Work $action successful!"),
           ),
         );
+
         _fetchWorkList();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: Colors.redAccent,
-            content: Text(response["message"] ?? "Failed to $action work"),
+            content: Text(
+              response["message"] ?? "Failed to $action work",
+            ),
           ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error performing $action: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error performing $action: $e"),
+        ),
+      );
     }
   }
 
@@ -2126,51 +2238,21 @@ class _WorkListPageState extends State<WorkListPage>
     String action,
     String status,
     String remarks,
-    String? milestone,
+    List<Map<String, dynamic>> pipelineProgress,
     String? productId,
     List<Map<String, dynamic>> selectedMaterials,
     String? selectedCustomerId,
   ) async {
-    final http = HttpService();
-    Map<String, dynamic> response = {};
-
-    try {
-      if (action == "stop") {
-        response = await http.stopWorkService(
-          workId,
-          status,
-          remarks,
-          milestone,
-          productId,
-          selectedMaterials,
-          selectedCustomerId,
-        );
-      } else if (action == "pause") {
-        response =
-            await http.pauseWorkService(workId, status, remarks, milestone);
-      }
-
-      if (response["status"] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Colors.green.shade600,
-            content: Text("Work $action successful!"),
-          ),
-        );
-        _fetchWorkList();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Colors.redAccent,
-            content: Text(response["message"] ?? "Failed to $action work"),
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error performing $action: $e")));
-    }
+    await _performWorkAction(
+      workId,
+      action,
+      status,
+      remarks,
+      pipelineProgress,
+      productId,
+      selectedMaterials,
+      selectedCustomerId,
+    );
   }
 
   Future<void> _performWorkActionRestart(
@@ -2178,60 +2260,21 @@ class _WorkListPageState extends State<WorkListPage>
     String action,
     String status,
     String remarks,
-    String? milestone,
+    List<Map<String, dynamic>> pipelineProgress,
     String? productId,
     List<Map<String, dynamic>> selectedMaterials,
     String? selectedCustomerId,
   ) async {
-    final http = HttpService();
-    Map<String, dynamic> response = {};
-
-    try {
-      if (action == "restart") {
-        response = await http.startWorkService(
-          workId,
-          remarks,
-          milestone,
-          productId,
-          selectedMaterials,
-          selectedCustomerId,
-        );
-      } else if (action == "pause") {
-        response =
-            await http.pauseWorkService(workId, status, remarks, milestone);
-      } else if (action == "stop") {
-        response = await http.stopWorkService(
-          workId,
-          status,
-          remarks,
-          milestone,
-          productId,
-          selectedMaterials,
-          selectedCustomerId,
-        );
-      }
-
-      if (response["status"] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Colors.green.shade600,
-            content: Text("Work $action successful!"),
-          ),
-        );
-        _fetchWorkList();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Colors.redAccent,
-            content: Text(response["message"] ?? "Failed to $action work"),
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error performing $action: $e")));
-    }
+    await _performWorkAction(
+      workId,
+      action,
+      status,
+      remarks,
+      pipelineProgress,
+      productId,
+      selectedMaterials,
+      selectedCustomerId,
+    );
   }
 
   Color _getStatusColor(String? status) {
@@ -2274,7 +2317,8 @@ class _WorkListPageState extends State<WorkListPage>
         ? 1.0
         : status.toLowerCase().contains("progress")
             ? 0.70
-            : (status.toLowerCase().contains("pending") || status.toLowerCase().contains("hold"))
+            : (status.toLowerCase().contains("pending") ||
+                    status.toLowerCase().contains("hold"))
                 ? 0.35
                 : 0.20;
 
@@ -2310,7 +2354,8 @@ class _WorkListPageState extends State<WorkListPage>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 4),
                         decoration: BoxDecoration(
                           color: const Color(0xFF2A86C9).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
@@ -2318,7 +2363,8 @@ class _WorkListPageState extends State<WorkListPage>
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.assignment_outlined, size: 13, color: Color(0xFF2A86C9)),
+                            const Icon(Icons.assignment_outlined,
+                                size: 13, color: Color(0xFF2A86C9)),
                             const SizedBox(width: 4),
                             Text(
                               workId,
@@ -2336,7 +2382,8 @@ class _WorkListPageState extends State<WorkListPage>
                         children: [
                           if (work.priority?.isNotEmpty == true) ...[
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
                               margin: const EdgeInsets.only(right: 6),
                               decoration: BoxDecoration(
                                 color: work.priority == "Low"
@@ -2369,7 +2416,8 @@ class _WorkListPageState extends State<WorkListPage>
                             ),
                           ],
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
                               color: statusColor.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(20),
@@ -2473,17 +2521,20 @@ class _WorkListPageState extends State<WorkListPage>
                   const SizedBox(height: 10),
 
                   // Issue Description callout box if present
-                  if (work.issueDescription?.isNotEmpty == true && work.issueDescription != workTitle) ...[
+                  if (work.issueDescription?.isNotEmpty == true &&
+                      work.issueDescription != workTitle) ...[
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.info_outline, size: 14, color: Color(0xFF64748B)),
+                          const Icon(Icons.info_outline,
+                              size: 14, color: Color(0xFF64748B)),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
@@ -2504,77 +2555,78 @@ class _WorkListPageState extends State<WorkListPage>
 
                   // Mobile & Location Row
                   Row(
-  children: [
-    if (work.mobileNumber?.isNotEmpty == true) ...[
-      InkWell(
-        onTap: () => _launchPhone(work.mobileNumber!),
-        borderRadius: BorderRadius.circular(6),
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 4,
-          ),
-          decoration: BoxDecoration(
-            color: const Color(0xFFD1FAE5),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: const Color(0xFFA7F3D0),
-              width: 0.6,
-            ),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.phone_enabled_outlined,
-                size: 13,
-                color: Color(0xFF047857),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                work.mobileNumber!,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF065F46),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      const SizedBox(width: 8),
-    ],
-    if (work.location?.isNotEmpty == true ||
-        work.address?.isNotEmpty == true) ...[
-      Expanded(
-        child: Row(
-          children: [
-            const Icon(
-              Icons.location_on_outlined,
-              size: 14,
-              color: Color(0xFF64748B),
-            ),
-            const SizedBox(width: 3),
-            Expanded(
-              child: Text(
-                (work.location?.isNotEmpty == true
-                    ? work.location
-                    : work.address)!,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ],
-  ],
-),
+                    children: [
+                      if (work.mobileNumber?.isNotEmpty == true) ...[
+                        InkWell(
+                          onTap: () => _launchPhone(work.mobileNumber!),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD1FAE5),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: const Color(0xFFA7F3D0),
+                                width: 0.6,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.phone_enabled_outlined,
+                                  size: 13,
+                                  color: Color(0xFF047857),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  work.mobileNumber!,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF065F46),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      if (work.location?.isNotEmpty == true ||
+                          work.address?.isNotEmpty == true) ...[
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on_outlined,
+                                size: 14,
+                                color: Color(0xFF64748B),
+                              ),
+                              const SizedBox(width: 3),
+                              Expanded(
+                                child: Text(
+                                  (work.location?.isNotEmpty == true
+                                      ? work.location
+                                      : work.address)!,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
 
-                  if (work.assignedServiceMan?.isNotEmpty == true || work.estimatedDatetime?.isNotEmpty == true) ...[
+                  if (work.assignedServiceMan?.isNotEmpty == true ||
+                      work.estimatedDatetime?.isNotEmpty == true) ...[
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2582,7 +2634,8 @@ class _WorkListPageState extends State<WorkListPage>
                         if (work.assignedServiceMan?.isNotEmpty == true)
                           Row(
                             children: [
-                              const Icon(Icons.badge_outlined, size: 13, color: Color(0xFF64748B)),
+                              const Icon(Icons.badge_outlined,
+                                  size: 13, color: Color(0xFF64748B)),
                               const SizedBox(width: 4),
                               Text(
                                 "Assigned: ${work.assignedServiceMan}",
@@ -2599,7 +2652,8 @@ class _WorkListPageState extends State<WorkListPage>
                         if (work.estimatedDatetime?.isNotEmpty == true)
                           Row(
                             children: [
-                              const Icon(Icons.calendar_today_outlined, size: 12, color: Color(0xFF64748B)),
+                              const Icon(Icons.calendar_today_outlined,
+                                  size: 12, color: Color(0xFF64748B)),
                               const SizedBox(width: 4),
                               Text(
                                 work.estimatedDatetime!,
@@ -2648,7 +2702,8 @@ class _WorkListPageState extends State<WorkListPage>
                           value: progress,
                           minHeight: 5,
                           backgroundColor: Colors.grey.shade100,
-                          valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(statusColor),
                         ),
                       ),
                     ],
@@ -2659,7 +2714,9 @@ class _WorkListPageState extends State<WorkListPage>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      if ((work.status == "New") && roleId != null && roleId == "3")
+                      if ((work.status == "New") &&
+                          roleId != null &&
+                          roleId == "3")
                         ElevatedButton.icon(
                           onPressed: () {
                             if (isWorkStarted) {
@@ -2669,7 +2726,9 @@ class _WorkListPageState extends State<WorkListPage>
                             }
                           },
                           icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                          label: const Text("Start Work", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          label: const Text("Start Work",
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.bold)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF10B981),
                             foregroundColor: Colors.white,
@@ -2677,7 +2736,8 @@ class _WorkListPageState extends State<WorkListPage>
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
                           ),
                         ),
                       if (roleId == "2" && work.status != "Completed") ...[
@@ -2695,14 +2755,18 @@ class _WorkListPageState extends State<WorkListPage>
                             });
                           },
                           icon: const Icon(Icons.edit_outlined, size: 15),
-                          label: const Text("Edit", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          label: const Text("Edit",
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.bold)),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF2A86C9),
-                            side: const BorderSide(color: Color(0xFF2A86C9), width: 1.2),
+                            side: const BorderSide(
+                                color: Color(0xFF2A86C9), width: 1.2),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -2717,7 +2781,8 @@ class _WorkListPageState extends State<WorkListPage>
                                 ),
                                 actions: [
                                   TextButton(
-                                    onPressed: () => Navigator.pop(context, false),
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
                                     child: const Text("Cancel"),
                                   ),
                                   ElevatedButton(
@@ -2725,7 +2790,8 @@ class _WorkListPageState extends State<WorkListPage>
                                       backgroundColor: const Color(0xFFEF4444),
                                       foregroundColor: Colors.white,
                                     ),
-                                    onPressed: () => Navigator.pop(context, true),
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
                                     child: const Text("Delete"),
                                   ),
                                 ],
@@ -2764,14 +2830,18 @@ class _WorkListPageState extends State<WorkListPage>
                             }
                           },
                           icon: const Icon(Icons.delete_outline, size: 15),
-                          label: const Text("Delete", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          label: const Text("Delete",
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.bold)),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFFEF4444),
-                            side: const BorderSide(color: Color(0xFFEF4444), width: 1.2),
+                            side: const BorderSide(
+                                color: Color(0xFFEF4444), width: 1.2),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
                           ),
                         ),
                       ] else if ((work.status == "In Progress") &&
@@ -2781,7 +2851,9 @@ class _WorkListPageState extends State<WorkListPage>
                           onPressed: () =>
                               _confirmActionStop("Stop Work", work, "stop"),
                           icon: const Icon(Icons.stop_rounded, size: 16),
-                          label: const Text("Stop Work", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          label: const Text("Stop Work",
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.bold)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFEF4444),
                             foregroundColor: Colors.white,
@@ -2789,7 +2861,8 @@ class _WorkListPageState extends State<WorkListPage>
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
                           ),
                         ),
                       ] else if ((work.status == "On Hold") &&
@@ -2808,7 +2881,9 @@ class _WorkListPageState extends State<WorkListPage>
                             }
                           },
                           icon: const Icon(Icons.restart_alt_rounded, size: 16),
-                          label: const Text("Restart", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          label: const Text("Restart",
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.bold)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF3B82F6),
                             foregroundColor: Colors.white,
@@ -2816,7 +2891,8 @@ class _WorkListPageState extends State<WorkListPage>
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
                           ),
                         ),
                       ],
@@ -3132,6 +3208,205 @@ class _WorkListPageState extends State<WorkListPage>
     );
   }
 
+  Widget _milestoneTimeline(
+    WorkOrder work, {
+    required ValueChanged<List<Map<String, dynamic>>> onMilestoneChanged,
+  }) {
+    // Get pipeline progress from API
+    final List<PipelineProgress> milestones =
+        (work.history?.isNotEmpty == true &&
+                work.history!.last.pipelineProgress?.isNotEmpty == true)
+            ? work.history!.last.pipelineProgress!
+            : (work.effectivePipelineProgress ?? []);
+
+    if (milestones.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Text(
+          "No Milestone",
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    }
+
+    const double checkpointSize = 30;
+    const double topPadding = 20;
+    const double bottomPadding = 20;
+    const double lineLeft = 15;
+
+    return SizedBox(
+      height: milestones.length * 65.0,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final double availableHeight =
+              constraints.maxHeight - topPadding - bottomPadding;
+
+          final double stepHeight = milestones.length > 1
+              ? availableHeight / (milestones.length - 1)
+              : 0;
+
+          // Find the last completed checkpoint from API
+          int completedIndex = -1;
+
+          for (int i = 0; i < milestones.length; i++) {
+            if (milestones[i].status == 1) {
+              completedIndex = i;
+            }
+          }
+
+          // Next checkpoint to work on
+          final int currentIndex = completedIndex + 1 < milestones.length
+              ? completedIndex + 1
+              : completedIndex;
+
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // GREY VERTICAL TIMELINE
+              Positioned(
+                left: lineLeft,
+                top: topPadding,
+                bottom: bottomPadding,
+                child: Container(
+                  width: 3,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+
+              // GREEN COMPLETED TIMELINE
+              if (completedIndex >= 0)
+                Positioned(
+                  left: lineLeft,
+                  top: topPadding,
+                  height: completedIndex * stepHeight,
+                  child: Container(
+                    width: 3,
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+
+              // MILESTONE LABELS
+              ...List.generate(
+                milestones.length,
+                (index) {
+                  final double y = topPadding + (index * stepHeight);
+
+                  final bool isCompleted = milestones[index].status == 1;
+                  final bool isSelected = index == currentIndex;
+
+                  return Positioned(
+                    top: y - (checkpointSize / 2),
+                    left: 0,
+                    right: 0,
+                    child: Row(
+                      children: [
+                        // Checkpoint
+                        GestureDetector(
+                          onTap: () {
+                            // Only allow next checkpoint
+                            if (index == currentIndex) {
+                              setState(() {
+                                selectedMilestoneIndex = index;
+                              });
+
+                              final updatedPipelineProgress =
+                                  milestones.asMap().entries.map((entry) {
+                                final milestoneIndex = entry.key;
+                                final milestone = entry.value;
+
+                                return {
+                                  "name": milestone.name ?? "",
+                                  "status": milestoneIndex <= index ? 1 : 0,
+                                };
+                              }).toList();
+
+                              onMilestoneChanged(updatedPipelineProgress);
+                            }
+                          },
+                          child: Container(
+                            width: checkpointSize,
+                            height: checkpointSize,
+                            decoration: BoxDecoration(
+                              color: isCompleted ? Colors.green : Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isCompleted ? Colors.green : Colors.grey,
+                                width: 3,
+                              ),
+                            ),
+                            child: isCompleted
+                                ? const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 17,
+                                  )
+                                : null,
+                          ),
+                        ),
+
+                        const SizedBox(width: 15),
+
+                        // Milestone name from API
+                        Text(
+                          milestones[index].name ?? "",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: isSelected ? Colors.blue : Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+              // DRAGGABLE CHECKPOINT
+              _DraggableMilestone(
+                selectedMilestoneIndex: currentIndex,
+                topPadding: topPadding,
+                stepHeight: stepHeight,
+                availableHeight: availableHeight,
+                checkpointSize: checkpointSize,
+                totalMilestones: milestones.length,
+                onMilestoneChanged: (index) {
+                  setState(() {
+                    selectedMilestoneIndex = index;
+                  });
+
+                  final updatedPipelineProgress =
+                      milestones.asMap().entries.map((entry) {
+                    final milestoneIndex = entry.key;
+                    final milestone = entry.value;
+
+                    return {
+                      "name": milestone.name ?? "",
+                      "status": milestoneIndex <= index ? 1 : 0,
+                    };
+                  }).toList();
+
+                  onMilestoneChanged(updatedPipelineProgress);
+                },
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final filteredList = _filteredWorkOrders;
@@ -3180,7 +3455,8 @@ class _WorkListPageState extends State<WorkListPage>
         children: [
           // Modern Search Bar
           Container(
-            margin: const EdgeInsets.only(left: 16, right: 16, top: 14, bottom: 8),
+            margin:
+                const EdgeInsets.only(left: 16, right: 16, top: 14, bottom: 8),
             padding: const EdgeInsets.symmetric(horizontal: 15),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -3207,7 +3483,8 @@ class _WorkListPageState extends State<WorkListPage>
                 icon: const Icon(Icons.search, color: Color(0xFF2a86c9)),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                        icon: const Icon(Icons.clear,
+                            size: 18, color: Colors.grey),
                         onPressed: () {
                           _searchController.clear();
                           setState(() {
@@ -3239,7 +3516,8 @@ class _WorkListPageState extends State<WorkListPage>
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: const Color(0xFF2A86C9).withOpacity(0.12),
                         borderRadius: BorderRadius.circular(12),
@@ -3311,6 +3589,149 @@ class _WorkListPageState extends State<WorkListPage>
                       ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DraggableMilestone extends StatefulWidget {
+  final int selectedMilestoneIndex;
+  final double topPadding;
+  final double stepHeight;
+  final double availableHeight;
+  final double checkpointSize;
+  final int totalMilestones;
+  final ValueChanged<int> onMilestoneChanged;
+
+  const _DraggableMilestone({
+    required this.selectedMilestoneIndex,
+    required this.topPadding,
+    required this.stepHeight,
+    required this.availableHeight,
+    required this.checkpointSize,
+    this.totalMilestones = 6,
+    required this.onMilestoneChanged,
+  });
+
+  @override
+  State<_DraggableMilestone> createState() => _DraggableMilestoneState();
+}
+
+class _DraggableMilestoneState extends State<_DraggableMilestone> {
+  late double dragY;
+
+  bool isDragging = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    dragY =
+        widget.topPadding + (widget.selectedMilestoneIndex * widget.stepHeight);
+  }
+
+  @override
+  void didUpdateWidget(
+    covariant _DraggableMilestone oldWidget,
+  ) {
+    super.didUpdateWidget(oldWidget);
+
+    // When milestone changes from outside the drag,
+    // move the draggable checkpoint to that milestone.
+    if (!isDragging &&
+        oldWidget.selectedMilestoneIndex != widget.selectedMilestoneIndex) {
+      dragY = widget.topPadding +
+          (widget.selectedMilestoneIndex * widget.stepHeight);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: 0,
+      top: dragY - (widget.checkpointSize / 2),
+      child: GestureDetector(
+        // ---------------------------------------------------------
+        // START DRAG
+        // ---------------------------------------------------------
+        onVerticalDragStart: (_) {
+          isDragging = true;
+
+          dragY = widget.topPadding +
+              (widget.selectedMilestoneIndex * widget.stepHeight);
+        },
+
+        // ---------------------------------------------------------
+        // MOVE CHECKPOINT
+        // ---------------------------------------------------------
+        onVerticalDragUpdate: (details) {
+          setState(() {
+            dragY += details.delta.dy;
+
+            // Don't allow the checkpoint outside timeline
+            final double minY = widget.topPadding;
+
+            final double maxY = widget.topPadding + widget.availableHeight;
+
+            dragY = dragY.clamp(minY, maxY);
+          });
+        },
+
+        // ---------------------------------------------------------
+        // RELEASE
+        // ---------------------------------------------------------
+        onVerticalDragEnd: (_) {
+          isDragging = false;
+
+          final currentIndex = widget.selectedMilestoneIndex;
+
+          final currentY =
+              widget.topPadding + (currentIndex * widget.stepHeight);
+
+          final nextIndex = currentIndex + 1;
+
+          final nextY = widget.topPadding + (nextIndex * widget.stepHeight);
+
+          // If dragged far enough downward,
+          // move ONLY to the next milestone.
+          if (nextIndex < widget.totalMilestones &&
+              dragY > currentY + widget.stepHeight / 2) {
+            setState(() {
+              dragY = nextY;
+            });
+
+            widget.onMilestoneChanged(nextIndex);
+          } else {
+            // Otherwise return to current milestone.
+            setState(() {
+              dragY = currentY;
+            });
+          }
+        },
+
+        child: Container(
+          width: widget.checkpointSize,
+          height: widget.checkpointSize,
+          decoration: BoxDecoration(
+            color: Colors.blue,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white,
+              width: 3,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                blurRadius: 4,
+                color: Colors.black26,
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.drag_handle,
+            color: Colors.white,
+            size: 18,
+          ),
+        ),
       ),
     );
   }
