@@ -15,6 +15,9 @@ import 'package:login2/models/lead_management/materialModel.dart';
 import 'package:login2/models/product_mannagement/rental_history_model.dart';
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:html/parser.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:login2/models/product_mannagement/get_service_list_model.dart';
+import 'package:login2/models/product_mannagement/get_product_payment_list_model.dart';
 
 class ProductView extends StatefulWidget {
   final String productId;
@@ -35,6 +38,13 @@ class _ProductViewState extends State<ProductView>
   ProductHistoryModel? productHistoryResponse;
   Future<ProductHistoryRentalModel?>? _historyFuture;
   final ScreenshotController _screenshotController = ScreenshotController();
+  GetServiceListModel? serviceListResponse;
+  bool isServiceLoading = false;
+  bool hasFetchedService = false;
+  GetProductPaymentListModel? paymentListResponse;
+  bool isPaymentLoading = false;
+  bool hasFetchedPayment = false;
+  String paymentFilter = "All";
 
   @override
   void initState() {
@@ -44,8 +54,86 @@ class _ProductViewState extends State<ProductView>
 
   @override
   void dispose() {
+    _tabController?.removeListener(_handleTabSelection);
     _tabController?.dispose();
     super.dispose();
+  }
+
+  void _handleTabSelection() {
+    if (_tabController != null) {
+      final isRental =
+          productsResponse?.data.productType.trim().toLowerCase() == "rental";
+      final serviceTabIndex = isRental ? 3 : 2;
+      final paymentTabIndex = isRental ? 4 : 3;
+      if (_tabController!.index == serviceTabIndex &&
+          !hasFetchedService &&
+          !isServiceLoading) {
+        _fetchServiceList();
+      } else if (_tabController!.index == paymentTabIndex &&
+          !hasFetchedPayment &&
+          !isPaymentLoading) {
+        _fetchPaymentList();
+      }
+    }
+  }
+
+  Future<void> _fetchServiceList() async {
+    if (isServiceLoading) return;
+    setState(() {
+      isServiceLoading = true;
+    });
+    try {
+      final response = await HttpService.getServiceList(widget.productId);
+      if (mounted) {
+        setState(() {
+          serviceListResponse = response;
+          hasFetchedService = true;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching service list: $e");
+      if (mounted) {
+        setState(() {
+          hasFetchedService = true;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isServiceLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchPaymentList() async {
+    if (isPaymentLoading) return;
+    setState(() {
+      isPaymentLoading = true;
+    });
+    try {
+      final response =
+          await HttpService.getProductPaymentList(widget.productId);
+      if (mounted) {
+        setState(() {
+          paymentListResponse = response;
+          hasFetchedPayment = true;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching payment list: $e");
+      if (mounted) {
+        setState(() {
+          hasFetchedPayment = true;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isPaymentLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadData() async {
@@ -61,10 +149,12 @@ class _ProductViewState extends State<ProductView>
             productsResponse!.data.productType.trim().toLowerCase() == "rental";
 
         // Create controller based on product type
+        _tabController?.removeListener(_handleTabSelection);
         _tabController = TabController(
           length: isRental ? 5 : 4,
           vsync: this,
         );
+        _tabController!.addListener(_handleTabSelection);
 
         // Existing stock history - DON'T CHANGE
         _historyFuture = HttpService.getStockHistoryRental(widget.productId);
@@ -74,6 +164,10 @@ class _ProductViewState extends State<ProductView>
           productHistoryResponse =
               await HttpService.getRentalHistory(widget.productId);
         }
+
+        // Prefetch service and payment history
+        _fetchServiceList();
+        _fetchPaymentList();
       }
     } catch (e) {
       debugPrint("Error loading product details: $e");
@@ -592,12 +686,8 @@ class _ProductViewState extends State<ProductView>
                           "rental") ...[
                         _buildRentalHistoryTab(),
                       ],
-                      const Center(
-                        child: Text("Service History"),
-                      ),
-                      const Center(
-                        child: Text("Payment History"),
-                      ),
+                      _buildServiceHistoryTab(),
+                      _buildPaymentHistoryTab(),
                     ],
                   ),
                 ),
@@ -1618,6 +1708,1212 @@ class _ProductViewState extends State<ProductView>
           Text("Failed to load history log",
               style: TextStyle(color: Colors.grey[500], fontSize: 13)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildServiceHistoryTab() {
+    if (!hasFetchedService && !isServiceLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fetchServiceList();
+      });
+    }
+
+    if (isServiceLoading && serviceListResponse == null) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(
+              "Loading service history...",
+              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final services = serviceListResponse?.data ?? [];
+
+    if (services.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _fetchServiceList,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.5,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2a86c9).withOpacity(0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.home_repair_service_outlined,
+                    size: 48,
+                    color: Color(0xFF2a86c9),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "No Service History Found",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "No service or repair records have been added for this product yet.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                OutlinedButton.icon(
+                  onPressed: _fetchServiceList,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text("Refresh List"),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF2a86c9),
+                    side: const BorderSide(color: Color(0xFF2a86c9)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    double totalServiceAmount = 0.0;
+    double totalPaidAmount = 0.0;
+    for (var s in services) {
+      totalServiceAmount += double.tryParse(s.serviceAmount) ?? 0.0;
+      totalPaidAmount += double.tryParse(s.totalPaidAmount) ?? 0.0;
+    }
+    double totalDueAmount = totalServiceAmount - totalPaidAmount;
+    if (totalDueAmount < 0) totalDueAmount = 0.0;
+
+    return RefreshIndicator(
+      onRefresh: _fetchServiceList,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: services.length + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return _buildServiceSummaryHeader(
+              totalCount: services.length,
+              totalAmount: totalServiceAmount,
+              totalPaid: totalPaidAmount,
+              totalDue: totalDueAmount,
+            );
+          }
+          final service = services[index - 1];
+          return _buildServiceItemCard(service);
+        },
+      ),
+    );
+  }
+
+  Widget _buildServiceSummaryHeader({
+    required int totalCount,
+    required double totalAmount,
+    required double totalPaid,
+    required double totalDue,
+  }) {
+    final currencyFormatter =
+        NumberFormat.currency(symbol: '₹ ', decimalDigits: 2);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF0F172A),
+            Color(0xFF1E293B),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2a86c9).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.handyman_rounded,
+                      color: Color(0xFF38BDF8),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    "Service Overview",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white12,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  "$totalCount ${totalCount == 1 ? 'Record' : 'Records'}",
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(color: Colors.white12, height: 1),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryStatItem(
+                  "Total Cost",
+                  currencyFormatter.format(totalAmount),
+                  Colors.white,
+                  Icons.receipt_rounded,
+                ),
+              ),
+              Expanded(
+                child: _buildSummaryStatItem(
+                  "Total Paid",
+                  currencyFormatter.format(totalPaid),
+                  const Color(0xFF34D399),
+                  Icons.check_circle_outline_rounded,
+                ),
+              ),
+              if (totalDue > 0)
+                Expanded(
+                  child: _buildSummaryStatItem(
+                    "Balance Due",
+                    currencyFormatter.format(totalDue),
+                    const Color(0xFFF87171),
+                    Icons.pending_actions_rounded,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryStatItem(
+      String label, String value, Color valueColor, IconData icon) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 13, color: Colors.white60),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white60, fontSize: 11),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            style: TextStyle(
+              color: valueColor,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildServiceItemCard(ServiceListItem item) {
+    Color statusBgColor = Colors.grey.shade100;
+    Color statusTextColor = Colors.grey.shade800;
+    IconData statusIcon = Icons.info_outline;
+
+    final statusLower = item.paymentStatus.toLowerCase().trim();
+    if (statusLower == 'paid') {
+      statusBgColor = const Color(0xFFDCFCE7);
+      statusTextColor = const Color(0xFF15803D);
+      statusIcon = Icons.check_circle_rounded;
+    } else if (statusLower.contains('partial')) {
+      statusBgColor = const Color(0xFFFEF3C7);
+      statusTextColor = const Color(0xFFB45309);
+      statusIcon = Icons.pie_chart_rounded;
+    } else if (statusLower.contains('unpaid') ||
+        statusLower.contains('pending')) {
+      statusBgColor = const Color(0xFFFEE2E2);
+      statusTextColor = const Color(0xFFB91C1C);
+      statusIcon = Icons.error_rounded;
+    }
+
+    Color serviceTypeBg = const Color(0xFFEFF6FF);
+    Color serviceTypeColor = const Color(0xFF1D4ED8);
+    final typeLower = item.serviceType.toLowerCase().trim();
+    if (typeLower.contains('repair')) {
+      serviceTypeBg = const Color(0xFFFFF7ED);
+      serviceTypeColor = const Color(0xFFC2410C);
+    } else if (typeLower.contains('monthly')) {
+      serviceTypeBg = const Color(0xFFF0FDF4);
+      serviceTypeColor = const Color(0xFF15803D);
+    } else if (typeLower.contains('maintenance')) {
+      serviceTypeBg = const Color(0xFFF5F3FF);
+      serviceTypeColor = const Color(0xFF6D28D9);
+    }
+
+    final double totalAmt = double.tryParse(item.serviceAmount) ?? 0.0;
+    final double paidAmt = double.tryParse(item.totalPaidAmount) ?? 0.0;
+    final double dueAmt = totalAmt - paidAmt > 0 ? totalAmt - paidAmt : 0.0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: serviceTypeBg,
+                    borderRadius: BorderRadius.circular(20),
+                    border:
+                        Border.all(color: serviceTypeColor.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.build_circle_outlined,
+                          size: 14, color: serviceTypeColor),
+                      const SizedBox(width: 5),
+                      Text(
+                        item.serviceType.isNotEmpty
+                            ? item.serviceType
+                            : "Service",
+                        style: TextStyle(
+                          color: serviceTypeColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: statusBgColor,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, size: 13, color: statusTextColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        item.paymentStatus.isNotEmpty
+                            ? item.paymentStatus
+                            : "Unspecified",
+                        style: TextStyle(
+                          color: statusTextColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Content body
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildServiceInfoBlock(
+                        icon: Icons.calendar_today_rounded,
+                        label: "Service Date",
+                        value: _formatDateStr(item.serviceDate),
+                      ),
+                    ),
+                    if (item.returnDate.isNotEmpty)
+                      Expanded(
+                        child: _buildServiceInfoBlock(
+                          icon: Icons.event_available_rounded,
+                          label: "Return Date",
+                          value: _formatDateStr(item.returnDate),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                if (item.vendorName.isNotEmpty || item.vendorMobile.isNotEmpty)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildServiceInfoBlock(
+                          icon: Icons.storefront_rounded,
+                          label: "Vendor",
+                          value: item.vendorName.isNotEmpty
+                              ? item.vendorName
+                              : "N/A",
+                          subtitle: item.vendorMobile,
+                          onSubtitleTap: item.vendorMobile.isNotEmpty
+                              ? () => _makePhoneCall(item.vendorMobile)
+                              : null,
+                        ),
+                      ),
+                      if (item.servicePlace.isNotEmpty ||
+                          item.servicePlaceContact.isNotEmpty)
+                        Expanded(
+                          child: _buildServiceInfoBlock(
+                            icon: Icons.location_on_outlined,
+                            label: "Service Location",
+                            value: item.servicePlace.isNotEmpty
+                                ? item.servicePlace
+                                : "N/A",
+                            subtitle: item.servicePlaceContact,
+                            onSubtitleTap: item.servicePlaceContact.isNotEmpty
+                                ? () =>
+                                    _makePhoneCall(item.servicePlaceContact)
+                                : null,
+                          ),
+                        ),
+                    ],
+                  ),
+
+                if ((item.vendorName.isEmpty && item.vendorMobile.isEmpty) &&
+                    (item.servicePlace.isNotEmpty ||
+                        item.servicePlaceContact.isNotEmpty))
+                  _buildServiceInfoBlock(
+                    icon: Icons.location_on_outlined,
+                    label: "Service Location",
+                    value: item.servicePlace,
+                    subtitle: item.servicePlaceContact,
+                    onSubtitleTap: item.servicePlaceContact.isNotEmpty
+                        ? () => _makePhoneCall(item.servicePlaceContact)
+                        : null,
+                  ),
+
+                if (item.issues.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.report_problem_outlined,
+                                size: 14, color: Colors.grey[600]),
+                            const SizedBox(width: 6),
+                            Text(
+                              "Issues / Notes",
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          item.issues,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF334155),
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 16),
+
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Service Amount",
+                                style: TextStyle(
+                                    fontSize: 11, color: Color(0xFF64748B)),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                "₹${item.serviceAmount}",
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const Text(
+                                "Total Paid",
+                                style: TextStyle(
+                                    fontSize: 11, color: Color(0xFF64748B)),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                "₹${item.totalPaidAmount}",
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF166534),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (dueAmt > 0)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                const Text(
+                                  "Balance",
+                                  style: TextStyle(
+                                      fontSize: 11, color: Color(0xFF64748B)),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  "₹${dueAmt.toStringAsFixed(2)}",
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFDC2626),
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                      if (item.paymentDetails.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        const Divider(height: 1, color: Color(0xFFCBD5E1)),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.payment_rounded,
+                                    size: 13, color: Colors.grey[600]),
+                                const SizedBox(width: 4),
+                                Text(
+                                  "Payment Mode:",
+                                  style: TextStyle(
+                                      fontSize: 11, color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              item.paymentDetails,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF334155),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServiceInfoBlock({
+    required IconData icon,
+    required String label,
+    required String value,
+    String? subtitle,
+    VoidCallback? onSubtitleTap,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2a86c9).withOpacity(0.08),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 16, color: const Color(0xFF2a86c9)),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              if (subtitle != null && subtitle.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                InkWell(
+                  onTap: onSubtitleTap,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.phone, size: 11, color: Colors.blue[700]),
+                      const SizedBox(width: 3),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.blue[700],
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDateStr(String dateStr) {
+    if (dateStr.isEmpty) return "N/A";
+    try {
+      final DateTime dt = DateTime.parse(dateStr);
+      return DateFormat('dd MMM yyyy').format(dt);
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    try {
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri);
+      } else {
+        Common.toastMessaage("Could not call $phoneNumber", Colors.orange);
+      }
+    } catch (e) {
+      Common.toastMessaage("Could not launch phone dialer", Colors.red);
+    }
+  }
+
+  Widget _buildPaymentHistoryTab() {
+    if (!hasFetchedPayment && !isPaymentLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fetchPaymentList();
+      });
+    }
+
+    if (isPaymentLoading && paymentListResponse == null) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(
+              "Loading payment history...",
+              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final data = paymentListResponse?.data;
+    final summary = data?.amountSummary;
+    final transactions = data?.amountTransactions ?? [];
+
+    if (summary == null && transactions.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _fetchPaymentList,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.5,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2a86c9).withOpacity(0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.account_balance_wallet_outlined,
+                    size: 48,
+                    color: Color(0xFF2a86c9),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "No Payment History Found",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "No financial transactions have been recorded for this product.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                OutlinedButton.icon(
+                  onPressed: _fetchPaymentList,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text("Refresh List"),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF2a86c9),
+                    side: const BorderSide(color: Color(0xFF2a86c9)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchPaymentList,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (summary != null) ...[
+              // 1. Top 4 Metric Cards (Horizontal Scroll)
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    _buildTopMetricCard(
+                      icon: Icons.shopping_cart_outlined,
+                      iconColor: const Color(0xFF0284C7),
+                      label: "TOTAL PURCHASE COST",
+                      value: summary.purchaseCost,
+                    ),
+                    const SizedBox(width: 12),
+                    _buildTopMetricCard(
+                      icon: Icons.local_mall_outlined,
+                      iconColor: const Color(0xFF0D9488),
+                      label: "TOTAL SALES INCOME",
+                      value: summary.salesIncome,
+                    ),
+                    const SizedBox(width: 12),
+                    _buildTopMetricCard(
+                      icon: Icons.alt_route_rounded,
+                      iconColor: const Color(0xFF4F46E5),
+                      label: "TOTAL RENTAL INCOME",
+                      value: summary.rentalIncome,
+                    ),
+                    const SizedBox(width: 12),
+                    _buildTopMetricCard(
+                      icon: Icons.construction_rounded,
+                      iconColor: const Color(0xFFD97706),
+                      label: "TOTAL SERVICE COST",
+                      value: summary.serviceCost,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 2. Middle 3 Summary Cards
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildMiddleSummaryCard(
+                      icon: Icons.arrow_circle_up_rounded,
+                      color: const Color(0xFFEF4444),
+                      label: "TOTAL EXPENSE",
+                      value: summary.totalExpense,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildMiddleSummaryCard(
+                      icon: Icons.arrow_circle_down_rounded,
+                      color: const Color(0xFF0D9488),
+                      label: "TOTAL INCOME",
+                      value: summary.totalIncome,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildMiddleSummaryCard(
+                      icon: Icons.balance_rounded,
+                      color: summary.netAmount >= 0
+                          ? const Color(0xFF0D9488)
+                          : const Color(0xFFEF4444),
+                      label: "NET AMOUNT",
+                      value: summary.netAmount,
+                      isNet: true,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            // 3. Section Title
+            Row(
+              children: [
+                const Icon(Icons.history_rounded,
+                    size: 20, color: Color(0xFF1E293B)),
+                const SizedBox(width: 8),
+                const Text(
+                  "TRANSACTION HISTORY",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // 4. Transaction History Table View
+            if (transactions.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Center(
+                  child: Text(
+                    "No transactions recorded",
+                    style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                  ),
+                ),
+              )
+            else
+              _buildTransactionTable(transactions),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopMetricCard({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required double value,
+  }) {
+    return Container(
+      width: 175,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(icon, size: 36, color: iconColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF64748B),
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    "₹${value.toStringAsFixed(2)}",
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMiddleSummaryCard({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required double value,
+    bool isNet = false,
+  }) {
+    String valueStr = "₹${value.toStringAsFixed(2)}";
+    if (isNet && value < 0) {
+      valueStr = "₹-${value.abs().toStringAsFixed(2)}";
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    valueStr,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTransactionTable(List<AmountTransaction> transactions) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            headingRowColor:
+                MaterialStateProperty.all(const Color(0xFFF8FAFC)),
+            headingRowHeight: 46,
+            dataRowHeight: 52,
+            horizontalMargin: 16,
+            columnSpacing: 28,
+            columns: const [
+              DataColumn(
+                label: Text(
+                  "Date",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+              ),
+              DataColumn(
+                label: Text(
+                  "Type",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+              ),
+              DataColumn(
+                label: Text(
+                  "Description",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+              ),
+              DataColumn(
+                label: Text(
+                  "Amount",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+              ),
+              DataColumn(
+                label: Text(
+                  "Income / Expense",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+              ),
+            ],
+            rows: transactions.map((t) {
+              final isIncome = t.classification.toLowerCase() == "income";
+              final color =
+                  isIncome ? const Color(0xFF0D9488) : const Color(0xFFEF4444);
+
+              return DataRow(
+                cells: [
+                  DataCell(
+                    Text(
+                      t.date.isNotEmpty ? t.date : t.rawDate,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+                  ),
+                  DataCell(
+                    Text(
+                      t.type,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0284C7),
+                      ),
+                    ),
+                  ),
+                  DataCell(
+                    Text(
+                      t.description,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+                  ),
+                  DataCell(
+                    Text(
+                      "₹${t.amount.toStringAsFixed(2)}",
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                  DataCell(
+                    Text(
+                      t.classification,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
       ),
     );
   }

@@ -8,6 +8,7 @@ import 'package:login2/screens/product_mannagement/update_products.dart';
 import 'package:login2/screens/stock/stockRegisterPage.dart';
 import 'package:login2/service/service.dart';
 import 'package:login2/widgets/grid_shimmer.dart';
+import 'package:login2/screens/product_mannagement/product_service_list_page.dart';
 import 'categories.dart';
 
 class ProductList extends StatefulWidget {
@@ -188,6 +189,15 @@ class _ProductListState extends State<ProductList> {
                       ).then((_) {
                         getProductLists();
                       });
+                    } else if (value == "4") {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ProductServiceListPage(),
+                        ),
+                      ).then((_) {
+                        getProductLists();
+                      });
                     }
                   },
                   itemBuilder: (BuildContext context) {
@@ -224,6 +234,26 @@ class _ProductListState extends State<ProductList> {
                             SizedBox(width: 12),
                             Text(
                               'Categories',
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  fontFamily: "MontserratMedium"),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: '4',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.playlist_add_rounded,
+                              size: 18,
+                              color: Color(0xFF2a86c9),
+                            ),
+                            SizedBox(width: 12),
+                            Text(
+                              'Product Service',
                               style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,

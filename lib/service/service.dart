@@ -168,6 +168,8 @@ import 'package:login2/models/lead_management/staff_dashboard_model.dart';
 import 'package:login2/models/lead_management/staffwiseCompletedUpdatedModel.dart';
 import 'package:login2/models/lead_management/staffwisePendingUpdatedModel.dart';
 import 'package:login2/models/lead_management/staffwiseWorkDataCountModel.dart';
+import 'package:login2/models/product_mannagement/get_service_list_model.dart';
+import 'package:login2/models/product_mannagement/get_product_payment_list_model.dart';
 import 'package:login2/models/lead_management/stagewiseReportModel.dart';
 import 'package:login2/models/lead_management/stagewiseReportOntap.dart';
 import 'package:login2/models/lead_management/stagewiseTableModel.dart';
@@ -428,6 +430,7 @@ import '../models/userManagement/postEditStaffPermissionModel.dart';
 import '../models/userManagement/postEditStaffSubmenuModel.dart';
 import '../models/userManagement/staffDetailsModel.dart';
 import '../models/Product_mannagement/checkBarcodeDuplicateModel.dart';
+import '../models/staffServiceModel.dart';
 import '../models/userPermissionModel.dart';
 import '../models/verifyPhoneModel.dart';
 
@@ -7775,6 +7778,27 @@ class HttpService {
       }
     } catch (e) {
       log("getStaffs error: $e");
+    }
+    return null;
+  }
+  static Future<StaffServiceModel?> getStaffservice() async {
+    var token = await Common.getSharedPref('token');
+    try {
+      FormData formData = FormData.fromMap({
+        'token': token,
+      });
+      final response = await _dio.post(
+        "${await Config.getUrl()}get_staffs_service",
+        data: formData,
+      );
+      print("getStaffservice response: ${response}");
+      if (response.statusCode == 200 && response.data['status'] == true) {
+        return StaffServiceModel.fromJson(response.data);
+      } else {
+        log("getStaffservice failed: ${response.data}");
+      }
+    } catch (e) {
+      log("getStaffservice error: $e");
     }
     return null;
   }
@@ -15275,6 +15299,339 @@ class HttpService {
     return null;
   }
 
+  static Future<GetServiceListModel?> getServiceList([
+  String productId = "",
+  String staffId = "",
+  String serviceType = "",
+  String fromDate = "",
+  String toDate = "",
+]) async {
+  try {
+    final token = await Common.getSharedPref("token");
+
+    if (token?.isEmpty ?? true) {
+      log("getServiceList error: Token not found");
+      return null;
+    }
+
+    final Map<String, dynamic> map = {
+      "token": token,
+      if (productId.isNotEmpty) "product_id": productId,
+      if (staffId.isNotEmpty) "staff_id": staffId,
+      if (staffId.isNotEmpty) "vendor_user_id": staffId,
+      if (serviceType.isNotEmpty) "service_type": serviceType,
+      if (serviceType.isNotEmpty) "filter_service_type": serviceType,
+      if (fromDate.isNotEmpty) "from_date": fromDate,
+      if (toDate.isNotEmpty) "to_date": toDate,
+    };
+
+    final formData = FormData.fromMap(map);
+
+    final response = await _dio.post(
+      "${await Config.getUrl()}get_service_list",
+      data: formData,
+    );
+
+    if (response.statusCode == 200 &&
+        (response.data['status'] == true ||
+            response.data['status'] == 'success' ||
+            response.data['status'] == 'true')) {
+      return GetServiceListModel.fromJson(response.data);
+    }
+
+    log(
+      "getServiceList error: "
+      "${response.data?['message'] ?? 'Unknown error'}",
+    );
+  } catch (e) {
+    log("getServiceList error: $e");
+  }
+
+  return null;
+}
+
+  static Future<List<Map<String, dynamic>>> getServicePlaces() async {
+    try {
+      final token = await Common.getSharedPref("token");
+      if (token?.isEmpty ?? true) {
+        log("getServicePlaces error: Token not found");
+        return [];
+      }
+      final formData = FormData.fromMap({"token": token});
+      final response = await _dio.post(
+        "${await Config.getUrl()}get_service_places",
+        data: formData,
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data['data'];
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(
+            data.map((x) => Map<String, dynamic>.from(x)),
+          );
+        }
+      }
+    } catch (e) {
+      log("getServicePlaces error: $e");
+    }
+    return [];
+  }
+
+  static Future<bool> postServicePlace(String placeName, String contactNumber) async {
+    try {
+      final token = await Common.getSharedPref("token");
+      if (token?.isEmpty ?? true) {
+        log("postServicePlace error: Token not found");
+        return false;
+      }
+      final formData = FormData.fromMap({
+        "token": token,
+        "place_name": placeName,
+        "contact_number": contactNumber,
+        // "contact_no": contactNumber,
+        // "phone": contactNumber,
+        // "name": placeName,
+      });
+      final response = await _dio.post(
+        "${await Config.getUrl()}post_service_place",
+        data: formData,
+      );
+      if (response.statusCode == 200 &&
+          (response.data['status'] == true ||
+              response.data['status'] == 'success' ||
+              response.data['status'] == 'true')) {
+        return true;
+      }
+    } catch (e) {
+      log("postServicePlace error: $e");
+    }
+    return false;
+  }
+
+  static Future<bool> postService(Map<String, dynamic> dataMap) async {
+    try {
+      final token = await Common.getSharedPref("token");
+      if (token?.isEmpty ?? true) {
+        log("postService error: Token not found");
+        return false;
+      }
+      dataMap["token"] = token;
+      final formData = FormData.fromMap(dataMap);
+      final response = await _dio.post(
+        "${await Config.getUrl()}post_service",
+        data: formData,
+      );
+      if (response.statusCode == 200 &&
+          (response.data['status'] == true ||
+              response.data['status'] == 'success' ||
+              response.data['status'] == 'true')) {
+        return true;
+      }
+    } catch (e) {
+      log("postService error: $e");
+    }
+    try {
+      final token = await Common.getSharedPref("token");
+      dataMap["token"] = token;
+      final formData = FormData.fromMap(dataMap);
+      final response = await _dio.post(
+        "${await Config.getUrl()}add_product_service",
+        data: formData,
+      );
+      if (response.statusCode == 200 &&
+          (response.data['status'] == true ||
+              response.data['status'] == 'success' ||
+              response.data['status'] == 'true')) {
+        return true;
+      }
+    } catch (e) {
+      log("add_product_service fallback error: $e");
+    }
+    return false;
+  }
+
+  static Future<List<Map<String, dynamic>>> getPaymentMethods() async {
+    try {
+      final token = await Common.getSharedPref("token");
+      if (token?.isEmpty ?? true) {
+        log("getPaymentMethods error: Token not found");
+        return [];
+      }
+      final formData = FormData.fromMap({"token": token});
+      final response = await _dio.post(
+        "${await Config.getUrl()}get_payment_methods",
+        data: formData,
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data['data'];
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(
+            data.map((x) => Map<String, dynamic>.from(x)),
+          );
+        }
+      }
+    } catch (e) {
+      log("getPaymentMethods error: $e");
+    }
+    return [];
+  }
+
+  static Future<bool> addService(Map<String, dynamic> dataMap) async {
+    return postService(dataMap);
+  }
+
+  static Future<bool> updateService(Map<String, dynamic> dataMap) async {
+    try {
+      final token = await Common.getSharedPref("token");
+      if (token?.isEmpty ?? true) {
+        log("updateService error: Token not found");
+        return false;
+      }
+      dataMap["token"] = token;
+      final formData = FormData.fromMap(dataMap);
+      final response = await _dio.post(
+        "${await Config.getUrl()}update_product_service",
+        data: formData,
+      );
+      if (response.statusCode == 200 &&
+          (response.data['status'] == true ||
+              response.data['status'] == 'success' ||
+              response.data['status'] == 'true')) {
+        return true;
+      }
+    } catch (e) {
+      log("updateService primary error: $e");
+    }
+    return postService(dataMap);
+  }
+
+  static Future<bool> deleteService(String serviceId) async {
+    try {
+      final token = await Common.getSharedPref("token");
+      if (token?.isEmpty ?? true) {
+        log("deleteService error: Token not found");
+        return false;
+      }
+      final formData = FormData.fromMap({
+        "token": token,
+        "id": serviceId,
+        "service_id": serviceId,
+      });
+      final response = await _dio.post(
+        "${await Config.getUrl()}delete_product_service",
+        data: formData,
+      );
+      if (response.statusCode == 200 &&
+          (response.data['status'] == true ||
+              response.data['status'] == 'success' ||
+              response.data['status'] == 'true')) {
+        return true;
+      }
+    } catch (e) {
+      log("deleteService primary error: $e");
+    }
+    try {
+      final token = await Common.getSharedPref("token");
+      final formData = FormData.fromMap({
+        "token": token,
+        "id": serviceId,
+        "service_id": serviceId,
+      });
+      final response = await _dio.post(
+        "${await Config.getUrl()}delete_product_service",
+        data: formData,
+      );
+      if (response.statusCode == 200 &&
+          (response.data['status'] == true ||
+              response.data['status'] == 'success' ||
+              response.data['status'] == 'true')) {
+        return true;
+      }
+    } catch (e) {
+      log("delete_product_service fallback error: $e");
+    }
+    return false;
+  }
+
+  static Future<bool> postServicePayment(Map<String, dynamic> dataMap) async {
+    try {
+      final token = await Common.getSharedPref("token");
+      if (token?.isEmpty ?? true) {
+        log("postServicePayment error: Token not found");
+        return false;
+      }
+      dataMap["token"] = token;
+      final formData = FormData.fromMap(dataMap);
+      final response = await _dio.post(
+        "${await Config.getUrl()}process_service_payment",
+        data: formData,
+      );
+      if (response.statusCode == 200 &&
+          (response.data['status'] == true ||
+              response.data['status'] == 'success' ||
+              response.data['status'] == 'true')) {
+        return true;
+      }
+    } catch (e) {
+      log("postServicePayment primary error: $e");
+    }
+    try {
+      final token = await Common.getSharedPref("token");
+      dataMap["token"] = token;
+      final formData = FormData.fromMap(dataMap);
+      final response = await _dio.post(
+        "${await Config.getUrl()}pay_service_balance",
+        data: formData,
+      );
+      if (response.statusCode == 200 &&
+          (response.data['status'] == true ||
+              response.data['status'] == 'success' ||
+              response.data['status'] == 'true')) {
+        return true;
+      }
+    } catch (e) {
+      log("pay_service_balance error: $e");
+    }
+    return postService(dataMap);
+  }
+
+  static Future<GetProductPaymentListModel?> getProductPaymentList(
+      String productId) async {
+    try {
+      final token = await Common.getSharedPref("token");
+
+      if (token?.isEmpty ?? true) {
+        log("getProductPaymentList error: Token not found");
+        return null;
+      }
+
+      final formData = FormData.fromMap({
+        "token": token,
+        "product_id": productId,
+      });
+      final response = await _dio.post(
+        "${await Config.getUrl()}get_product_payment_list",
+        data: formData,
+      );
+
+print("getProductPaymentList request: ${response}");
+      if (response.statusCode == 200 &&
+          (response.data['status'] == true ||
+              response.data['status'] == 'success' ||
+              response.data['status'] == 'true')) {
+        return GetProductPaymentListModel.fromJson(response.data);
+      }
+
+      log(
+        "getProductPaymentList error: "
+        "${response.data?['message'] ?? 'Unknown error'}",
+      );
+    } catch (e) {
+      log("getProductPaymentList error: $e");
+    }
+
+    return null;
+  }
+
   static Future<ProductHistoryRentalModel?> getStockHistoryRental(
       String productId) async {
     try {
@@ -16734,4 +17091,87 @@ class HttpService {
 
     return null;
   }
+
+  static Future<Map<String, dynamic>?> getServicePaymentHistory(String serviceId) async {
+    final token = await Common.getSharedPref("token");
+    final data = {
+      'token': token,
+      'service_id': serviceId,
+    };
+
+    try {
+      final response = await _dio.post(
+        "${await Config.getUrl()}get_service_payment_history",
+        data: FormData.fromMap(data),
+      );
+
+      if (response.statusCode == 200) {
+        if (response.data is Map) {
+          return Map<String, dynamic>.from(response.data);
+        } else if (response.data is String) {
+          return Map<String, dynamic>.from(json.decode(response.data));
+        }
+      }
+    } catch (e) {
+      log("getServicePaymentHistory error: $e");
+    }
+
+    return null;
+  }
+
+  static Future<bool> updateServicePayment(Map<String, dynamic> dataMap) async {
+    try {
+      final token = await Common.getSharedPref("token");
+      if (token?.isEmpty ?? true) {
+        log("updateServicePayment error: Token not found");
+        return false;
+      }
+      dataMap["token"] = token;
+      final formData = FormData.fromMap(dataMap);
+      final response = await _dio.post(
+        "${await Config.getUrl()}update_service_payment",
+        data: formData,
+      );
+      if (response.statusCode == 200 &&
+          (response.data['status'] == true ||
+              response.data['status'] == 'success' ||
+              response.data['status'] == 'true')) {
+        return true;
+      }
+    } catch (e) {
+      log("updateServicePayment error: $e");
+    }
+    return false;
+  }
+
+  static Future<bool> deleteServicePayment(String paymentId, String serviceId) async {
+    try {
+      final token = await Common.getSharedPref("token");
+      if (token?.isEmpty ?? true) {
+        log("deleteServicePayment error: Token not found");
+        return false;
+      }
+      final formData = FormData.fromMap({
+        "token": token,
+        "id": paymentId,
+        "payment_id": paymentId,
+        "service_id": serviceId,
+      });
+      final response = await _dio.post(
+        "${await Config.getUrl()}delete_service_payment",
+        data: formData,
+      );
+      if (response.statusCode == 200 &&
+          (response.data['status'] == true ||
+              response.data['status'] == 'success' ||
+              response.data['status'] == 'true')) {
+        return true;
+      }
+    } catch (e) {
+      log("deleteServicePayment error: $e");
+    }
+    return false;
+  }
 }
+
+
