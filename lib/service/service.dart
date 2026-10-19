@@ -3089,31 +3089,158 @@ class HttpService {
     }
   }
 
-  static Future callLogUpload(body) async {
+  // static Future callLogUpload(body) async {
+  //   try {
+  //     var result = await _dio.post("${await Config.getUrl()}add_phone_call_log",
+  //         data: jsonEncode(body));
+  //     if (result.statusCode == 200) {
+  //       CallLogUploadModel model = CallLogUploadModel.fromJson(result.data);
+  //       return model;
+  //     }
+  //   } catch (e) {
+  //     log("error: $e");
+  //   }
+  // }
+  static Future callLogUpload(
+    Map<String, dynamic> body, {
+    String? recordingPath,
+  }) async {
     try {
-      var result = await _dio.post("${await Config.getUrl()}add_phone_call_log",
-          data: jsonEncode(body));
-      if (result.statusCode == 200) {
-        CallLogUploadModel model = CallLogUploadModel.fromJson(result.data);
-        return model;
+      if (recordingPath != null && recordingPath.isNotEmpty) {
+        final fileExtension = recordingPath.split('.').last.toLowerCase();
+
+        MediaType contentType;
+
+        if (fileExtension == 'aac') {
+          contentType = MediaType('audio', 'aac');
+        } else if (fileExtension == 'mp3') {
+          contentType = MediaType('audio', 'mpeg');
+        } else if (fileExtension == 'wav') {
+          contentType = MediaType('audio', 'wav');
+        } else {
+          contentType = MediaType('application', 'octet-stream');
+        }
+
+        final file = await MultipartFile.fromFile(
+          recordingPath,
+          filename: recordingPath.split('/').last,
+          contentType: contentType,
+        );
+
+        // FIX 1: log must be sent as a JSON string (like Postman),
+        // otherwise FormData flattens it into log[0][name], log[0][phone_number]...
+        final logValue = body['log'];
+
+        final formData = FormData.fromMap({
+          ...body,
+          'log': logValue is String ? logValue : jsonEncode(logValue),
+          'recording': file,
+        });
+        print('========== RECORDING UPLOAD ==========');
+        print('Recording path: $recordingPath');
+        print('Recording filename: ${recordingPath.split('/').last}');
+        print('Content type: $contentType');
+        for (final field in formData.fields) {
+          if (field.key == 'token') {
+            print('Multipart field: token = [REDACTED]');
+          } else if (field.key == 'log') {
+            print('Multipart field: log = ${field.value}');
+          } else {
+            print('Multipart field: ${field.key} = ${field.value}');
+          }
+        }
+
+        print('Multipart file count: ${formData.files.length}');
+        print('======================================');
+        final result = await _dio.post(
+          "${await Config.getUrl()}add_phone_call_log",
+          data: formData,
+          options: Options(
+            // FIX 2: removed contentType: 'multipart/form-data'
+            // Dio must add the boundary itself, otherwise PHP gets empty $_POST/$_FILES
+            responseType: ResponseType.json,
+            headers: {
+              'Accept': 'application/json',
+            },
+          ),
+        );
+        print('========== UPLOAD RESPONSE ==========');
+        print('Status code: ${result.statusCode}');
+        print('Response data: ${result.data}');
+        print('=====================================');
+
+        if (result.statusCode == 200) {
+          return CallLogUploadModel.fromJson(result.data);
+        }
+      } else {
+        print('========== without audio ==========');
+        // Existing call-log-only upload
+        final result = await _dio.post(
+          "${await Config.getUrl()}add_phone_call_log",
+          data: jsonEncode(body),
+          // FIX 3: explicit JSON content type so PHP takes the
+          // application/json branch
+          options: Options(contentType: Headers.jsonContentType),
+        );
+
+        if (result.statusCode == 200) {
+          return CallLogUploadModel.fromJson(result.data);
+        }
       }
+    } on DioException catch (e) {
+      // FIX 4: log the server's response body so you can see the real error
+      log("callLogUpload DioException: ${e.type} "
+          "status=${e.response?.statusCode} body=${e.response?.data}");
     } catch (e) {
-      log("error: $e");
+      log("callLogUpload error: $e");
+    }
+  }
+
+  //manual upload
+
+  static Future<dynamic> uploadManualRecording({
+    required String recordingPath,
+    required String id,
+  }) async {
+    final token = await Common.getSharedPref("token");
+    try {
+      final formData = FormData.fromMap({
+        'recording': await MultipartFile.fromFile(recordingPath),
+        'token': token,
+        'row_id': id,
+      });
+
+      final result = await _dio.post(
+        "${await Config.getUrl()}upload_call_recording",
+        data: formData,
+        options: Options(
+          contentType: 'multipart/form-data',
+        ),
+      );
+
+      print('Manual recording API response: ${result.data}');
+      return result.data;
+    } catch (e) {
+      print('Manual recording API error: $e');
+      return null;
     }
   }
 
   static Future callLogHistory(token, fromDate, toDate, staffId,
-      {String? callType}) async {
+      {String? callType, String? call_master_id}) async {
     var params = {
       "token": token,
       "fromDate": fromDate,
       "toDate": toDate,
       "staffId": staffId,
       "callType": callType ?? "",
+      "call_master_id": call_master_id ?? "",
     };
+
     try {
       var result = await _dio.get("${await Config.getUrl()}get_phone_call_log",
           queryParameters: params);
+
       CallLogHistoryModel model = CallLogHistoryModel.fromJson(result.data);
       if (result.statusCode == 200) {
         return model;
@@ -3121,6 +3248,34 @@ class HttpService {
     } catch (e) {
       log("error: $e");
     }
+  }
+
+  //for lead details popup
+  static Future callLogHistoryByMasterId(
+    staffId, {
+    required String call_master_id,
+  }) async {
+    final token = await Common.getSharedPref("token");
+    var params = {
+      "token": token,
+      "staffId": staffId,
+      "call_master_id": call_master_id,
+    };
+
+    try {
+      var result = await _dio.get(
+        "${await Config.getUrl()}get_phone_call_log",
+        queryParameters: params,
+      );
+
+      if (result.statusCode == 200) {
+        return CallLogHistoryModel.fromJson(result.data);
+      }
+    } catch (e) {
+      log("Error fetching call log history by master ID: $e");
+    }
+
+    return null;
   }
 
   static Future deleteCallHistoryLogs(body) async {

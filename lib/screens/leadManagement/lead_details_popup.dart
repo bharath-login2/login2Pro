@@ -16,6 +16,7 @@ import 'package:intl/intl.dart';
 import 'package:login2/models/lead_management/deleteLeadModel.dart';
 import 'package:login2/models/lead_management/leadTransferModel.dart';
 import 'package:login2/models/lead_management/uploadAudioRecoed.dart';
+import 'package:lottie/lottie.dart';
 import 'package:login2/models/lead_management/leadExtraSettings.dart';
 import 'package:login2/models/lead_management/leadFollowupAdd.dart' as af;
 import 'package:login2/models/lead_management/callResultResonModel.dart' as cr;
@@ -34,7 +35,8 @@ import '../../models/lead_management/leadMileStoneListModel.dart';
 import '../../models/lead_management/listFolderName.dart';
 import '../../models/lead_management/addLeadCommonDataModel.dart';
 import '../../models/lead_management/showTransferHideorShowModel.dart';
-
+import '../../models/callLogs/callLogHistoryModel.dart';
+import '../../service/call_recording_service.dart';
 import 'package:login2/models/lead_management/get_chat_id.dart';
 import 'package:login2/models/lead_management/activityModel.dart';
 import 'package:login2/models/lead_management/callDataModel.dart';
@@ -60,6 +62,7 @@ import 'package:login2/screens/authentication/googleDriveFilesModel.dart';
 import 'package:login2/models/lead_management/deleteGoogleDriveFileModel.dart';
 import 'package:login2/models/lead_management/renameGdriveApiModel.dart';
 import 'package:dropdown_search/dropdown_search.dart';
+import '../../widgets/music_player.dart';
 
 class LeadDetailsPopup extends StatefulWidget {
   final String token;
@@ -157,6 +160,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
   AddLeadCommonDataModel? commonDetails;
   ActivityMode? activeMode;
   CallHistoryResponse? callDetailsDataS;
+  CallLogHistoryModel? logHistory;
   bool isActivityLoading = false;
   bool showTransferFreshValue = false;
   bool isCallHistoryLoading = false;
@@ -268,7 +272,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
   bool isExpand = false;
   bool isCreatingOrderOnly = false;
   String? creatingOrderFollowupId;
-
+  bool isPhoneLogLoading = true;
   bool refresh = false;
   String? permissionAccess = '';
   String? uploadPermission = '';
@@ -311,6 +315,99 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
           _descriptionLoading[productId] = false;
           _productDescriptions[productId] = "Failed to load description.";
         });
+      }
+    }
+  }
+
+  //get the phone call recordings
+  Future<void> _fetchPhoneCallLogs() async {
+    if (!mounted) return;
+
+    setState(() {
+      isPhoneLogLoading = true;
+    });
+
+    try {
+      final String staffId =
+          userId ?? (await Common.getSharedPref("userId")) ?? '';
+
+      final String masterId = callMasterId ?? widget.callMasterId;
+      print("master");
+      print(masterId);
+      final response = await HttpService.callLogHistoryByMasterId(
+        staffId,
+        call_master_id: masterId,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        logHistory = response;
+      });
+    } catch (e) {
+      log('Error fetching phone call logs: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          isPhoneLogLoading = false;
+        });
+      }
+    }
+  }
+
+  //manualaudio upload
+  Future<void> _uploadManualRecording(String itemId) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Expanded(child: Text("Loading..")),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final success =
+          await CallRecordingService.uploadManualRecording(id: itemId);
+
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? 'Call log and recording uploaded successfully'
+                : 'Upload failed',
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: success ? Colors.green : Colors.red,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      if (success) {
+        getSharedData();
+        _fetchPhoneCallLogs();
+      }
+    } catch (e, stackTrace) {
+      log('Manual call and recording upload error: $e');
+      log('$stackTrace');
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Upload failed', style: TextStyle(color: Colors.white)),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
       }
     }
   }
@@ -409,6 +506,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
     {'id': 'root', 'name': 'Drive'}
   ];
   bool isUploading = false;
+  bool get _showPhoneCallLogTab => Platform.isAndroid;
 
   static const Color appBarStart = Color(0xFF2a86c9);
   static const Color textPrimary = Color(0xFF2C3E50);
@@ -477,14 +575,20 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
   int _getTabCount() {
     int count = 4; // Followup, Activities, Details, Documents
     if (widget.leadDetails.data?.callHistoryPermission == true) count++;
+    if (_showPhoneCallLogTab) count++;
     if (widget.mileStone?.data?.milestones?.isNotEmpty ?? false) count++;
     return count;
   }
 
   List<String> _getTabLabels() {
     List<String> labels = ['Followup', 'Activities', 'Details', 'File Manager'];
+    int insertAt = 1;
     if (widget.leadDetails.data?.callHistoryPermission == true) {
-      labels.insert(1, 'Call Logs');
+      labels.insert(insertAt, 'Cloud Call Logs');
+      insertAt++;
+    }
+    if (_showPhoneCallLogTab) {
+      labels.insert(insertAt, 'Phone Call Log'); // right after Call Logs
     }
     if (widget.mileStone?.data?.milestones?.isNotEmpty ?? false) {
       labels.add('Milestones');
@@ -555,6 +659,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
     _fetchCallResultReason();
     _fetchLeadSubType();
     _fetchActivitiesAndCallHistory();
+    _fetchPhoneCallLogs();
     _fetchProductSection();
     listFolderList(widget.token, widget.callMasterId, '');
     _fetchGoogleDriveAccounts();
@@ -878,7 +983,48 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
     }
   }
 
-  Future<void> uploadMissingLogsToServer(
+  // Future<void> uploadMissingLogsToServer(
+  //     List<HiveCaallHistoryModel> callLogData) async {
+  //   log("uploadMissingLogsToServer function called");
+
+  //   List<Map<String, dynamic>> missingLogs = callLogData
+  //       .map((log) => {
+  //             "name": log.name,
+  //             "phone_number": log.phoneNumber,
+  //             "callTypes": log.callType
+  //                 .toString()
+  //                 .substring(log.callType.toString().indexOf('.') + 1),
+  //             "time":
+  //                 DateTime.fromMillisecondsSinceEpoch(int.parse(log.timeStamp))
+  //                     .toString(),
+  //             "duration": log.duration,
+  //             "simName": log.simSlot ?? "NIL",
+  //             "timeStamp": log.timeStamp,
+  //           })
+  //       .toList();
+
+  //   log("⚠️ Found ${missingLogs.length} missing logs.");
+
+  //   if (missingLogs.isNotEmpty) {
+  //     log('~~ OUTGOING CALL missingLogs : $missingLogs ~~~');
+  //     log('~~ OUTGOING CALL length : ${missingLogs.length} ~~~');
+
+  //     Map<String, dynamic> body = {
+  //       "token": await Common.getSharedPref("token"),
+  //       'log': missingLogs,
+  //     };
+  //     log('~~ OUTGOING CALL BODY : $body ~~~');
+
+  //     CallLogUploadModel object1 = await HttpService.callLogUpload(body);
+  //     log('~~ OUTGOING CALL missingLogs object : ${object1.data} ~~~');
+  //     if (object1.data == true) {
+  //       log('~~ OUTGOING CALL success ~~~');
+  //     } else {
+  //       log('~~ OUTGOING CALL failure ~~~');
+  //     }
+  //   }
+  // }
+  Future<bool> uploadMissingLogsToServer(
       List<HiveCaallHistoryModel> callLogData) async {
     log("uploadMissingLogsToServer function called");
 
@@ -889,34 +1035,92 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
               "callTypes": log.callType
                   .toString()
                   .substring(log.callType.toString().indexOf('.') + 1),
+              // "time": DateTime.parse(log.timeStamp).toString(),
               "time":
                   DateTime.fromMillisecondsSinceEpoch(int.parse(log.timeStamp))
-                      .toString(),
+                      .toString(), // log.timestamp,
+              // "time": log.timeStamp.toString(), // log.timestamp,
               "duration": log.duration,
-              "simName": log.simSlot ?? "NIL",
+              "simName": log.simSlot,
               "timeStamp": log.timeStamp,
             })
         .toList();
 
     log("⚠️ Found ${missingLogs.length} missing logs.");
 
-    if (missingLogs.isNotEmpty) {
-      log('~~ OUTGOING CALL missingLogs : $missingLogs ~~~');
-      log('~~ OUTGOING CALL length : ${missingLogs.length} ~~~');
+    if (missingLogs.isEmpty) {
+      return false;
+    }
 
-      Map<String, dynamic> body = {
-        "token": await Common.getSharedPref("token"),
-        'log': missingLogs,
-      };
-      log('~~ OUTGOING CALL BODY : $body ~~~');
+    log('~~ OUTGOING CALL missingLogs : $missingLogs ~~~');
+    log('~~ OUTGOING CALL length : ${missingLogs.length} ~~~');
 
-      CallLogUploadModel object1 = await HttpService.callLogUpload(body);
-      log('~~ OUTGOING CALL missingLogs object : ${object1.data} ~~~');
-      if (object1.data == true) {
-        log('~~ OUTGOING CALL success ~~~');
-      } else {
-        log('~~ OUTGOING CALL failure ~~~');
+    Map<String, dynamic> body = {
+      "token": await Common.getSharedPref("token"),
+      'log': missingLogs,
+    };
+    log('~~ OUTGOING CALL BODY : $body ~~~');
+
+    // --- OPTION A PRE-UPLOAD SCAN ---
+    HiveCaallHistoryModel? targetCall;
+    if (callLogData.isNotEmpty) {
+      targetCall = callLogData.reduce((a, b) {
+        final tsA = int.tryParse(a.timeStamp) ?? 0;
+        final tsB = int.tryParse(b.timeStamp) ?? 0;
+        return tsA >= tsB ? a : b;
+      });
+    }
+
+    Map<String, dynamic>? initialMatch;
+    if (targetCall != null) {
+      try {
+        print(
+            'AUTO RECORDING [OPTION A]: Pre-upload scan started for target phone: ${targetCall.phoneNumber}');
+        initialMatch =
+            await CallRecordingService.findMatchingRecordingForTargetCall(
+          targetCall,
+          attemptNumber: 0,
+        );
+      } catch (e) {
+        print('AUTO RECORDING [OPTION A]: Pre-upload scan error: $e');
       }
+    }
+
+    String? recordingPath;
+    if (initialMatch != null) {
+      recordingPath = initialMatch['recordingPath']?.toString();
+      print('AUTO: initial request type multipart');
+      print(
+          'AUTO RECORDING [OPTION A]: MATCH FOUND! Uploading MULTIPART (call log + audio recording file together) to $recordingPath');
+    } else {
+      print('AUTO: initial request type json');
+      print(
+          'AUTO RECORDING [OPTION A]: No matching recording available before initial upload. Uploading JSON-ONLY call log immediately.');
+    }
+
+    CallLogUploadModel object1 = await HttpService.callLogUpload(
+      body,
+      recordingPath: recordingPath,
+    );
+    print(
+        'AUTO: API response status=${object1.status}, data=${object1.data}, message=${object1.message}');
+    log('~~ OUTGOING CALL missingLogs object : ${object1.data} ~~~');
+
+    if (object1.data == true || object1.status == true) {
+      log('~~ OUTGOING CALL success ~~~');
+      if (initialMatch != null && recordingPath != null) {
+        await CallRecordingService.markRecordingUploadedLocally(
+          recordingPath,
+          initialMatch['recordingTime'],
+        );
+        print(
+            'AUTO RECORDING [OPTION A]: Initial multipart upload SUCCESS! Recording marked uploaded.');
+        return true;
+      }
+      return false;
+    } else {
+      log('~~ OUTGOING CALL failure ~~~');
+      return false;
     }
   }
 
@@ -1529,6 +1733,8 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
               _buildFollowupTab(),
               if (widget.leadDetails.data?.callHistoryPermission == true)
                 _buildCallHistoryTab(),
+              if (widget.leadDetails.data?.callHistoryPermission == true)
+                _buildPhoneCallLogTab(),
               _buildActivitiesTab(),
               _buildDetailsTab(),
               _buildDocumentsTab(),
@@ -2491,6 +2697,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
 
         await Future.wait<dynamic>([
           _fetchActivitiesAndCallHistory(),
+          _fetchPhoneCallLogs(),
           _fetchRenewalDetails(),
           _fetchCallResultReason(),
           _fetchLeadSubType(),
@@ -7346,6 +7553,246 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
           ),
         ),
       ],
+    );
+  }
+
+  //phone call
+  Widget _buildPhoneCallLogTab() {
+    // Loading
+    if (isPhoneLogLoading) {
+      return Center(
+        child: SizedBox(
+          height: 200,
+          child: Lottie.asset('assets/main/loading.json', fit: BoxFit.contain),
+        ),
+      );
+    }
+
+    // Empty (also covers a failed fetch or null response)
+    final lists = logHistory?.data?.lists;
+    if (lists == null || lists.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 180,
+              child: Lottie.asset('assets/main/no_history.json',
+                  fit: BoxFit.contain),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'No phone call logs found',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Calls made or received will appear here',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      );
+    }
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Total duration card
+          if (logHistory?.data?.totalDuration != null)
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Total Call Duration:',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, color: Colors.blue),
+                    ),
+                    Text(
+                      logHistory!.data!.totalDuration!,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.blue),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Call list
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: lists.length,
+            itemBuilder: (context, index) {
+              final item = lists[index];
+              final itemId = item.id.toString();
+              final displayName =
+                  (item.name.toString() == '' || item.name.toString() == 'null')
+                      ? 'Unknown'
+                      : item.name.toString();
+
+              // Swipe (Dismissible) removed.
+              // To bring it back, wrap the Padding below in a Dismissible again.
+              return Padding(
+                padding: const EdgeInsets.only(left: 10, right: 10, bottom: 12),
+                child: Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.symmetric(vertical: 2),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: item.isMannual == "1"
+                        ? const Color.fromARGB(255, 224, 248, 223)
+                        : Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.shade400,
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Avatar + name + number + upload icon
+                      Row(
+                        children: [
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: const BoxDecoration(
+                              boxShadow: [
+                                BoxShadow(
+                                    color: Colors.grey,
+                                    blurRadius: 5,
+                                    offset: Offset(1, 1)),
+                              ],
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              image: DecorationImage(
+                                fit: BoxFit.cover,
+                                image: AssetImage('assets/main/avatar.png'),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  displayName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  item.phoneNumber.toString(),
+                                  style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w400),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (uploadPermission == "true")
+                            Padding(
+                              padding: const EdgeInsets.only(right: 10),
+                              child: InkWell(
+                                onTap: () => _uploadManualRecording(itemId),
+                                child: Image.asset(
+                                  "assets/icons/audioUpload.png",
+                                  width: 20,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Date + duration
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Image.asset("assets/icons/calendar.png",
+                                  width: 20),
+                              const SizedBox(width: 15),
+                              Text(item.dateTime.toString()),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              const Icon(Icons.timer_outlined),
+                              const SizedBox(width: 10),
+                              Padding(
+                                padding: const EdgeInsets.only(right: 10),
+                                child: Text(
+                                  item.duration
+                                      .toString()
+                                      .split('.')[0]
+                                      .padLeft(8, '0'),
+                                  style: const TextStyle(
+                                      fontSize: 15, color: Colors.green),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+
+                      // Type + recording player
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Type  : ${item.callType}'),
+                          if (item.recordingUrl != null &&
+                              item.recordingUrl!.isNotEmpty)
+                            SizedBox(
+                              width: 140,
+                              child: CallRecordingPlayer(
+                                audioUrl:
+                                    'https://drive.google.com/uc?export=download&id=${item.driveFileId}',
+                              ),
+                            )
+                          else
+                            const Text(
+                              "No recording available",
+                              style:
+                                  TextStyle(color: Colors.grey, fontSize: 13),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
     );
   }
 

@@ -1222,8 +1222,8 @@ class _CallHistoryPageTwoState extends State<CallHistoryPageTwo>
                         ),
                       ],
                     ),
-                    if (log.resourceUrl != null &&
-                        log.resourceUrl!.isNotEmpty &&
+                    if (log.recordingUrl != null &&
+                        log.recordingUrl!.isNotEmpty &&
                         widget.accessCallRecord)
                       Padding(
                         padding: const EdgeInsets.only(top: 10.0),
@@ -1233,7 +1233,7 @@ class _CallHistoryPageTwoState extends State<CallHistoryPageTwo>
                           true,
                           log.dateTime.toString(),
                           log.callType.toString(),
-                          log.resourceUrl.toString(),
+                          log.recordingUrl.toString(),
                           log.duration.toString(),
                           widget.accessCallRecord,
                           log.name.toString(),

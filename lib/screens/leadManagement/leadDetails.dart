@@ -60,6 +60,7 @@ import '../../screens/leadManagement/editFollowup.dart';
 import '../../screens/leadManagement/editLead.dart';
 import '../../screens/leadManagement/stageTimelineWidget.dart';
 import '../../service/service.dart';
+import '../../service/call_recording_service.dart';
 import 'add_leads.dart';
 import 'audio_controller.dart';
 import 'docViewWebView.dart';
@@ -663,7 +664,53 @@ class _LeadDetailsState extends State<LeadDetails> {
     // setState(() {});
   }
 
-  Future<void> uploadMissingLogsToServer(
+  // Future<void> uploadMissingLogsToServer(
+  //     List<HiveCaallHistoryModel> callLogData) async {
+  //   log("uploadMissingLogsToServer function called");
+
+  //   List<Map<String, dynamic>> missingLogs = callLogData
+  //       .map((log) => {
+  //             "name": log.name,
+  //             "phone_number": log.phoneNumber,
+  //             "callTypes": log.callType
+  //                 .toString()
+  //                 .substring(log.callType.toString().indexOf('.') + 1),
+  //             // "time": DateTime.parse(log.timeStamp).toString(),
+  //             "time":
+  //                 DateTime.fromMillisecondsSinceEpoch(int.parse(log.timeStamp))
+  //                     .toString(), // log.timestamp,
+  //             // "time": log.timeStamp.toString(), // log.timestamp,
+  //             "duration": log.duration,
+  //             "simName": log.simSlot ?? "NIL",
+  //             "timeStamp": log.timeStamp,
+  //           })
+  //       .toList();
+
+  //   log("⚠️ Found ${missingLogs.length} missing logs.");
+
+  //   if (missingLogs.isNotEmpty) {
+  //     log('~~ OUTGOING CALL missingLogs : $missingLogs ~~~');
+  //     log('~~ OUTGOING CALL length : ${missingLogs.length} ~~~');
+
+  //     Map<String, dynamic> body = {
+  //       "token": await Common.getSharedPref("token"),
+  //       'log': missingLogs,
+  //     };
+  //     log('~~ OUTGOING CALL BODY : $body ~~~');
+
+  //     CallLogUploadModel object1 = await HttpService.callLogUpload(body);
+  //     log('~~ OUTGOING CALL missingLogs object : ${object1.data} ~~~');
+  //     // await HiveUtil.saveCallLog(missingLogs.last);
+  //     if (object1.data == true) {
+  //       log('~~ OUTGOING CALL success ~~~');
+  //       log('success');
+  //     } else {
+  //       log('~~ OUTGOING CALL failure ~~~');
+  //       log('failure');
+  //     }
+  //   }
+  // }
+  Future<bool> uploadMissingLogsToServer(
       List<HiveCaallHistoryModel> callLogData) async {
     log("uploadMissingLogsToServer function called");
 
@@ -680,33 +727,86 @@ class _LeadDetailsState extends State<LeadDetails> {
                       .toString(), // log.timestamp,
               // "time": log.timeStamp.toString(), // log.timestamp,
               "duration": log.duration,
-              "simName": log.simSlot ?? "NIL",
+              "simName": log.simSlot,
               "timeStamp": log.timeStamp,
             })
         .toList();
 
     log("⚠️ Found ${missingLogs.length} missing logs.");
 
-    if (missingLogs.isNotEmpty) {
-      log('~~ OUTGOING CALL missingLogs : $missingLogs ~~~');
-      log('~~ OUTGOING CALL length : ${missingLogs.length} ~~~');
+    if (missingLogs.isEmpty) {
+      return false;
+    }
 
-      Map<String, dynamic> body = {
-        "token": await Common.getSharedPref("token"),
-        'log': missingLogs,
-      };
-      log('~~ OUTGOING CALL BODY : $body ~~~');
+    log('~~ OUTGOING CALL missingLogs : $missingLogs ~~~');
+    log('~~ OUTGOING CALL length : ${missingLogs.length} ~~~');
 
-      CallLogUploadModel object1 = await HttpService.callLogUpload(body);
-      log('~~ OUTGOING CALL missingLogs object : ${object1.data} ~~~');
-      // await HiveUtil.saveCallLog(missingLogs.last);
-      if (object1.data == true) {
-        log('~~ OUTGOING CALL success ~~~');
-        log('success');
-      } else {
-        log('~~ OUTGOING CALL failure ~~~');
-        log('failure');
+    Map<String, dynamic> body = {
+      "token": await Common.getSharedPref("token"),
+      'log': missingLogs,
+    };
+    log('~~ OUTGOING CALL BODY : $body ~~~');
+
+    // --- OPTION A PRE-UPLOAD SCAN ---
+    HiveCaallHistoryModel? targetCall;
+    if (callLogData.isNotEmpty) {
+      targetCall = callLogData.reduce((a, b) {
+        final tsA = int.tryParse(a.timeStamp) ?? 0;
+        final tsB = int.tryParse(b.timeStamp) ?? 0;
+        return tsA >= tsB ? a : b;
+      });
+    }
+
+    Map<String, dynamic>? initialMatch;
+    if (targetCall != null) {
+      try {
+        print(
+            'AUTO RECORDING [OPTION A]: Pre-upload scan started for target phone: ${targetCall.phoneNumber}');
+        initialMatch =
+            await CallRecordingService.findMatchingRecordingForTargetCall(
+          targetCall,
+          attemptNumber: 0,
+        );
+      } catch (e) {
+        print('AUTO RECORDING [OPTION A]: Pre-upload scan error: $e');
       }
+    }
+
+    String? recordingPath;
+    if (initialMatch != null) {
+      recordingPath = initialMatch['recordingPath']?.toString();
+      print('AUTO: initial request type multipart');
+      print(
+          'AUTO RECORDING [OPTION A]: MATCH FOUND! Uploading MULTIPART (call log + audio recording file together) to $recordingPath');
+    } else {
+      print('AUTO: initial request type json');
+      print(
+          'AUTO RECORDING [OPTION A]: No matching recording available before initial upload. Uploading JSON-ONLY call log immediately.');
+    }
+
+    CallLogUploadModel object1 = await HttpService.callLogUpload(
+      body,
+      recordingPath: recordingPath,
+    );
+    print(
+        'AUTO: API response status=${object1.status}, data=${object1.data}, message=${object1.message}');
+    log('~~ OUTGOING CALL missingLogs object : ${object1.data} ~~~');
+
+    if (object1.data == true || object1.status == true) {
+      log('~~ OUTGOING CALL success ~~~');
+      if (initialMatch != null && recordingPath != null) {
+        await CallRecordingService.markRecordingUploadedLocally(
+          recordingPath,
+          initialMatch['recordingTime'],
+        );
+        print(
+            'AUTO RECORDING [OPTION A]: Initial multipart upload SUCCESS! Recording marked uploaded.');
+        return true;
+      }
+      return false;
+    } else {
+      log('~~ OUTGOING CALL failure ~~~');
+      return false;
     }
   }
 
@@ -7583,7 +7683,6 @@ class _LeadDetailsState extends State<LeadDetails> {
                         // Transfer as Fresh Data Toggle - Hidden as per request
                         Visibility(
                           visible: showTransferFreshValue,
-
                           child: InkWell(
                             onTap: () {
                               setDialogState(() {

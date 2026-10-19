@@ -101,7 +101,6 @@ import '../drawerScreen.dart';
 import '../../models/lead_management/BulkTransferLeadModel.dart';
 import '../../models/lead_management/showTransferHideorShowModel.dart';
 
-
 class DashboardLeadNewUpdated extends StatefulWidget {
   String? token;
   final GlobalKey<_DashboardLeadNewUpdatedState>? dashboardKey;
@@ -399,6 +398,9 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
       length: 3,
       vsync: this,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      requestAudioPermission();
+    });
     _tabController.addListener(_handleTabSelection);
     _isTabControllerInitialized = true;
     _loadReportsFromCache();
@@ -410,6 +412,18 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
       setState(() {});
     }
     _fetchDataForTab(_tabController.index);
+  }
+
+  Future<void> requestAudioPermission() async {
+    try {
+      await const MethodChannel(
+        'com.login2Pro/call_recording',
+      ).invokeMethod('requestAudioPermission');
+    } on PlatformException catch (e) {
+      debugPrint('Audio permission error: ${e.message}');
+    } catch (e) {
+      debugPrint('Error requesting audio permission: $e');
+    }
   }
 
   int _getTabCount() {
@@ -1768,8 +1782,8 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
             );
           }
 
-          Widget buildDateField(
-              String label, DateTime? value, bool isFrom, Function(DateTime) onSelect) {
+          Widget buildDateField(String label, DateTime? value, bool isFrom,
+              Function(DateTime) onSelect) {
             return InkWell(
               onTap: () async {
                 final dateFilterMonths = await Common.getDateFilter();
@@ -1783,7 +1797,8 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
                   if (tempTo != null) {
                     lastDate = tempTo!;
                     if (dateFilterMonths != null && dateFilterMonths > 0) {
-                      firstDate = Common.subtractMonths(tempTo!, dateFilterMonths);
+                      firstDate =
+                          Common.subtractMonths(tempTo!, dateFilterMonths);
                     } else {
                       firstDate = DateTime(2020);
                     }
@@ -1823,9 +1838,11 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
                     setModalState(() {
                       tempFrom = picked;
                       if (dateFilterMonths != null && dateFilterMonths > 0) {
-                        final maxTo = Common.addMonths(picked, dateFilterMonths);
+                        final maxTo =
+                            Common.addMonths(picked, dateFilterMonths);
                         if (tempTo != null &&
-                            (tempTo!.isBefore(picked) || tempTo!.isAfter(maxTo))) {
+                            (tempTo!.isBefore(picked) ||
+                                tempTo!.isAfter(maxTo))) {
                           tempTo = picked;
                         }
                       } else if (tempTo != null && tempTo!.isBefore(picked)) {
@@ -1837,12 +1854,15 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
                     setModalState(() {
                       tempTo = picked;
                       if (dateFilterMonths != null && dateFilterMonths > 0) {
-                        final minFrom = Common.subtractMonths(picked, dateFilterMonths);
+                        final minFrom =
+                            Common.subtractMonths(picked, dateFilterMonths);
                         if (tempFrom != null &&
-                            (tempFrom!.isBefore(minFrom) || tempFrom!.isAfter(picked))) {
+                            (tempFrom!.isBefore(minFrom) ||
+                                tempFrom!.isAfter(picked))) {
                           tempFrom = null; // Clear/reset From Date if invalid
                         }
-                      } else if (tempFrom != null && tempFrom!.isAfter(picked)) {
+                      } else if (tempFrom != null &&
+                          tempFrom!.isAfter(picked)) {
                         tempFrom = null;
                       }
                     });
@@ -1985,7 +2005,8 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
                       tempTo = now;
                       tempFrom = now;
                       if (dateFilterMonths != null && dateFilterMonths > 0) {
-                        final minFrom = Common.subtractMonths(now, dateFilterMonths);
+                        final minFrom =
+                            Common.subtractMonths(now, dateFilterMonths);
                         if (tempFrom!.isBefore(minFrom)) {
                           tempFrom = minFrom;
                         }
@@ -2001,7 +2022,8 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
                       tempTo = lastDayOfMonth;
                       DateTime fromCandidate = firstDayOfMonth;
                       if (dateFilterMonths != null && dateFilterMonths > 0) {
-                        final minFrom = Common.subtractMonths(lastDayOfMonth, dateFilterMonths);
+                        final minFrom = Common.subtractMonths(
+                            lastDayOfMonth, dateFilterMonths);
                         if (fromCandidate.isBefore(minFrom)) {
                           fromCandidate = minFrom;
                         }
@@ -2276,11 +2298,15 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () async {
-                            final dateFilterMonths = await Common.getDateFilter();
+                            final dateFilterMonths =
+                                await Common.getDateFilter();
                             final now = DateTime.now();
-                            DateTime defaultFrom = now.subtract(const Duration(days: 30));
-                            if (dateFilterMonths != null && dateFilterMonths > 0) {
-                              final minFrom = Common.subtractMonths(now, dateFilterMonths);
+                            DateTime defaultFrom =
+                                now.subtract(const Duration(days: 30));
+                            if (dateFilterMonths != null &&
+                                dateFilterMonths > 0) {
+                              final minFrom =
+                                  Common.subtractMonths(now, dateFilterMonths);
                               if (defaultFrom.isBefore(minFrom)) {
                                 defaultFrom = minFrom;
                               }
@@ -2305,10 +2331,13 @@ class _DashboardLeadNewUpdatedState extends State<DashboardLeadNewUpdated>
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () async {
-                            final dateFilterMonths = await Common.getDateFilter();
+                            final dateFilterMonths =
+                                await Common.getDateFilter();
                             DateTime finalFrom = tempFrom ?? tempTo;
-                            if (dateFilterMonths != null && dateFilterMonths > 0) {
-                              final minFrom = Common.subtractMonths(tempTo, dateFilterMonths);
+                            if (dateFilterMonths != null &&
+                                dateFilterMonths > 0) {
+                              final minFrom = Common.subtractMonths(
+                                  tempTo, dateFilterMonths);
                               if (finalFrom.isBefore(minFrom)) {
                                 finalFrom = minFrom;
                               }

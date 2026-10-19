@@ -48,6 +48,63 @@ class Data {
   }
 }
 
+// class CallLogData {
+//   String? id;
+//   String? name;
+//   String? phoneNumber;
+//   String? callType;
+//   String? duration;
+//   String? simName;
+//   String? dateTime;
+//   String? userId;
+//   String? staffName;
+//   String? isMannual;
+//   String? resourceUrl;
+
+//   CallLogData(
+//       {this.id,
+//       this.name,
+//       this.phoneNumber,
+//       this.callType,
+//       this.duration,
+//       this.simName,
+//       this.dateTime,
+//       this.userId,
+//       this.staffName,
+//       this.isMannual,
+//       this.resourceUrl});
+
+//   CallLogData.fromJson(Map<String, dynamic> json) {
+//     id = json['id'];
+//     name = json['name']?.toString();
+//     phoneNumber = json['phone_number'];
+//     callType = json['callType'];
+//     duration = json['duration'];
+//     simName = json['SimName'];
+//     dateTime = json['date_time'];
+//     userId = json['user_id'];
+//     staffName = json['staff_name'];
+//     isMannual = json['is_mannual']?.toString();
+//     resourceUrl = json['ResourceURL'];
+//   }
+
+//   Map<String, dynamic> toJson() {
+//     final Map<String, dynamic> data = <String, dynamic>{};
+//     data['id'] = id;
+//     data['name'] = name;
+//     data['phone_number'] = phoneNumber;
+//     data['callType'] = callType;
+//     data['duration'] = duration;
+//     data['SimName'] = simName;
+//     data['date_time'] = dateTime;
+//     data['user_id'] = userId;
+//     data['staff_name'] = staffName;
+//     data['is_mannual'] = isMannual;
+//     data['ResourceURL'] = resourceUrl;
+//     return data;
+//   }
+// }
+
 class CallLogData {
   String? id;
   String? name;
@@ -59,37 +116,51 @@ class CallLogData {
   String? userId;
   String? staffName;
   String? isMannual;
-  String? resourceUrl;
 
-  CallLogData(
-      {this.id,
-      this.name,
-      this.phoneNumber,
-      this.callType,
-      this.duration,
-      this.simName,
-      this.dateTime,
-      this.userId,
-      this.staffName,
-      this.isMannual,
-      this.resourceUrl});
+  // Recording-related fields from the new API response
+  String? recording;
+  String? recordingUrl;
+  String? driveFileId;
+  String? callMasterId;
+
+  CallLogData({
+    this.id,
+    this.name,
+    this.phoneNumber,
+    this.callType,
+    this.duration,
+    this.simName,
+    this.dateTime,
+    this.userId,
+    this.staffName,
+    this.isMannual,
+    this.recording,
+    this.recordingUrl,
+    this.driveFileId,
+    this.callMasterId,
+  });
 
   CallLogData.fromJson(Map<String, dynamic> json) {
-    id = json['id'];
+    id = json['id']?.toString();
     name = json['name']?.toString();
-    phoneNumber = json['phone_number'];
-    callType = json['callType'];
-    duration = json['duration'];
-    simName = json['SimName'];
-    dateTime = json['date_time'];
-    userId = json['user_id'];
-    staffName = json['staff_name'];
+    phoneNumber = json['phone_number']?.toString();
+    callType = json['callType']?.toString();
+    duration = json['duration']?.toString();
+    simName = json['SimName']?.toString();
+    dateTime = json['date_time']?.toString();
+    userId = json['user_id']?.toString();
+    staffName = json['staff_name']?.toString();
     isMannual = json['is_mannual']?.toString();
-    resourceUrl = json['ResourceURL'];
+
+    recording = json['recording']?.toString();
+    recordingUrl = json['recording_url']?.toString();
+    driveFileId = json['drive_file_id']?.toString();
+    callMasterId = json['call_master_id']?.toString();
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
+
     data['id'] = id;
     data['name'] = name;
     data['phone_number'] = phoneNumber;
@@ -100,7 +171,12 @@ class CallLogData {
     data['user_id'] = userId;
     data['staff_name'] = staffName;
     data['is_mannual'] = isMannual;
-    data['ResourceURL'] = resourceUrl;
+
+    data['recording'] = recording;
+    data['recording_url'] = recordingUrl;
+    data['drive_file_id'] = driveFileId;
+    data['call_master_id'] = callMasterId;
+
     return data;
   }
 }

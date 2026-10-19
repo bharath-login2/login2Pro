@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'dart:developer';
+import 'dart:convert';
 import 'dart:io';
 import 'package:call_e_log/call_log.dart';
 import 'package:flutter/foundation.dart';
@@ -10,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 // import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 // import 'package:flutter_dialpad/flutter_dialpad.dart';
+import '../../widgets/music_player.dart';
 import 'package:intl/intl.dart';
 import 'package:login2/core/config.dart';
 import 'package:login2/hive/call_logs/HiveCaallHistoryModel.dart';
@@ -32,6 +34,7 @@ import '../../models/callLogs/callLogUploadPermissionUpdateModel.dart';
 import '../../models/callLogs/deleteCallHistoryModel.dart';
 import '../../models/lead_management/addLeadCommonDataModel.dart';
 import '../../service/service.dart';
+import '../../service/call_recording_service.dart';
 import '../leadManagement/dashboard.dart';
 import 'dart:math' hide log;
 
@@ -82,12 +85,22 @@ class _CallLogsState extends State<CallLogs> {
   String callType = 'All';
   String callTypeValue = '';
 
+  //for fltering call log based on sim slot index
+  String normalizePhoneNumber(String number) =>
+      CallRecordingService.normalizePhoneNumber(number);
+
+  Future<Map<String, dynamic>?> matchRecordingWithCallLog(
+    Map<String, dynamic> recording,
+  ) =>
+      CallRecordingService.matchRecordingWithCallLog(recording);
+
   Future<void> checkPermission() async {
     final bool status = await FlutterOverlayWindow.isPermissionGranted();
     setState(() {
       displayOverApps = status;
     });
   }
+  //check only
 
   Future<void> checkBackgroundServiceStatus() async {
     final service = FlutterBackgroundService();
@@ -243,7 +256,7 @@ class _CallLogsState extends State<CallLogs> {
       historyIndex.clear();
 
       for (int i = 0; i < _filteredCallLogEntries.length; i++) {
-          final entry = _filteredCallLogEntries.elementAt(i);
+        final entry = _filteredCallLogEntries.elementAt(i);
 
         // Skip if already uploaded
         bool isUploaded = fullHiveData.any((item) =>
@@ -373,6 +386,25 @@ class _CallLogsState extends State<CallLogs> {
     fullHiveData.clear();
     final List<HiveCaallHistoryModel> hiveData =
         await HiveUtil.getAllCallLogs();
+    print('========== HIVE CALL LOGS ==========');
+    print('Hive data length: ${hiveData.length}');
+
+    // for (var entry in hiveData) {
+    //   print('------------------------------------');
+    //   print('ID: ${entry.id}');
+    //   print('Name: ${entry.name}');
+    //   print('Phone: ${entry.phoneNumber}');
+    //   print('Call Type: ${entry.callType}');
+    //   print('Duration: ${entry.duration}');
+    //   print('Timestamp: ${entry.timeStamp}');
+    //   print('SIM: ${entry.simSlot}');
+    //   print('Record Path: ${entry.callRecordFilePath}');
+    //   print('Uploaded: ${entry.isUploaded}');
+    //   print('Deleted: ${entry.isDeleted}');
+    //   print('Enabled: ${entry.isEnabled}');
+    // }
+
+    print('====================================');
     log('hiveData LENGTH MAIN: ${hiveData.length}');
     for (var entry in hiveData) {
       log('Entry 1 MAIN : ${entry.name} || ${entry.phoneNumber} || ${entry.isUploaded} || ${entry.timeStamp}');
@@ -406,14 +438,17 @@ class _CallLogsState extends State<CallLogs> {
       }
     }
 
-    final hasSim2 = _activeSims.any((s) => s['simSlotIndex'] == 1 || s['simSlotIndex'] == '1') || _activeSims.length >= 2;
+    final hasSim2 = _activeSims
+            .any((s) => s['simSlotIndex'] == 1 || s['simSlotIndex'] == '1') ||
+        _activeSims.length >= 2;
     List<String> simOptions = ['SIM 1'];
     if (hasSim2) {
       simOptions.add('SIM 2');
     }
 
     String? savedSim = prefs.getString('selectedSim');
-    String selectedDialogSim = (savedSim == 'SIM 2' && hasSim2) ? 'SIM 2' : 'SIM 1';
+    String selectedDialogSim =
+        (savedSim == 'SIM 2' && hasSim2) ? 'SIM 2' : 'SIM 1';
     if (_selectedSimFilter == 'SIM 2' && hasSim2) {
       selectedDialogSim = 'SIM 2';
     } else if (_selectedSimFilter == 'SIM 1') {
@@ -581,8 +616,8 @@ class _CallLogsState extends State<CallLogs> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Text(
-                            'We collect and upload your call logs (duration & timestamps) to secure servers. '
-                            'This helps your company’s admin track activities. Your data is encrypted and handled securely under our privacy policy.',
+                            'We collect and upload your call logs (including duration and timestamps) and call recording audio to secure servers.'
+                            'This helps your company’s admin track activities and review call recordings. Your data is encrypted and handled securely under our privacy policy.',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.black87,
@@ -629,10 +664,14 @@ class _CallLogsState extends State<CallLogs> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () async {
+                              await const MethodChannel(
+                                'com.login2Pro/call_recording',
+                              ).invokeMethod('requestAudioPermission');
                               await prefs.setStringList('callTypes', callTypes);
                               await prefs.setString('callLogsStartingTime',
                                   DateTime.now().toString());
-                              await prefs.setString('selectedSim', selectedDialogSim);
+                              await prefs.setString(
+                                  'selectedSim', selectedDialogSim);
                               await Permission.phone.request();
                               await Common.saveSharedPref(
                                   "callLogPermission", 'true');
@@ -676,7 +715,8 @@ class _CallLogsState extends State<CallLogs> {
 
   List<HiveCaallHistoryModel> fullHiveData = [];
 
-  static const MethodChannel _simChannel = MethodChannel('com.login2Pro/sim_info');
+  static const MethodChannel _simChannel =
+      MethodChannel('com.login2Pro/sim_info');
 
   Future<Iterable<CallLogEntry>> _queryAndDebugCallLogs(
       int? dateFrom, int? dateTo) async {
@@ -690,7 +730,9 @@ class _CallLogsState extends State<CallLogs> {
     }
 
     // Reset filter if selected SIM is no longer available
-    final hasSim2 = _activeSims.any((s) => s['simSlotIndex'] == 1 || s['simSlotIndex'] == '1') || _activeSims.length >= 2;
+    final hasSim2 = _activeSims
+            .any((s) => s['simSlotIndex'] == 1 || s['simSlotIndex'] == '1') ||
+        _activeSims.length >= 2;
     if (_selectedSimFilter == 'SIM 2' && !hasSim2) {
       _selectedSimFilter = 'SIM 1';
     }
@@ -795,10 +837,12 @@ class _CallLogsState extends State<CallLogs> {
       final carrier = sim['carrierName']?.toString().trim();
       if (slotIdx == 0) {
         if (disp != null && disp.isNotEmpty) slot0Names.add(disp.toLowerCase());
-        if (carrier != null && carrier.isNotEmpty) slot0Names.add(carrier.toLowerCase());
+        if (carrier != null && carrier.isNotEmpty)
+          slot0Names.add(carrier.toLowerCase());
       } else if (slotIdx == 1) {
         if (disp != null && disp.isNotEmpty) slot1Names.add(disp.toLowerCase());
-        if (carrier != null && carrier.isNotEmpty) slot1Names.add(carrier.toLowerCase());
+        if (carrier != null && carrier.isNotEmpty)
+          slot1Names.add(carrier.toLowerCase());
       }
     }
     bool hasDistinctSimNames = slot0Names.isNotEmpty &&
@@ -838,8 +882,6 @@ class _CallLogsState extends State<CallLogs> {
     }).toList();
   }
 
-
-  
   getSharedData() async {
     log('getSharedData called');
     try {
@@ -853,7 +895,8 @@ class _CallLogsState extends State<CallLogs> {
       roleId = await Common.getSharedPref("roleId");
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? savedSimPref = prefs.getString('selectedSim');
-      if (savedSimPref != null && (savedSimPref == 'SIM 1' || savedSimPref == 'SIM 2')) {
+      if (savedSimPref != null &&
+          (savedSimPref == 'SIM 1' || savedSimPref == 'SIM 2')) {
         _selectedSimFilter = savedSimPref;
       }
       if (uploadPermission != "true" && Platform.isIOS) {
@@ -1374,46 +1417,46 @@ class _CallLogsState extends State<CallLogs> {
   //   }
 
   // }
-  Future<bool> uploadMissingLogsToServer(
-      List<HiveCaallHistoryModel> callLogData) async {
-    log("uploadMissingLogsToServer function called");
-    List<Map<String, dynamic>> missingLogs = callLogData
-        .map((log) => {
-              "name": log.name,
-              "phone_number": log.phoneNumber,
-              "callTypes": log.callType
-                  .toString()
-                  .substring(log.callType.toString().indexOf('.') + 1),
-              "time":
-                  DateTime.fromMillisecondsSinceEpoch(int.parse(log.timeStamp))
-                      .toString(),
-              "duration": log.duration,
-              "simName": log.simSlot ?? "NIL",
-              "timeStamp": log.timeStamp,
-            })
-        .toList();
-    log("⚠️ Found ${missingLogs.length} missing logs.");
-    if (missingLogs.isNotEmpty) {
-      log('~~ UPLOADING LOGS : $missingLogs ~~~');
-      log('~~ UPLOADING LOGS length : ${missingLogs.length} ~~~');
-      Map<String, dynamic> body = {
-        "token": await Common.getSharedPref("token"),
-        'log': missingLogs,
-      };
-      CallLogUploadModel object1 = await HttpService.callLogUpload(body);
-      if (object1.data == true) {
-        log('~~ UPLOAD SUCCESS ~~~');
-        for (var log in callLogData) {
-          await HiveUtil.markCallLogAsUploaded(log.id);
-        }
-        return true;
-      } else {
-        log('~~ UPLOAD FAILURE ~~~');
-        return false;
-      }
-    }
-    return true;
-  }
+  // Future<bool> uploadMissingLogsToServer(
+  //     List<HiveCaallHistoryModel> callLogData) async {
+  //   log("uploadMissingLogsToServer function called");
+  //   List<Map<String, dynamic>> missingLogs = callLogData
+  //       .map((log) => {
+  //             "name": log.name,
+  //             "phone_number": log.phoneNumber,
+  //             "callTypes": log.callType
+  //                 .toString()
+  //                 .substring(log.callType.toString().indexOf('.') + 1),
+  //             "time":
+  //                 DateTime.fromMillisecondsSinceEpoch(int.parse(log.timeStamp))
+  //                     .toString(),
+  //             "duration": log.duration,
+  //             "simName": log.simSlot ?? "NIL",
+  //             "timeStamp": log.timeStamp,
+  //           })
+  //       .toList();
+  //   log("⚠️ Found ${missingLogs.length} missing logs.");
+  //   if (missingLogs.isNotEmpty) {
+  //     log('~~ UPLOADING LOGS : $missingLogs ~~~');
+  //     log('~~ UPLOADING LOGS length : ${missingLogs.length} ~~~');
+  //     Map<String, dynamic> body = {
+  //       "token": await Common.getSharedPref("token"),
+  //       'log': missingLogs,
+  //     };
+  //     CallLogUploadModel object1 = await HttpService.callLogUpload(body);
+  //     if (object1.data == true) {
+  //       log('~~ UPLOAD SUCCESS ~~~');
+  //       for (var log in callLogData) {
+  //         await HiveUtil.markCallLogAsUploaded(log.id);
+  //       }
+  //       return true;
+  //     } else {
+  //       log('~~ UPLOAD FAILURE ~~~');
+  //       return false;
+  //     }
+  //   }
+  //   return true;
+  // }
 
   getData() async {
     commonDetails = await HttpService.addLeadCommonData(widget.token);
@@ -1982,6 +2025,52 @@ class _CallLogsState extends State<CallLogs> {
                     const SizedBox(
                       height: 15,
                     ),
+                    //only for check recordings in device
+                    // ElevatedButton(
+                    //   onPressed: () async {
+                    //     try {
+                    //       final recordings =
+                    //           await CallRecordingNative.getNewRecordings();
+
+                    //       print('==============================');
+                    //       print('CALL RECORDINGS FOUND: ${recordings.length}');
+                    //       print('==============================');
+
+                    //       for (final recording in recordings) {
+                    //         print('RECORDING: $recording');
+                    //       }
+                    //       if (context.mounted) {
+                    //         ScaffoldMessenger.of(context).showSnackBar(
+                    //           SnackBar(
+                    //             content: Text(
+                    //               'Discovered ${recordings.length} recording(s) on device.',
+                    //             ),
+                    //           ),
+                    //         );
+                    //       }
+                    //     } catch (e) {
+                    //       print('CALL RECORDING ERROR: $e');
+                    //     }
+                    //   },
+                    //   child: const Text('Check Recordings'),
+                    // ),
+                    // ElevatedButton(
+                    //   onPressed: () async {
+                    //     await CallRecordingService.uploadCallRecordingManually(
+                    //       context,
+                    //       token: widget.token,
+                    //     );
+                    //   },
+                    //   child: const Text('Upload Call Recordings'),
+                    // ),
+                    // ElevatedButton(
+                    //   onPressed: () async {
+                    //     await const MethodChannel(
+                    //       'com.login2Pro/call_recording',
+                    //     ).invokeMethod('requestAudioPermission');
+                    //   },
+                    //   child: const Text('Grant Audio Permission'),
+                    // ),
                     selectedIndex == 0
                         ? Column(
                             children: [
@@ -2000,19 +2089,22 @@ class _CallLogsState extends State<CallLogs> {
                                           textAlign: TextAlign.center,
                                         ),
                                         const SizedBox(
-                                            height: 10,
-                                          ),
+                                          height: 10,
+                                        ),
                                         _filteredCallLogEntries.isNotEmpty
                                             ? ListView.builder(
                                                 shrinkWrap: true,
                                                 itemCount:
-                                                    _filteredCallLogEntries.length,
+                                                    _filteredCallLogEntries
+                                                        .length,
                                                 physics:
                                                     const NeverScrollableScrollPhysics(),
                                                 itemBuilder:
                                                     (context, indexStaff) {
-                                                  final entry = _filteredCallLogEntries
-                                                      .elementAt(indexStaff);
+                                                  final entry =
+                                                      _filteredCallLogEntries
+                                                          .elementAt(
+                                                              indexStaff);
                                                   //  bool isUploaded = fullHiveData.any((item) => item.id == entry.timestamp.toString());
                                                   bool isUploaded =
                                                       fullHiveData.any((item) =>
@@ -2377,6 +2469,7 @@ class _CallLogsState extends State<CallLogs> {
                                                                         //     'F. NUMBER  : ${_filteredCallLogEntries.elementAt(indexStaff).formattedNumber}'),
                                                                         // Text(
                                                                         //     'C.M. NUMBER: ${_filteredCallLogEntries.elementAt(indexStaff).cachedMatchedNumber}'),
+
                                                                         Row(
                                                                           children: [
                                                                             Container(
@@ -2391,122 +2484,186 @@ class _CallLogsState extends State<CallLogs> {
                                                                                   maxWidth: 50,
                                                                                 ),
                                                                                 decoration: BoxDecoration(
-                                                                                  border: Border.all(color: Colors.white, width: 0),
+                                                                                  border: Border.all(
+                                                                                    color: Colors.white,
+                                                                                    width: 0,
+                                                                                  ),
                                                                                   boxShadow: const [
-                                                                                    BoxShadow(color: Colors.grey, blurRadius: 5, offset: Offset(1, 1)),
+                                                                                    BoxShadow(
+                                                                                      color: Colors.grey,
+                                                                                      blurRadius: 5,
+                                                                                      offset: Offset(1, 1),
+                                                                                    ),
                                                                                   ],
                                                                                   color: Colors.white,
                                                                                   shape: BoxShape.circle,
-                                                                                  image: const DecorationImage(fit: BoxFit.cover, image: AssetImage('assets/main/avatar.png')),
+                                                                                  image: const DecorationImage(
+                                                                                    fit: BoxFit.cover,
+                                                                                    image: AssetImage('assets/main/avatar.png'),
+                                                                                  ),
                                                                                 ),
                                                                               ),
                                                                             ),
-                                                                            const SizedBox(
-                                                                              width: 20,
-                                                                            ),
-                                                                            Row(
-                                                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                              children: [
-                                                                                SizedBox(
-                                                                                  width: MediaQuery.of(context).size.width * 0.6,
-                                                                                  child: Column(
-                                                                                    mainAxisAlignment: MainAxisAlignment.center,
-                                                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                                                    children: [
-                                                                                      Text(
-                                                                                        _filteredCallLogEntries.elementAt(indexStaff).name ?? "Unknown",
-                                                                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                                                                                      ),
-                                                                                      const SizedBox(
-                                                                                        height: 3,
-                                                                                      ),
-                                                                                      Text(
-                                                                                        _filteredCallLogEntries.elementAt(indexStaff).number.toString(),
-                                                                                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w400),
-                                                                                      ),
-                                                                                    ],
+
+                                                                            const SizedBox(width: 12),
+
+                                                                            // Remaining width is shared between text and icons.
+                                                                            Expanded(
+                                                                              child: Row(
+                                                                                children: [
+                                                                                  // Name and phone number
+                                                                                  Expanded(
+                                                                                    child: Column(
+                                                                                      mainAxisAlignment: MainAxisAlignment.center,
+                                                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                                                      children: [
+                                                                                        Text(
+                                                                                          _filteredCallLogEntries.elementAt(indexStaff).name ?? "Unknown",
+                                                                                          maxLines: 1,
+                                                                                          overflow: TextOverflow.ellipsis,
+                                                                                          style: const TextStyle(
+                                                                                            fontSize: 16,
+                                                                                            fontWeight: FontWeight.w500,
+                                                                                          ),
+                                                                                        ),
+                                                                                        const SizedBox(height: 3),
+                                                                                        Text(
+                                                                                          _filteredCallLogEntries.elementAt(indexStaff).number.toString(),
+                                                                                          maxLines: 1,
+                                                                                          overflow: TextOverflow.ellipsis,
+                                                                                          style: const TextStyle(
+                                                                                            fontSize: 15,
+                                                                                            fontWeight: FontWeight.w400,
+                                                                                          ),
+                                                                                        ),
+                                                                                      ],
+                                                                                    ),
                                                                                   ),
-                                                                                ),
-                                                                                uploadPermission == "true" && onLongPress != true && isUploaded == false
-                                                                                    ? InkWell(
-                                                                                        onTap: () async {
-                                                                                          Common.showProgressDialog(context, "Loading..");
-                                                                                          history.clear();
-                                                                                          history.add({
-                                                                                            "name": _filteredCallLogEntries.elementAt(indexStaff).name ?? "",
-                                                                                            "phone_number": _filteredCallLogEntries.elementAt(indexStaff).number,
-                                                                                            "callTypes": _filteredCallLogEntries.elementAt(indexStaff).callType.toString().substring(_filteredCallLogEntries.elementAt(indexStaff).callType.toString().indexOf('.') + 1),
-                                                                                            "time": '${DateTime.fromMillisecondsSinceEpoch(_filteredCallLogEntries.elementAt(indexStaff).timestamp!)}',
-                                                                                            "duration": _filteredCallLogEntries.elementAt(indexStaff).duration,
-                                                                                            "simName": _filteredCallLogEntries.elementAt(indexStaff).simDisplayName ?? "NIL",
-                                                                                            "timeStamp": _filteredCallLogEntries.elementAt(indexStaff).timestamp,
-                                                                                          });
-                                                                                          historyIndex.add(indexStaff);
-                                                                                          Map<String, dynamic> body = {
-                                                                                            "token": widget.token,
-                                                                                            'log': history,
-                                                                                          };
-                                                                                          CallLogUploadModel object1 = await HttpService.callLogUpload(body);
-                                                                                          if (object1.data == true) {
-                                                                                            Common.toastMessaage(object1.message, Colors.green);
-                                                                                            bool isThisAlreadyInHiveCallLogDb = await HiveUtil.isCallLogWithIdAndNumberExists(_filteredCallLogEntries.elementAt(indexStaff).timestamp.toString(), _filteredCallLogEntries.elementAt(indexStaff).number.toString());
-                                                                                            log('isThisAlreadyInHiveCallLogDb : $isThisAlreadyInHiveCallLogDb');
-                                                                                            if (isThisAlreadyInHiveCallLogDb) {
-                                                                                              log('already in hive');
-                                                                                              await HiveUtil.markCallLogAsUploaded(_filteredCallLogEntries.elementAt(indexStaff).timestamp.toString());
-                                                                                              log('updated in hive');
-                                                                                            } else {
-                                                                                              log('not in hive');
-                                                                                              try {
-                                                                                                HiveCaallHistoryModel hiveCallLog = HiveCaallHistoryModel(
-                                                                                                    id: _filteredCallLogEntries.elementAt(indexStaff).timestamp.toString(),
-                                                                                                    name: _filteredCallLogEntries.elementAt(indexStaff).name.toString(),
-                                                                                                    phoneNumber: _filteredCallLogEntries.elementAt(indexStaff).number.toString(),
-                                                                                                    callType: _filteredCallLogEntries.elementAt(indexStaff).callType.toString().substring(_filteredCallLogEntries.elementAt(indexStaff).callType.toString().indexOf('.') + 1),
-                                                                                                    duration: _filteredCallLogEntries.elementAt(indexStaff).duration.toString(),
-                                                                                                    // timeStamp: '${DateTime.fromMillisecondsSinceEpoch( int.parse(_filteredCallLogEntries.elementAt(indexStaff).timestamp))}',
-                                                                                                    // timeStamp: _filteredCallLogEntries.elementAt(indexStaff).timestamp.toString(),
-                                                                                                    timeStamp: _filteredCallLogEntries.elementAt(indexStaff).timestamp!.toString(),
-                                                                                                    //   DateTime.fromMillisecondsSinceEpoch(
-                                                                                                    // _filteredCallLogEntries.elementAt(indexStaff).timestamp!  ).toIso8601String(),
-                                                                                                    simSlot: _filteredCallLogEntries.elementAt(indexStaff).simDisplayName ?? "NIL",
-                                                                                                    callRecordFilePath: "",
-                                                                                                    isUploaded: true,
-                                                                                                    isDeleted: false,
-                                                                                                    isEnabled: false);
-                                                                                                await HiveUtil.addCallLog(hiveCallLog);
-                                                                                              } catch (e) {
-                                                                                                log('error : ${e.toString()}');
-                                                                                              }
-                                                                                            }
-                                                                                            if (context.mounted) {
-                                                                                              Navigator.pop(context);
-                                                                                              getSharedData();
-                                                                                              getData();
-                                                                                            }
+
+                                                                                  const SizedBox(width: 3),
+
+                                                                                  // Normal call-log upload
+                                                                                  if (uploadPermission == "true" && onLongPress != true && isUploaded == false)
+                                                                                    InkWell(
+                                                                                      onTap: () async {
+                                                                                        Common.showProgressDialog(context, "Loading..");
+
+                                                                                        history.clear();
+
+                                                                                        history.add({
+                                                                                          "name": _filteredCallLogEntries.elementAt(indexStaff).name ?? "",
+                                                                                          "phone_number": _filteredCallLogEntries.elementAt(indexStaff).number,
+                                                                                          "callTypes": _filteredCallLogEntries.elementAt(indexStaff).callType.toString().substring(
+                                                                                                _filteredCallLogEntries.elementAt(indexStaff).callType.toString().indexOf('.') + 1,
+                                                                                              ),
+                                                                                          "time": '${DateTime.fromMillisecondsSinceEpoch(_filteredCallLogEntries.elementAt(indexStaff).timestamp!)}',
+                                                                                          "duration": _filteredCallLogEntries.elementAt(indexStaff).duration,
+                                                                                          "simName": _filteredCallLogEntries.elementAt(indexStaff).simDisplayName ?? "NIL",
+                                                                                          "timeStamp": _filteredCallLogEntries.elementAt(indexStaff).timestamp,
+                                                                                        });
+
+                                                                                        historyIndex.add(indexStaff);
+
+                                                                                        Map<String, dynamic> body = {
+                                                                                          "token": widget.token,
+                                                                                          'log': history,
+                                                                                        };
+
+                                                                                        CallLogUploadModel object1 = await HttpService.callLogUpload(body);
+
+                                                                                        if (object1.data == true) {
+                                                                                          Common.toastMessaage(
+                                                                                            object1.message,
+                                                                                            Colors.green,
+                                                                                          );
+
+                                                                                          bool isThisAlreadyInHiveCallLogDb = await HiveUtil.isCallLogWithIdAndNumberExists(
+                                                                                            _filteredCallLogEntries.elementAt(indexStaff).timestamp.toString(),
+                                                                                            _filteredCallLogEntries.elementAt(indexStaff).number.toString(),
+                                                                                          );
+
+                                                                                          log(
+                                                                                            'isThisAlreadyInHiveCallLogDb : '
+                                                                                            '$isThisAlreadyInHiveCallLogDb',
+                                                                                          );
+
+                                                                                          if (isThisAlreadyInHiveCallLogDb) {
+                                                                                            log('already in hive');
+
+                                                                                            await HiveUtil.markCallLogAsUploaded(
+                                                                                              _filteredCallLogEntries.elementAt(indexStaff).timestamp.toString(),
+                                                                                            );
+
+                                                                                            log('updated in hive');
                                                                                           } else {
-                                                                                            Common.toastMessaage(object1.message, Colors.red);
-                                                                                            if (context.mounted) {
-                                                                                              Navigator.pop(context);
+                                                                                            log('not in hive');
+
+                                                                                            try {
+                                                                                              HiveCaallHistoryModel hiveCallLog = HiveCaallHistoryModel(
+                                                                                                id: _filteredCallLogEntries.elementAt(indexStaff).timestamp.toString(),
+                                                                                                name: _filteredCallLogEntries.elementAt(indexStaff).name.toString(),
+                                                                                                phoneNumber: _filteredCallLogEntries.elementAt(indexStaff).number.toString(),
+                                                                                                callType: _filteredCallLogEntries.elementAt(indexStaff).callType.toString().substring(
+                                                                                                      _filteredCallLogEntries.elementAt(indexStaff).callType.toString().indexOf('.') + 1,
+                                                                                                    ),
+                                                                                                duration: _filteredCallLogEntries.elementAt(indexStaff).duration.toString(),
+                                                                                                timeStamp: _filteredCallLogEntries.elementAt(indexStaff).timestamp!.toString(),
+                                                                                                simSlot: _filteredCallLogEntries.elementAt(indexStaff).simDisplayName ?? "NIL",
+                                                                                                callRecordFilePath: "",
+                                                                                                isUploaded: true,
+                                                                                                isDeleted: false,
+                                                                                                isEnabled: false,
+                                                                                              );
+
+                                                                                              await HiveUtil.addCallLog(hiveCallLog);
+                                                                                            } catch (e) {
+                                                                                              log('error : ${e.toString()}');
                                                                                             }
                                                                                           }
-                                                                                          //!
 
-                                                                                          //!
+                                                                                          if (context.mounted) {
+                                                                                            Navigator.pop(context);
+                                                                                            getSharedData();
+                                                                                            getData();
+                                                                                          }
+                                                                                        } else {
+                                                                                          Common.toastMessaage(
+                                                                                            object1.message,
+                                                                                            Colors.red,
+                                                                                          );
 
-                                                                                          setState(() {
-                                                                                            history.clear();
-                                                                                            historyIndex.clear();
-                                                                                          });
-                                                                                        },
-                                                                                        child: const Icon(Icons.upload))
-                                                                                    : isUploaded == true
-                                                                                        ? const Icon(
-                                                                                            Icons.check_circle,
-                                                                                            color: Colors.green,
-                                                                                          )
-                                                                                        : const Icon(Icons.upload, color: Colors.grey),
-                                                                              ],
+                                                                                          if (context.mounted) {
+                                                                                            Navigator.pop(context);
+                                                                                          }
+                                                                                        }
+
+                                                                                        setState(() {
+                                                                                          history.clear();
+                                                                                          historyIndex.clear();
+                                                                                        });
+                                                                                      },
+                                                                                      child: const Icon(
+                                                                                        Icons.upload_rounded,
+                                                                                        color: Colors.blue,
+                                                                                        size: 22,
+                                                                                      ),
+                                                                                    )
+                                                                                  else if (isUploaded == true)
+                                                                                    const Icon(
+                                                                                      Icons.check_circle,
+                                                                                      color: Colors.green,
+                                                                                      size: 22,
+                                                                                    )
+                                                                                  else
+                                                                                    const Icon(
+                                                                                      Icons.upload_rounded,
+                                                                                      color: Colors.grey,
+                                                                                      size: 22,
+                                                                                    ),
+
+                                                                                  const SizedBox(width: 10),
+                                                                                ],
+                                                                              ),
                                                                             ),
                                                                           ],
                                                                         ),
@@ -3290,6 +3447,80 @@ class _CallLogsState extends State<CallLogs> {
                                                                                     ),
                                                                                   ],
                                                                                 ),
+                                                                                // Call recording audio upload
+
+                                                                                if (uploadPermission == "true") ...[
+                                                                                  const Spacer(),
+                                                                                  Padding(
+                                                                                    padding: const EdgeInsets.only(right: 10),
+                                                                                    child: InkWell(
+                                                                                      onTap: () async {
+                                                                                        showDialog(
+                                                                                          context: context,
+                                                                                          barrierDismissible: false,
+                                                                                          builder: (dialogContext) => const AlertDialog(
+                                                                                            content: Row(
+                                                                                              children: [
+                                                                                                CircularProgressIndicator(),
+                                                                                                SizedBox(width: 20),
+                                                                                                Expanded(child: Text("Loading..")),
+                                                                                              ],
+                                                                                            ),
+                                                                                          ),
+                                                                                        );
+
+                                                                                        try {
+                                                                                          final success = await CallRecordingService.uploadManualRecording(
+                                                                                            id: logHistory!.data!.lists![index].id.toString(),
+                                                                                          );
+
+                                                                                          if (!context.mounted) return;
+
+                                                                                          // Close only the progress dialog.
+                                                                                          Navigator.of(context, rootNavigator: true).pop();
+
+                                                                                          ScaffoldMessenger.of(context).showSnackBar(
+                                                                                            SnackBar(
+                                                                                              content: Text(
+                                                                                                success ? 'Call log and recording uploaded successfully' : 'Upload failed',
+                                                                                                style: const TextStyle(color: Colors.white),
+                                                                                              ),
+                                                                                              backgroundColor: success ? Colors.green : Colors.red,
+                                                                                              duration: const Duration(seconds: 2),
+                                                                                            ),
+                                                                                          );
+
+                                                                                          if (success) {
+                                                                                            getSharedData();
+                                                                                            getData();
+                                                                                          }
+                                                                                        } catch (e, stackTrace) {
+                                                                                          log('Manual call and recording upload error: $e');
+                                                                                          log('$stackTrace');
+
+                                                                                          if (context.mounted) {
+                                                                                            Navigator.of(context, rootNavigator: true).pop();
+
+                                                                                            ScaffoldMessenger.of(context).showSnackBar(
+                                                                                              const SnackBar(
+                                                                                                content: Text(
+                                                                                                  'Upload failed',
+                                                                                                  style: TextStyle(color: Colors.white),
+                                                                                                ),
+                                                                                                backgroundColor: Colors.red,
+                                                                                                duration: Duration(seconds: 2),
+                                                                                              ),
+                                                                                            );
+                                                                                          }
+                                                                                        }
+                                                                                      },
+                                                                                      child: Image.asset(
+                                                                                        "assets/icons/audioUpload.png",
+                                                                                        width: 20,
+                                                                                      ),
+                                                                                    ),
+                                                                                  ),
+                                                                                ],
                                                                               ],
                                                                             ),
                                                                             const SizedBox(
@@ -3335,7 +3566,7 @@ class _CallLogsState extends State<CallLogs> {
                                                                                 Text(
                                                                                   'Type  : ${logHistory!.data!.lists![index].callType}',
                                                                                 ),
-                                                                                const SizedBox()
+                                                                                const SizedBox(),
                                                                                 // Container(
                                                                                 //   decoration: BoxDecoration(
                                                                                 //       color: Colors.grey.shade300,
@@ -3353,6 +3584,22 @@ class _CallLogsState extends State<CallLogs> {
                                                                                 //     ),
                                                                                 //   ),
                                                                                 // ),
+
+                                                                                if (logHistory!.data!.lists![index].recordingUrl != null && logHistory!.data!.lists![index].recordingUrl!.isNotEmpty)
+                                                                                  SizedBox(
+                                                                                    width: 140,
+                                                                                    child: CallRecordingPlayer(
+                                                                                      audioUrl: 'https://drive.google.com/uc?export=download&id=${logHistory!.data!.lists![index].driveFileId}',
+                                                                                    ),
+                                                                                  )
+                                                                                else
+                                                                                  const Text(
+                                                                                    "No recording available",
+                                                                                    style: TextStyle(
+                                                                                      color: Colors.grey,
+                                                                                      fontSize: 13,
+                                                                                    ),
+                                                                                  ),
                                                                               ],
                                                                             ),
                                                                             const SizedBox(

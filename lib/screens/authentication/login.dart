@@ -757,6 +757,7 @@ class _LoginState extends State<Login> with TickerProviderStateMixin {
     handleAsync();
     getData();
     HiveUtil.clearAllCallLogs();
+    
   }
 
   @override

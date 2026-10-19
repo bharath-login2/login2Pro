@@ -13,6 +13,7 @@ import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:login2/hive/call_logs/HiveCaallHistoryModel.dart';
 import 'package:login2/hive/call_logs/call_logs_hive_functions.dart';
 import 'package:login2/service/service.dart';
+import 'package:login2/service/call_recording_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:phone_state/phone_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,8 +22,6 @@ import '../models/callLogUploadPermissionModel.dart';
 import '../models/callLogs/callLogUploadModel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-// import 'package:login2/main.dart';
-import 'package:login2/main.dart'; // careful with this import in isolates
 
 PhoneState status1 = PhoneState.nothing();
 
@@ -265,8 +264,6 @@ void showWindow() async {
   // log('DEBUG_OVERLAY: showWindow() called');
   // log('DEBUG_OVERLAY: Current Status: ${status1.status}');
 
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  // List<String> callTypes = prefs.getStringList('callTypes') ?? [];
   await HiveUtil.init();
 
   switch (status1.status) {
@@ -329,12 +326,19 @@ void showWindow() async {
 
 // Separate function for call log upload logic
 Future<void> handleCallLogUpload() async {
+  print('AUTO RECORDING DEBUG 1: handleCallLogUpload entered');
+  print('AUTO: handleCallLogUpload entered');
+  print('AUTO: uploadCall=$uploadCall, doUpload=$doUpload');
   try {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> callTypes = prefs.getStringList('callTypes') ?? [];
-
+    print(
+      'AUTO RECORDING GATE: '
+      'uploadCall=$uploadCall, doUpload=$doUpload',
+    );
     // Only proceed with upload logic
     if (uploadCall == false && doUpload == true) {
+      print('AUTO RECORDING GATE: PASSED');
+      print('AUTO: guard passed — proceeding with call log upload');
       log('~~~~~~~~~~ UPLOADING CALL LOGS ~~~~~~~~~~~');
       doUpload = false;
 
@@ -552,22 +556,107 @@ Future<void> handleCallLogUpload() async {
         // Debug
         log('allowedCallLogs (for upload): ${allowedCallLogs.length}');
 
-        // Proceed with upload only for allowed items
+        // --- Select the newest call as the recording target. ---
+        // hiveCallAddList order depends on the code path, so always pick
+        // the entry with the largest timeStamp (most-recent call start).
+
+        // Keep call-log upload separate from recording upload.
+        print('AUTO: starting call-log upload');
+        print(
+          'AUTO RECORDING GATE: '
+          'allowedCallLogs=${allowedCallLogs.length}',
+        );
+
         if (allowedCallLogs.isNotEmpty) {
           await uploadMissingLogsToServer(allowedCallLogs);
         }
+
+        // Preserve the existing Hive update.
+
         if (hiveCallAddList.isNotEmpty) {
           await HiveUtil.addCallLogs(hiveCallAddList);
         }
+
+        print('AUTO RECORDING DEBUG 1: Hive save completed');
+        print(
+            'AUTO RECORDING DEBUG 2: allowedCallLogs=${allowedCallLogs.length}');
+
+        if (allowedCallLogs.isNotEmpty) {
+          final String? token = body2['token']?.toString();
+
+          final List<HiveCaallHistoryModel> recordingTargets =
+              List<HiveCaallHistoryModel>.from(allowedCallLogs);
+
+          print(
+            'AUTO RECORDING DEBUG 3: Starting processor. '
+            'Eligible calls=${recordingTargets.length}',
+          );
+
+          try {
+            await CallRecordingService
+                .processAutomaticRecordingsForTargetCallsWithRetry(
+              targetCalls: recordingTargets,
+              token: token,
+            );
+
+            print('AUTO RECORDING DEBUG 4: Processor finished.');
+          } catch (e, stackTrace) {
+            print('AUTO RECORDING DEBUG 5: Processor failed: $e');
+            print(stackTrace);
+          }
+        } else {
+          print('AUTO RECORDING DEBUG 6: No eligible calls to process.');
+        }
       }
+    } else {
+      print(
+        'AUTO RECORDING: Upload guard skipped. '
+        'Checking existing eligible Hive calls.',
+      );
+
+      await processExistingCallsForAutomaticRecordings();
     }
+
     uploadCall = true;
   } catch (e) {
     log('Error in handleCallLogUpload: $e');
   }
 }
+//helper
 
-Future<void> uploadMissingLogsToServer(
+Future<void> processExistingCallsForAutomaticRecordings() async {
+  try {
+    final allCalls = await HiveUtil.getAllCallLogs();
+
+    // Preserve the existing call-type eligibility setting.
+    final eligibleCalls =
+        allCalls.where((call) => call.isEnabled == true).toList();
+
+    print(
+      'AUTO RECORDING: Existing eligible Hive calls=${eligibleCalls.length}',
+    );
+
+    if (eligibleCalls.isEmpty) {
+      print('AUTO RECORDING: No eligible Hive calls to scan.');
+      return;
+    }
+
+    final token = await Common.getSharedPref('token');
+
+    await CallRecordingService
+        .processAutomaticRecordingsForTargetCallsWithRetry(
+      targetCalls: eligibleCalls,
+      token: token?.toString(),
+    );
+  } catch (e, stackTrace) {
+    print('AUTO RECORDING: Existing-call scan failed: $e');
+    print(stackTrace);
+  }
+}
+
+
+
+Future<bool> uploadMissingLogsToServer(
     List<HiveCaallHistoryModel> callLogData) async {
   log("uploadMissingLogsToServer function called");
 
@@ -584,34 +673,105 @@ Future<void> uploadMissingLogsToServer(
                     .toString(), // log.timestamp,
             // "time": log.timeStamp.toString(), // log.timestamp,
             "duration": log.duration,
-            "simName": log.simSlot ?? "NIL",
+            "simName": log.simSlot,
             "timeStamp": log.timeStamp,
           })
       .toList();
 
   log("⚠️ Found ${missingLogs.length} missing logs.");
 
-  if (missingLogs.isNotEmpty) {
-    log('~~ OUTGOING CALL missingLogs : $missingLogs ~~~');
-    log('~~ OUTGOING CALL length : ${missingLogs.length} ~~~');
+  if (missingLogs.isEmpty) {
+    return false;
+  }
 
-    Map<String, dynamic> body = {
-      "token": await Common.getSharedPref("token"),
-      'log': missingLogs,
-    };
-    log('~~ OUTGOING CALL BODY : $body ~~~');
+  log('~~ OUTGOING CALL missingLogs : $missingLogs ~~~');
+  log('~~ OUTGOING CALL length : ${missingLogs.length} ~~~');
 
-    CallLogUploadModel object1 = await HttpService.callLogUpload(body);
-    log('~~ OUTGOING CALL missingLogs object : ${object1.data} ~~~');
-    // await HiveUtil.saveCallLog(missingLogs.last);
-    if (object1.data == true) {
-      log('~~ OUTGOING CALL success ~~~');
-      log('success');
-    } else {
-      log('~~ OUTGOING CALL failure ~~~');
-      log('failure');
+  Map<String, dynamic> body = {
+    "token": await Common.getSharedPref("token"),
+    'log': missingLogs,
+  };
+  log('~~ OUTGOING CALL BODY : $body ~~~');
+
+  // --- OPTION A PRE-UPLOAD SCAN ---
+  HiveCaallHistoryModel? targetCall;
+  if (callLogData.isNotEmpty) {
+    targetCall = callLogData.reduce((a, b) {
+      final tsA = int.tryParse(a.timeStamp) ?? 0;
+      final tsB = int.tryParse(b.timeStamp) ?? 0;
+      return tsA >= tsB ? a : b;
+    });
+  }
+
+  Map<String, dynamic>? initialMatch;
+  if (targetCall != null) {
+    try {
+      print(
+          'AUTO RECORDING [OPTION A]: Pre-upload scan started for target phone: ${targetCall.phoneNumber}');
+      initialMatch =
+          await CallRecordingService.findMatchingRecordingForTargetCall(
+        targetCall,
+        attemptNumber: 0,
+      );
+    } catch (e) {
+      print('AUTO RECORDING [OPTION A]: Pre-upload scan error: $e');
     }
   }
+
+  String? recordingPath;
+  if (initialMatch != null) {
+    recordingPath = initialMatch['recordingPath']?.toString();
+    print('AUTO: initial request type multipart');
+    print(
+        'AUTO RECORDING [OPTION A]: MATCH FOUND! Uploading MULTIPART (call log + audio recording file together) to $recordingPath');
+  } else {
+    print('AUTO: initial request type json');
+    print(
+        'AUTO RECORDING [OPTION A]: No matching recording available before initial upload. Uploading JSON-ONLY call log immediately.');
+  }
+
+  CallLogUploadModel object1 = await HttpService.callLogUpload(
+    body,
+    recordingPath: recordingPath,
+  );
+  print(
+      'AUTO: API response status=${object1.status}, data=${object1.data}, message=${object1.message}');
+  log('~~ OUTGOING CALL missingLogs object : ${object1.data} ~~~');
+
+  if (object1.data == true || object1.status == true) {
+    log('~~ OUTGOING CALL success ~~~');
+    if (initialMatch != null && recordingPath != null) {
+      await CallRecordingService.markRecordingUploadedLocally(
+        recordingPath,
+        initialMatch['recordingTime'],
+      );
+      print(
+          'AUTO RECORDING [OPTION A]: Initial multipart upload SUCCESS! Recording marked uploaded.');
+      return true;
+    }
+    return false;
+  } else {
+    log('~~ OUTGOING CALL failure ~~~');
+    return false;
+  }
+
+// Upload call logs only. Recording uploads are handled separately.
+// print('AUTO: uploading call logs without a recording');
+
+// CallLogUploadModel object1 = await HttpService.callLogUpload(body);
+
+// print(
+//   'AUTO: API response status=${object1.status}, '
+//   'data=${object1.data}, message=${object1.message}',
+// );
+
+// if (object1.data == true || object1.status == true) {
+//   log('~~ OUTGOING CALL success ~~~');
+// } else {
+//   log('~~ OUTGOING CALL failure ~~~');
+// }
+
+// return false;
 }
 
 // void showWindow() async {

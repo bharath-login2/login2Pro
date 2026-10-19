@@ -32,7 +32,7 @@ import '../../models/callLogs/callLogUploadPermissionUpdateModel.dart';
 import '../../models/callLogs/deleteCallHistoryModel.dart';
 import '../../models/lead_management/addLeadCommonDataModel.dart';
 import '../../service/service.dart';
-import '../leadManagement/dashboard.dart';
+import '../../service/call_recording_service.dart';
 
 class CallLogs extends StatefulWidget {
   String? token;
@@ -289,52 +289,55 @@ class _CallLogsState extends State<CallLogs> {
     }
   }
 
-  Future<void> uploadMissingLogsToServer(
-      List<HiveCaallHistoryModel> callLogData) async {
-    List<Map<String, dynamic>> missingLogs = callLogData
-        .map((log) => {
-              "name": log.name,
-              "phone_number": log.phoneNumber,
-              "callTypes": log.callType
-                  .toString()
-                  .substring(log.callType.toString().indexOf('.') + 1),
-              "time":
-                  DateTime.fromMillisecondsSinceEpoch(int.parse(log.timeStamp))
-                      .toString(), // log.timestamp,
-              "duration": log.duration,
-              "simName": log.simSlot ?? "NIL",
-              "timeStamp": log.timeStamp,
-            })
-        .toList();
+Future<bool> uploadMissingLogsToServer(
+  List<HiveCaallHistoryModel> callLogData,
+) async {
+  List<Map<String, dynamic>> missingLogs = callLogData
+      .map((log) => {
+            "name": log.name,
+            "phone_number": log.phoneNumber,
+            "callTypes": log.callType
+                .toString()
+                .substring(log.callType.toString().indexOf('.') + 1),
+            "time": DateTime.fromMillisecondsSinceEpoch(
+              int.parse(log.timeStamp),
+            ).toString(),
+            "duration": log.duration,
+            "simName": log.simSlot,
+            "timeStamp": log.timeStamp,
+          })
+      .toList();
 
-    log("⚠️ Found ${missingLogs.length} missing logs.");
+  log("⚠️ Found ${missingLogs.length} missing logs.");
 
-    if (missingLogs.isNotEmpty) {
-      // Step 5: Upload missing logs to the server
-      // List<Map<String, dynamic>> historyCallPending = [];
-      // await uploadLogsToServer(missingLogs);
-
-      log('~~ OUTGOING CALL missingLogs : $missingLogs ~~~');
-      log('~~ OUTGOING CALL length : ${missingLogs.length} ~~~');
-
-      Map<String, dynamic> body = {
-        "token": await Common.getSharedPref("token"),
-        'log': missingLogs,
-      };
-      log('~~ OUTGOING CALL BODY : $body ~~~');
-
-      CallLogUploadModel object1 = await HttpService.callLogUpload(body);
-      log('~~ OUTGOING CALL missingLogs object : ${object1.data} ~~~');
-      // await HiveUtil.saveCallLog(missingLogs.last);
-      if (object1.data == true) {
-        log('~~ OUTGOING CALL success ~~~');
-        log('success');
-      } else {
-        log('~~ OUTGOING CALL failure ~~~');
-        log('failure');
-      }
-    }
+  if (missingLogs.isEmpty) {
+    return false;
   }
+
+  log('~~ OUTGOING CALL missingLogs : $missingLogs ~~~');
+  log('~~ OUTGOING CALL length : ${missingLogs.length} ~~~');
+
+  final Map<String, dynamic> body = {
+    "token": await Common.getSharedPref("token"),
+    'log': missingLogs,
+  };
+
+  log('~~ OUTGOING CALL BODY : $body ~~~');
+
+  // Upload call logs only. Do not scan or upload audio here.
+  final CallLogUploadModel object1 = await HttpService.callLogUpload(body);
+
+  log('~~ OUTGOING CALL missingLogs object : ${object1.data} ~~~');
+
+  if (object1.data == true || object1.status == true) {
+    log('~~ OUTGOING CALL success ~~~');
+    return true;
+  } else {
+    log('~~ OUTGOING CALL failure ~~~');
+    return false;
+  }
+}
+
 
   List<HiveCaallHistoryModel> fullHiveData = [];
   getSharedData() async {
