@@ -428,6 +428,7 @@ import '../models/staff_report/staff_calls_model.dart';
 import '../models/userManagement/deleteDesignationModel.dart';
 import '../models/userManagement/postEditStaffPermissionModel.dart';
 import '../models/userManagement/postEditStaffSubmenuModel.dart';
+import '../models/lead_management/detailed_summery_report.dart';
 import '../models/userManagement/staffDetailsModel.dart';
 import '../models/Product_mannagement/checkBarcodeDuplicateModel.dart';
 import '../models/staffServiceModel.dart';
@@ -17326,6 +17327,43 @@ print("getProductPaymentList request: ${response}");
       log("deleteServicePayment error: $e");
     }
     return false;
+  }
+
+  //detailed summery report
+  static Future<CallReportModel?> getCallReport({
+    String? token,
+    required String fromDate,
+    required String toDate,
+    String? branchId,
+    String? userId,
+    int page = 1,
+    int pageSize = 10,
+  }) async {
+    final effectiveToken = token ?? await Common.getSharedPref("token");
+    
+    final data = {
+      'token': effectiveToken ?? '',
+      'from_date': fromDate,
+      'to_date': toDate,
+      'branch_id': branchId ?? '',
+      'user_id': userId ?? '',
+      'page': page,
+      'page_size': pageSize,
+    };
+
+    try {
+      final response = await _dio.post(
+        "${await Config.getUrl()}get_detailed_summary_report", // Replace with your exact endpoint name if needed
+        data: FormData.fromMap(data),
+      );
+      
+      if (response.statusCode == 200) {
+        return CallReportModel.fromJson(response.data);
+      }
+    } catch (e) {
+      log("getCallReport error: $e");
+    }
+    return null;
   }
 }
 

@@ -90,7 +90,8 @@ class MainActivity: FlutterActivity() {
                         }
                     }.start()
                 }
-
+                
+                //Mainfunction
                 "getNewRecordings" -> {
                     Thread {
                         try {

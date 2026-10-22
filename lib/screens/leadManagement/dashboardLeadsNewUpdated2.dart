@@ -4,6 +4,7 @@ import 'dart:developer';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_auto_orientation/flutter_auto_orientation.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -80,6 +81,7 @@ import '../../models/lead_management/leadCategoryReportOntapModel.dart'
 import '../../models/lead_management/categoryReportTableModel.dart' as catrt;
 import '../../models/lead_management/cloudCallReportModel.dart' as ccr;
 import '../../models/lead_management/phoneCallReportModel.dart' as pcr;
+import '../../models/lead_management/detailed_summery_report.dart';
 import '../../models/clients/customerListModel.dart';
 import '../authentication/login.dart';
 import '../authentication/deep_link_handler.dart';
@@ -95,6 +97,7 @@ import '../accounts/dashboard/accounts_dashboard.dart';
 import '../../widgets/viewLeadsFilterWidget.dart';
 import '../../widgets/togglebutton_start.dart';
 import '../drawerScreen.dart';
+
 import '../../models/lead_management/BulkTransferLeadModel.dart';
 import '../../models/lead_management/showTransferHideorShowModel.dart';
 
@@ -146,6 +149,14 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
   String _activeGraphCategory = "New";
   bool isVisible = true;
   bool toggle = false;
+  bool _isLoading = false;
+  List<CallReportItem> _data = [];
+  int _entriesPerPage = 10;
+  int _currentPage = 1;
+  DateTime _fromDate = DateTime(2026, 10, 19);
+  DateTime _toDate = DateTime(2026, 10, 19);
+  String? _selectedStaffId;
+  DateTime? _callReportLastUpdated;
   static const String keyCallStatusReport = "cache_call_status_report_v2";
   static const String keyCallStatusLastUpdated = "cache_call_status_updated_v2";
   static const String keyStageWiseReport = "cache_stage_wise_report_v2";
@@ -246,7 +257,8 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
   bool viewTargetReportPermission1 = false;
   bool showTransferFreshValue = false;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final GlobalKey<RefreshIndicatorState> _listTabRefreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
+  final GlobalKey<RefreshIndicatorState> _listTabRefreshIndicatorKey =
+      GlobalKey<RefreshIndicatorState>();
 
   DashboardLeadsCountsModel? dashboardCounts;
   DashboardLeadCounts? dashboardMainCounts;
@@ -325,6 +337,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     const Color(0xFF0D47A1),
     const Color(0xFF3F51B5),
   ];
+
   Map<String, double> reportDataMap = {};
   int catNew = 0,
       catPending = 0,
@@ -406,8 +419,40 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     _tabController.addListener(_handleTabSelection);
     _loadReportStates().then((_) {
       _loadReportsFromCache();
+      _loadReportData();
     });
     _initializeData();
+  }
+
+  Future<void> _loadReportData() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+    });
+
+    final formattedFrom = DateFormat('yyyy-MM-dd').format(_fromDate);
+    final formattedTo = DateFormat('yyyy-MM-dd').format(_toDate);
+
+    final response = await HttpService.getCallReport(
+      token: widget.token,
+      fromDate: formattedFrom,
+      toDate: formattedTo,
+      userId: _selectedStaffId,
+      page: _currentPage,
+      pageSize: _entriesPerPage,
+    );
+
+    if (mounted) {
+      setState(() {
+        if (response != null && response.status) {
+          _data = response.data;
+          _callReportLastUpdated = DateTime.now();
+        } else {
+          _data = [];
+        }
+        _isLoading = false;
+      });
+    }
   }
 
   void _handleTabSelection() {
@@ -1866,6 +1911,12 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
       initialStaffs = leadSourceStaffs;
       initialProducts = leadSourceProducts;
       initialCategorys = leadSourceCategories;
+    } else if (title.contains('Detailed Summary')) {
+      initialFrom = _fromDate;
+      initialTo = _toDate;
+      initialStaffs = _selectedStaffId != null && _selectedStaffId!.isNotEmpty
+          ? [_selectedStaffId!]
+          : [];
     } else {
       initialFrom = categoryFromDate ?? fromDate1;
       initialTo = categoryToDate ?? toDate1;
@@ -1944,6 +1995,14 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
           );
           await _fetchLeadSourceReport();
           if (showLeadSourceTable) await _fetchLeadSourceTableReport();
+        } else if (title.contains('Detailed Summary')) {
+          setState(() {
+            _fromDate = from;
+            _toDate = to;
+            _selectedStaffId = staffIds.isNotEmpty ? staffIds.first : null;
+            _currentPage = 1;
+          });
+          _loadReportData();
         } else {
           setState(() {
             categoryFromDate = from;
@@ -1959,6 +2018,28 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
           await _fetchCategoryReport();
           if (showCategoryTable) await _fetchCategoryTableReport();
         }
+      },
+    );
+  }
+
+  void _openDetailedSummaryFilterDialog() {
+    _showReportFilterDialog(
+      title: 'Detailed Summary',
+      initialFromDate: _fromDate,
+      initialToDate: _toDate,
+      initialStaffIds: _selectedStaffId != null && _selectedStaffId!.isNotEmpty
+          ? [_selectedStaffId!]
+          : [],
+      initialProductIds: null,
+      initialCategoryIds: null,
+      onApply: (from, to, staffIds, productIds, categoryIds) {
+        setState(() {
+          _fromDate = from;
+          _toDate = to;
+          _selectedStaffId = staffIds.isNotEmpty ? staffIds.first : null;
+          _currentPage = 1;
+        });
+        _loadReportData();
       },
     );
   }
@@ -2096,7 +2177,8 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                     if (tempTo != null) {
                       lastDate = tempTo!;
                       if (dateFilterMonths != null && dateFilterMonths > 0) {
-                        firstDate = Common.subtractMonths(tempTo!, dateFilterMonths);
+                        firstDate =
+                            Common.subtractMonths(tempTo!, dateFilterMonths);
                       } else {
                         firstDate = DateTime(2020);
                       }
@@ -2105,13 +2187,15 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                       lastDate = DateTime(2100);
                     }
                     initialDate = value ?? lastDate;
-                    if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+                    if (initialDate.isBefore(firstDate))
+                      initialDate = firstDate;
                     if (initialDate.isAfter(lastDate)) initialDate = lastDate;
                   } else {
                     if (tempFrom != null) {
                       firstDate = tempFrom!;
                       if (dateFilterMonths != null && dateFilterMonths > 0) {
-                        lastDate = Common.addMonths(tempFrom!, dateFilterMonths);
+                        lastDate =
+                            Common.addMonths(tempFrom!, dateFilterMonths);
                       } else {
                         lastDate = DateTime(2100);
                       }
@@ -2120,7 +2204,8 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                       lastDate = DateTime(2100);
                     }
                     initialDate = value ?? firstDate;
-                    if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+                    if (initialDate.isBefore(firstDate))
+                      initialDate = firstDate;
                     if (initialDate.isAfter(lastDate)) initialDate = lastDate;
                   }
 
@@ -2136,9 +2221,11 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                       setModalState(() {
                         tempFrom = picked;
                         if (dateFilterMonths != null && dateFilterMonths > 0) {
-                          final maxTo = Common.addMonths(picked, dateFilterMonths);
+                          final maxTo =
+                              Common.addMonths(picked, dateFilterMonths);
                           if (tempTo != null &&
-                              (tempTo!.isBefore(picked) || tempTo!.isAfter(maxTo))) {
+                              (tempTo!.isBefore(picked) ||
+                                  tempTo!.isAfter(maxTo))) {
                             tempTo = picked;
                           }
                         } else if (tempTo != null && tempTo!.isBefore(picked)) {
@@ -2150,12 +2237,15 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                       setModalState(() {
                         tempTo = picked;
                         if (dateFilterMonths != null && dateFilterMonths > 0) {
-                          final minFrom = Common.subtractMonths(picked, dateFilterMonths);
+                          final minFrom =
+                              Common.subtractMonths(picked, dateFilterMonths);
                           if (tempFrom != null &&
-                              (tempFrom!.isBefore(minFrom) || tempFrom!.isAfter(picked))) {
+                              (tempFrom!.isBefore(minFrom) ||
+                                  tempFrom!.isAfter(picked))) {
                             tempFrom = null; // Clear/reset From Date if invalid
                           }
-                        } else if (tempFrom != null && tempFrom!.isAfter(picked)) {
+                        } else if (tempFrom != null &&
+                            tempFrom!.isAfter(picked)) {
                           tempFrom = null;
                         }
                       });
@@ -2320,7 +2410,8 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                         tempTo = now;
                         tempFrom = now;
                         if (dateFilterMonths != null && dateFilterMonths > 0) {
-                          final minFrom = Common.subtractMonths(now, dateFilterMonths);
+                          final minFrom =
+                              Common.subtractMonths(now, dateFilterMonths);
                           if (tempFrom!.isBefore(minFrom)) {
                             tempFrom = minFrom;
                           }
@@ -2331,12 +2422,14 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                       final now = DateTime.now();
                       final dateFilterMonths = await Common.getDateFilter();
                       final firstDayOfMonth = DateTime(now.year, now.month, 1);
-                      final lastDayOfMonth = DateTime(now.year, now.month + 1, 0);
+                      final lastDayOfMonth =
+                          DateTime(now.year, now.month + 1, 0);
                       setModalState(() {
                         tempTo = lastDayOfMonth;
                         DateTime fromCandidate = firstDayOfMonth;
                         if (dateFilterMonths != null && dateFilterMonths > 0) {
-                          final minFrom = Common.subtractMonths(lastDayOfMonth, dateFilterMonths);
+                          final minFrom = Common.subtractMonths(
+                              lastDayOfMonth, dateFilterMonths);
                           if (fromCandidate.isBefore(minFrom)) {
                             fromCandidate = minFrom;
                           }
@@ -2635,11 +2728,15 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () async {
-                              final dateFilterMonths = await Common.getDateFilter();
+                              final dateFilterMonths =
+                                  await Common.getDateFilter();
                               final now = DateTime.now();
-                              DateTime defaultFrom = now.subtract(const Duration(days: 30));
-                              if (dateFilterMonths != null && dateFilterMonths > 0) {
-                                final minFrom = Common.subtractMonths(now, dateFilterMonths);
+                              DateTime defaultFrom =
+                                  now.subtract(const Duration(days: 30));
+                              if (dateFilterMonths != null &&
+                                  dateFilterMonths > 0) {
+                                final minFrom = Common.subtractMonths(
+                                    now, dateFilterMonths);
                                 if (defaultFrom.isBefore(minFrom)) {
                                   defaultFrom = minFrom;
                                 }
@@ -2667,10 +2764,13 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () async {
-                              final dateFilterMonths = await Common.getDateFilter();
+                              final dateFilterMonths =
+                                  await Common.getDateFilter();
                               DateTime finalFrom = tempFrom ?? tempTo;
-                              if (dateFilterMonths != null && dateFilterMonths > 0) {
-                                final minFrom = Common.subtractMonths(tempTo, dateFilterMonths);
+                              if (dateFilterMonths != null &&
+                                  dateFilterMonths > 0) {
+                                final minFrom = Common.subtractMonths(
+                                    tempTo, dateFilterMonths);
                                 if (finalFrom.isBefore(minFrom)) {
                                   finalFrom = minFrom;
                                 }
@@ -4302,41 +4402,40 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     bool isGlobalContext = false,
   }) {
     return Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (context) => ViewLeadsNew(
-      widget.token,
-      updateLeadPermission1,
-      deleteLeadPermission1,
-      cloudCallPermission1,
-      pageName: title ?? 'Leads',
-      fromDate: from != null
-          ? from.toString()
-          : (isGlobalContext
-              ? (_isGlobalDateFiltered ? fromDate.toString() : null)
-              : (_isListTabDateFiltered ? fromDate.toString() : null)),
-      toDate: to != null
-          ? to.toString()
-          : (isGlobalContext
-              ? (_isGlobalDateFiltered ? toDate.toString() : null)
-              : (_isListTabDateFiltered ? toDate.toString() : null)),
-      status: status ?? '0',
-      leadType: type ?? '',
-      staffName: staffName,
-      staff: staffId,
-      categoryName: categoryName,
-      category: categoryId,
-      callResId: callResId,
-      callResName: callResName,
-      isActiveReport: "1",
-      isFollowup: isFollowup,
-      callStatus: callStatus,
-    ),
-  ),
-).then((r) {
-  getData(widget.token, fromDate, toDate, isRefresh: true);
-});
-  
+      context,
+      MaterialPageRoute(
+        builder: (context) => ViewLeadsNew(
+          widget.token,
+          updateLeadPermission1,
+          deleteLeadPermission1,
+          cloudCallPermission1,
+          pageName: title ?? 'Leads',
+          fromDate: from != null
+              ? from.toString()
+              : (isGlobalContext
+                  ? (_isGlobalDateFiltered ? fromDate.toString() : null)
+                  : (_isListTabDateFiltered ? fromDate.toString() : null)),
+          toDate: to != null
+              ? to.toString()
+              : (isGlobalContext
+                  ? (_isGlobalDateFiltered ? toDate.toString() : null)
+                  : (_isListTabDateFiltered ? toDate.toString() : null)),
+          status: status ?? '0',
+          leadType: type ?? '',
+          staffName: staffName,
+          staff: staffId,
+          categoryName: categoryName,
+          category: categoryId,
+          callResId: callResId,
+          callResName: callResName,
+          isActiveReport: "1",
+          isFollowup: isFollowup,
+          callStatus: callStatus,
+        ),
+      ),
+    ).then((r) {
+      getData(widget.token, fromDate, toDate, isRefresh: true);
+    });
   }
 
   void _navigateToFilteredLeadsActiveActive({
@@ -5231,7 +5330,8 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
       "callResultId": isFollowupFiltering
           ? ""
           : (_listTabCurrentIsCalled == true
-              ? ((_listTabSelectedStatusIds != null && _listTabSelectedStatusIds!.isNotEmpty)
+              ? ((_listTabSelectedStatusIds != null &&
+                      _listTabSelectedStatusIds!.isNotEmpty)
                   ? _listTabSelectedStatusIds!.join(',')
                   : (_listTabFilter == "New" ? "1" : ""))
               : (_listTabCurrentStatus == "0"
@@ -5335,7 +5435,8 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     Map<String, dynamic> body = {
       "token": widget.token,
       "callResultId": (_listTabCurrentIsCalled == true)
-          ? ((_listTabSelectedStatusIds != null && _listTabSelectedStatusIds!.isNotEmpty)
+          ? ((_listTabSelectedStatusIds != null &&
+                  _listTabSelectedStatusIds!.isNotEmpty)
               ? _listTabSelectedStatusIds!.join(',')
               : (_listTabFilter == "New" ? "1" : ""))
           : (_listTabCurrentStatus == "0" ? "" : (_listTabCurrentStatus ?? "")),
@@ -6426,6 +6527,8 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
           _buildReportSection(3),
           const SizedBox(height: 10),
           _buildReportSection(4),
+          const SizedBox(height: 10),
+          _buildCallReportSection(),
           const SizedBox(height: 48),
         ],
       ),
@@ -9436,6 +9539,781 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     }
     return table;
   }
+
+  //for detailed summary report
+  Widget _buildCallReportSection() {
+    final displayList = _data;
+
+    // Staff name helper for label display
+    String selectedStaffName = '';
+    if (_selectedStaffId != null && staffList.isNotEmpty) {
+      final staffMatch =
+          staffList.where((s) => s.userIdStaff.toString() == _selectedStaffId);
+      if (staffMatch.isNotEmpty) {
+        selectedStaffName = staffMatch.first.name;
+      }
+    }
+
+    final String dateRangeStr = (_fromDate.year == _toDate.year &&
+            _fromDate.month == _toDate.month &&
+            _fromDate.day == _toDate.day)
+        ? 'Showing data for ${DateFormat('dd MMM yyyy').format(_fromDate)}'
+        : 'Showing data from ${DateFormat('dd MMM yyyy').format(_fromDate)} to ${DateFormat('dd MMM yyyy').format(_toDate)}';
+
+    final String lastUpdatedStr = _callReportLastUpdated != null
+        ? 'Updated ${_formatLastUpdated(_callReportLastUpdated!)}'
+        : 'Updated Today ${DateFormat('hh:mm a').format(DateTime.now())}';
+
+    // Sum calculations for the bottom total row based on model properties
+    int sumNew = displayList.fold(0, (sum, item) => sum + item.newLeads);
+    int sumFollowUp =
+        displayList.fold(0, (sum, item) => sum + item.followupLeads);
+    int sumRejected =
+        displayList.fold(0, (sum, item) => sum + item.rejectedLeads);
+    int sumClosed = displayList.fold(0, (sum, item) => sum + item.closedLeads);
+    int sumActive = displayList.fold(0, (sum, item) => sum + item.activeLeads);
+    int sumConnected =
+        displayList.fold(0, (sum, item) => sum + item.callConnected);
+    int sumNotConnected =
+        displayList.fold(0, (sum, item) => sum + item.notConnected);
+    int sumTotal = displayList.fold(0, (sum, item) => sum + item.totalCalled);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      color: Colors.transparent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ROW 1: Logo + Title + Staff Filter + Filter Icon
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.indigo.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.assessment_rounded,
+                    color: Colors.indigo.shade700, size: 22),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Detailed Summary Report',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              // Staff selection dropdown filter
+              // Container(
+              //   height: 34,
+              //   padding: const EdgeInsets.symmetric(horizontal: 8),
+              //   decoration: BoxDecoration(
+              //     color: _selectedStaffId != null
+              //         ? Colors.indigo.shade50
+              //         : Colors.grey.shade100,
+              //     borderRadius: BorderRadius.circular(8),
+              //     border: Border.all(
+              //       color: _selectedStaffId != null
+              //           ? Colors.indigo.shade200
+              //           : Colors.grey.shade300,
+              //     ),
+              //   ),
+              //   child: DropdownButtonHideUnderline(
+              //     child: DropdownButton<String?>(
+              //       value: _selectedStaffId,
+              //       hint: Row(
+              //         mainAxisSize: MainAxisSize.min,
+              //         children: [
+              //           Icon(Icons.person_outline,
+              //               size: 14, color: Colors.indigo.shade700),
+              //           const SizedBox(width: 4),
+              //           const Text(
+              //             'Staff',
+              //             style: TextStyle(
+              //               fontSize: 11,
+              //               fontWeight: FontWeight.w600,
+              //               color: Colors.black87,
+              //             ),
+              //           ),
+              //         ],
+              //       ),
+              //       icon: const Icon(Icons.arrow_drop_down, size: 18),
+              //       isDense: true,
+              //       items: [
+              //         const DropdownMenuItem<String?>(
+              //           value: null,
+              //           child: Text('All Staff',
+              //               style: TextStyle(
+              //                   fontSize: 12, fontWeight: FontWeight.bold)),
+              //         ),
+              //         ...staffList.map((staff) {
+              //           return DropdownMenuItem<String?>(
+              //             value: staff.userIdStaff.toString(),
+              //             child: ConstrainedBox(
+              //               constraints: const BoxConstraints(maxWidth: 120),
+              //               child: Text(
+              //                 staff.name,
+              //                 style: const TextStyle(fontSize: 12),
+              //                 overflow: TextOverflow.ellipsis,
+              //               ),
+              //             ),
+              //           );
+              //         }),
+              //       ],
+              //       onChanged: (val) {
+              //         setState(() {
+              //           _selectedStaffId = val;
+              //           _currentPage = 1;
+              //         });
+              //         _loadReportData();
+              //       },
+              //     ),
+              //   ),
+              // ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: Icon(Icons.filter_list_rounded,
+                    size: 22, color: Colors.indigo.shade700),
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(4),
+                tooltip: 'Open Filter',
+                onPressed: _openDetailedSummaryFilterDialog,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Date and Time Info block with interactive date picker and refresh hook
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              InkWell(
+                onTap: _openDetailedSummaryFilterDialog,
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.calendar_today_outlined,
+                          size: 12, color: Colors.indigo.shade400),
+                      const SizedBox(width: 4),
+                      Text(
+                        dateRangeStr,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.edit_calendar_outlined,
+                          size: 11, color: Colors.indigo.shade300),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 3),
+              Row(
+                children: [
+                  const Icon(Icons.access_time_rounded,
+                      size: 12, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(
+                    lastUpdatedStr,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                  const SizedBox(width: 6),
+                  InkWell(
+                    onTap: _loadReportData,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2.0),
+                      child: Icon(Icons.refresh_rounded,
+                          size: 13, color: Colors.indigo.shade400),
+                    ),
+                  ),
+                ],
+              ),
+              if (selectedStaffName.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.indigo.shade100),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.person,
+                              size: 12, color: Colors.indigo.shade700),
+                          const SizedBox(width: 4),
+                          Text(
+                            selectedStaffName,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.indigo.shade800,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          InkWell(
+                            onTap: () {
+                              setState(() {
+                                _selectedStaffId = null;
+                                _currentPage = 1;
+                              });
+                              _loadReportData();
+                            },
+                            child: Icon(Icons.close_rounded,
+                                size: 12, color: Colors.indigo.shade700),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Matrix Table (Same styling as _buildCategoryMatrixTable)
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40.0),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (displayList.isEmpty)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 36.0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+                border: Border.all(color: Colors.grey.shade100),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.bar_chart_outlined,
+                        size: 36, color: Colors.grey.shade400),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No records found for selected criteria',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+                border: Border.all(color: Colors.grey.shade100),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Row(
+                  children: [
+                    // Fixed Staff Column
+                    Container(
+                      width: 154,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                          right: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(4, 0),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            height: 60,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: appBarStart.withOpacity(0.08),
+                              border: Border(
+                                bottom: BorderSide(color: Colors.grey.shade200),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.people_alt_rounded,
+                                  size: 16,
+                                  color: appBarStart,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'STAFF NAME',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    color: appBarStart.withOpacity(0.8),
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ...displayList.asMap().entries.map((entry) {
+                            final item = entry.value;
+                            return Container(
+                              height: 55,
+                              padding: const EdgeInsets.only(left: 14),
+                              decoration: BoxDecoration(
+                                color: entry.key % 2 == 0
+                                    ? Colors.white
+                                    : appBarStart.withOpacity(0.02),
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: Colors.grey.shade50,
+                                  ),
+                                ),
+                              ),
+                              alignment: Alignment.centerLeft,
+                              child: _buildMatrixStaffCell(
+                                item.staffName.isNotEmpty
+                                    ? item.staffName
+                                    : 'N/A',
+                                134,
+                                total: item.totalCalled,
+                              ),
+                            );
+                          }),
+                          if (displayList.isNotEmpty)
+                            Container(
+                              height: 55,
+                              padding: const EdgeInsets.only(left: 14),
+                              decoration: BoxDecoration(
+                                color: appBarStart.withOpacity(0.12),
+                                border: Border(
+                                  top: BorderSide(
+                                    color: appBarStart.withOpacity(0.3),
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                              alignment: Alignment.centerLeft,
+                              child: _buildMatrixStaffCell(
+                                'TOTAL',
+                                134,
+                                isTotal: true,
+                                total: sumTotal,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    // Horizontally scrollable metrics columns
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        child: Column(
+                          children: [
+                            Container(
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: appBarStart.withOpacity(0.05),
+                                border: Border(
+                                  bottom:
+                                      BorderSide(color: Colors.grey.shade200),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const SizedBox(width: 10),
+                                  _buildMatrixHeaderCell(
+                                    'New',
+                                    Icons.fiber_new_rounded,
+                                    70,
+                                  ),
+                                  _buildMatrixHeaderCell(
+                                    'Follow Up',
+                                    Icons.phone_callback_rounded,
+                                    85,
+                                  ),
+                                  _buildMatrixHeaderCell(
+                                    'Rejected',
+                                    Icons.cancel_outlined,
+                                    75,
+                                  ),
+                                  _buildMatrixHeaderCell(
+                                    'Closed',
+                                    Icons.check_circle_outline_rounded,
+                                    70,
+                                  ),
+                                  _buildMatrixHeaderCell(
+                                    'Active',
+                                    Icons.trending_up_rounded,
+                                    70,
+                                  ),
+                                  _buildMatrixHeaderCell(
+                                    'Connected',
+                                    Icons.call_made_rounded,
+                                    85,
+                                  ),
+                                  _buildMatrixHeaderCell(
+                                    'Not Connected',
+                                    Icons.call_missed_rounded,
+                                    100,
+                                  ),
+                                  _buildMatrixHeaderCell(
+                                    'Total',
+                                    Icons.summarize_rounded,
+                                    75,
+                                  ),
+                                  const SizedBox(width: 10),
+                                ],
+                              ),
+                            ),
+                            ...displayList.asMap().entries.map((entry) {
+                              final item = entry.value;
+                              return Container(
+                                height: 55,
+                                decoration: BoxDecoration(
+                                  color: entry.key % 2 == 0
+                                      ? Colors.transparent
+                                      : appBarStart.withOpacity(0.02),
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: Colors.grey.shade50,
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const SizedBox(width: 10),
+                                    _buildMatrixCountCell(
+                                      '${item.newLeads}',
+                                      Colors.blue,
+                                      70,
+                                    ),
+                                    _buildMatrixCountCell(
+                                      '${item.followupLeads}',
+                                      Colors.orange,
+                                      85,
+                                    ),
+                                    _buildMatrixCountCell(
+                                      '${item.rejectedLeads}',
+                                      Colors.red,
+                                      75,
+                                    ),
+                                    _buildMatrixCountCell(
+                                      '${item.closedLeads}',
+                                      Colors.teal,
+                                      70,
+                                    ),
+                                    _buildMatrixCountCell(
+                                      '${item.activeLeads}',
+                                      Colors.green,
+                                      70,
+                                    ),
+                                    _buildMatrixCountCell(
+                                      '${item.callConnected}',
+                                      Colors.indigo,
+                                      85,
+                                    ),
+                                    _buildMatrixCountCell(
+                                      '${item.notConnected}',
+                                      Colors.deepOrange,
+                                      100,
+                                    ),
+                                    _buildMatrixTotalCell(
+                                      '${item.totalCalled}',
+                                      75,
+                                    ),
+                                    const SizedBox(width: 10),
+                                  ],
+                                ),
+                              );
+                            }),
+                            if (displayList.isNotEmpty)
+                              Container(
+                                height: 55,
+                                decoration: BoxDecoration(
+                                  color: appBarStart.withOpacity(0.08),
+                                  border: Border(
+                                    top: BorderSide(
+                                      color: appBarStart.withOpacity(0.3),
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const SizedBox(width: 10),
+                                    _buildMatrixCountCell(
+                                      '$sumNew',
+                                      Colors.blue,
+                                      70,
+                                      isTotal: true,
+                                    ),
+                                    _buildMatrixCountCell(
+                                      '$sumFollowUp',
+                                      Colors.orange,
+                                      85,
+                                      isTotal: true,
+                                    ),
+                                    _buildMatrixCountCell(
+                                      '$sumRejected',
+                                      Colors.red,
+                                      75,
+                                      isTotal: true,
+                                    ),
+                                    _buildMatrixCountCell(
+                                      '$sumClosed',
+                                      Colors.teal,
+                                      70,
+                                      isTotal: true,
+                                    ),
+                                    _buildMatrixCountCell(
+                                      '$sumActive',
+                                      Colors.green,
+                                      70,
+                                      isTotal: true,
+                                    ),
+                                    _buildMatrixCountCell(
+                                      '$sumConnected',
+                                      Colors.indigo,
+                                      85,
+                                      isTotal: true,
+                                    ),
+                                    _buildMatrixCountCell(
+                                      '$sumNotConnected',
+                                      Colors.deepOrange,
+                                      100,
+                                      isTotal: true,
+                                    ),
+                                    _buildMatrixTotalCell(
+                                      '$sumTotal',
+                                      75,
+                                      isSubTotal: true,
+                                    ),
+                                    const SizedBox(width: 10),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Pagination Footer Bar
+          _buildCallReportPagination(),
+        ],
+      ),
+    );
+  }
+
+  // Pagination footer for Detailed Summary Report
+  Widget _buildCallReportPagination() {
+    final bool hasPrev = _currentPage > 1;
+    final bool hasNext = _data.length >= _entriesPerPage;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0, left: 4.0, right: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Page $_currentPage${_data.isNotEmpty ? ' (${_data.length} items)' : ''}',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InkWell(
+                onTap: hasPrev && !_isLoading
+                    ? () {
+                        setState(() {
+                          _currentPage--;
+                        });
+                        _loadReportData();
+                      }
+                    : null,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: hasPrev
+                        ? Colors.indigo.shade50
+                        : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: hasPrev
+                          ? Colors.indigo.shade200
+                          : Colors.grey.shade300,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.chevron_left_rounded,
+                        size: 16,
+                        color: hasPrev
+                            ? Colors.indigo.shade700
+                            : Colors.grey.shade400,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        'Prev',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: hasPrev
+                              ? Colors.indigo.shade700
+                              : Colors.grey.shade400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.indigo.shade600,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$_currentPage',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: hasNext && !_isLoading
+                    ? () {
+                        setState(() {
+                          _currentPage++;
+                        });
+                        _loadReportData();
+                      }
+                    : null,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: hasNext
+                        ? Colors.indigo.shade50
+                        : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: hasNext
+                          ? Colors.indigo.shade200
+                          : Colors.grey.shade300,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Next',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: hasNext
+                              ? Colors.indigo.shade700
+                              : Colors.grey.shade400,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 16,
+                        color: hasNext
+                            ? Colors.indigo.shade700
+                            : Colors.grey.shade400,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+// Supporting cell helpers
+  Widget _cellValue(int val) {
+    return Text(
+      '$val',
+      style: TextStyle(
+        fontSize: 13,
+        color: val > 0 ? Colors.blue.shade700 : Colors.black,
+        fontWeight: val > 0 ? FontWeight.bold : FontWeight.normal,
+      ),
+    );
+  }
+
+  Widget _boldTotal(int val) {
+    return Text(
+      '$val',
+      style: const TextStyle(
+          fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black),
+    );
+  }
+
+// Supporting cell helpers
 
   Widget _buildVerticalTableRedesign({
     required String title,
