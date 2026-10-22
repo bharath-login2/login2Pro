@@ -20,7 +20,28 @@ import 'log_screen.dart';
 class ClientList extends StatefulWidget {
   String token;
   GlobalKey<ScaffoldState>? scaffoldKey;
-  ClientList(this.token, this.scaffoldKey, {super.key});
+  String? filterCategory;
+  int? filterCount;
+  int? followupCount;
+  int? calledCount;
+  int? missedCount;
+  int? transferredCount;
+  String? fromDate;
+  String? toDate;
+
+  ClientList(
+    this.token,
+    this.scaffoldKey, {
+    super.key,
+    this.filterCategory,
+    this.filterCount,
+    this.followupCount,
+    this.calledCount,
+    this.missedCount,
+    this.transferredCount,
+    this.fromDate,
+    this.toDate,
+  });
 
   @override
   State<ClientList> createState() => _ClientListState();
@@ -29,6 +50,7 @@ class ClientList extends StatefulWidget {
 class _ClientListState extends State<ClientList> {
   MainClientListModel? mainClients;
   bool result = true;
+  String? activeFilter;
   TextEditingController searchController = TextEditingController();
   String fDate = "From Date";
   String tDate = "To Date";
@@ -57,6 +79,7 @@ class _ClientListState extends State<ClientList> {
   @override
   void initState() {
     super.initState();
+    activeFilter = widget.filterCategory;
     itemPositionsListener.itemPositions.addListener(_onLoadMore);
     getData();
   }
@@ -133,6 +156,16 @@ class _ClientListState extends State<ClientList> {
     }
   }
 
+  refreshData() {
+    items.clear();
+    page = 1;
+    add = 1;
+    _shouldRestoreScroll = false;
+    setState(() {
+      getData();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return result == true
@@ -178,9 +211,13 @@ class _ClientListState extends State<ClientList> {
                           const SizedBox(
                             width: 25,
                           ),
-                          const Text(
-                            'Customer List',
-                            style: TextStyle(color: Colors.white, fontSize: 18),
+                          Text(
+                            activeFilter != null &&
+                                    activeFilter!.isNotEmpty &&
+                                    activeFilter != 'Total Customers'
+                                ? 'Customers - $activeFilter'
+                                : 'Customer List',
+                            style: const TextStyle(color: Colors.white, fontSize: 18),
                           ),
                         ],
                       ),
@@ -215,6 +252,63 @@ class _ClientListState extends State<ClientList> {
                     color: Colors.grey[300],
                     child: Column(
                       children: [
+                        if (activeFilter != null &&
+                            activeFilter!.isNotEmpty &&
+                            activeFilter != 'Total Customers')
+                          Padding(
+                            padding: const EdgeInsets.only(
+                                left: 8.0, right: 8.0, top: 8.0),
+                            child: Container(
+                              width: MediaQuery.of(context).size.width * 1,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                    color: Colors.blue.shade200, width: 0.8),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.filter_alt,
+                                          size: 18,
+                                          color: Colors.blue.shade700),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Filter: $activeFilter',
+                                        style: TextStyle(
+                                          color: Colors.blue.shade900,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        activeFilter = null;
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.shade100,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(Icons.close,
+                                          size: 16,
+                                          color: Colors.blue.shade800),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         Padding(
                           padding: const EdgeInsets.all(8.0),
                           child: SizedBox(
@@ -481,71 +575,241 @@ class _ClientListState extends State<ClientList> {
                                                           MainAxisAlignment
                                                               .spaceBetween,
                                                       children: [
-                                                        SizedBox(
-                                                          width: MediaQuery.of(
-                                                                      context)
-                                                                  .size
-                                                                  .width *
-                                                              0.6,
-                                                          child: Text(
-                                                              items[index]
-                                                                  .clientName
-                                                                  .toString(),
-                                                              overflow:
-                                                                  TextOverflow
-                                                                      .ellipsis,
-                                                              style:
-                                                                  const TextStyle(
-                                                                fontSize: 16,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                              )),
-                                                        ),
-                                                        items[index].totalDue !=
-                                                                ''
-                                                            ? Container(
-                                                                decoration: BoxDecoration(
+                                                        Expanded(
+                                                          child: Row(
+                                                            children: [
+                                                              Flexible(
+                                                                child: Text(
+                                                                    items[index]
+                                                                        .clientName
+                                                                        .toString(),
+                                                                    overflow:
+                                                                        TextOverflow
+                                                                            .ellipsis,
+                                                                    style:
+                                                                        const TextStyle(
+                                                                      fontSize:
+                                                                          16,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w600,
+                                                                    )),
+                                                              ),
+                                                              if (items[index]
+                                                                      .totalDue !=
+                                                                  '') ...[
+                                                                const SizedBox(
+                                                                    width: 6),
+                                                                Container(
+                                                                  decoration:
+                                                                      BoxDecoration(
                                                                     borderRadius:
-                                                                        BorderRadius
-                                                                            .circular(
-                                                                                2),
+                                                                        BorderRadius.circular(
+                                                                            2),
                                                                     color: items[index].totalDue ==
                                                                             'Paid'
                                                                         ? const Color(
                                                                             0xffe6fbec)
                                                                         : const Color(
-                                                                            0xfffcbcbc)),
-                                                                child: Center(
-                                                                  child:
-                                                                      Padding(
-                                                                    padding: const EdgeInsets
-                                                                        .only(
-                                                                        left:
-                                                                            12,
-                                                                        right:
-                                                                            12,
-                                                                        top: 6,
-                                                                        bottom:
-                                                                            6),
-                                                                    child: Text(
-                                                                        items[index]
-                                                                            .totalDue
-                                                                            .toString(),
-                                                                        style:
-                                                                            TextStyle(
-                                                                          color: items[index].totalDue == 'Paid'
-                                                                              ? Colors.green
-                                                                              : Colors.red,
-                                                                          fontSize:
-                                                                              14,
-                                                                          fontWeight:
-                                                                              FontWeight.w600,
-                                                                        )),
+                                                                            0xfffcbcbc),
+                                                                  ),
+                                                                  child: Center(
+                                                                    child:
+                                                                        Padding(
+                                                                      padding: const EdgeInsets.symmetric(
+                                                                          horizontal:
+                                                                              8,
+                                                                          vertical:
+                                                                              4),
+                                                                      child: Text(
+                                                                          items[index]
+                                                                              .totalDue
+                                                                              .toString(),
+                                                                          style: TextStyle(
+                                                                            color: items[index].totalDue == 'Paid'
+                                                                                ? Colors.green
+                                                                                : Colors.red,
+                                                                            fontSize:
+                                                                                12,
+                                                                            fontWeight:
+                                                                                FontWeight.w600,
+                                                                          )),
+                                                                    ),
                                                                   ),
                                                                 ),
-                                                              )
-                                                            : const SizedBox()
+                                                              ],
+                                                            ],
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 8),
+                                                        Row(
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          children: [
+                                                            InkWell(
+                                                              onTap: () {
+                                                                Navigator.push(
+                                                                  context,
+                                                                  MaterialPageRoute(
+                                                                      builder: (context) => AddInvoice(
+                                                                          widget
+                                                                              .token,
+                                                                          items[index]
+                                                                              .id
+                                                                              .toString(),
+                                                                          "")),
+                                                                ).then((_) {
+                                                                  items.clear();
+                                                                  page = 1;
+                                                                  add = 1;
+                                                                  _shouldRestoreScroll =
+                                                                      false;
+                                                                  refreshData();
+                                                                });
+                                                              },
+                                                              child: Container(
+                                                                decoration: BoxDecoration(
+                                                                    borderRadius:
+                                                                        BorderRadius
+                                                                            .circular(
+                                                                                6),
+                                                                    color: const Color(
+                                                                        0xffceffe1)),
+                                                                child:
+                                                                    const Padding(
+                                                                  padding:
+                                                                      EdgeInsets
+                                                                          .all(
+                                                                              5.0),
+                                                                  child: Icon(
+                                                                      Icons
+                                                                          .currency_rupee,
+                                                                      color: Colors
+                                                                          .green,
+                                                                      size: 18),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 6,
+                                                            ),
+                                                            InkWell(
+                                                              onTap: () {
+                                                                Navigator.push(
+                                                                  context,
+                                                                  MaterialPageRoute(
+                                                                      builder: (context) => EditClients(
+                                                                          widget
+                                                                              .token,
+                                                                          items[index]
+                                                                              .id
+                                                                              .toString())),
+                                                                ).then((_) {
+                                                                  items.clear();
+                                                                  page = 1;
+                                                                  add = 1;
+                                                                  _shouldRestoreScroll =
+                                                                      false;
+                                                                  refreshData();
+                                                                });
+                                                              },
+                                                              child: Container(
+                                                                decoration: BoxDecoration(
+                                                                    borderRadius:
+                                                                        BorderRadius
+                                                                            .circular(
+                                                                                6),
+                                                                    color: const Color(
+                                                                        0xffaedcf4)),
+                                                                child:
+                                                                    const Padding(
+                                                                  padding:
+                                                                      EdgeInsets
+                                                                          .all(
+                                                                              5.0),
+                                                                  child: Icon(
+                                                                      Icons
+                                                                          .mode_edit_outlined,
+                                                                      color: Colors
+                                                                          .blue,
+                                                                      size: 18),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 6,
+                                                            ),
+                                                            InkWell(
+                                                              onTap: () {
+                                                                showDialog(
+                                                                    context:
+                                                                        context,
+                                                                    builder:
+                                                                        (BuildContext
+                                                                            context) {
+                                                                      return AlertDialog(
+                                                                        scrollable:
+                                                                            true,
+                                                                        title: const Text(
+                                                                            'Please Confirm'),
+                                                                        content:
+                                                                            const Text('Are you sure to Delete?'),
+                                                                        actions: [
+                                                                          TextButton(
+                                                                              onPressed: () {
+                                                                                Navigator.of(context).pop();
+                                                                              },
+                                                                              child: const Text('No')),
+                                                                          TextButton(
+                                                                              onPressed: () async {
+                                                                                Common.showProgressDialog(context, "Loading..");
+                                                                                DeleteMainClientModel deleteClients = await HttpService.deleteMainClients(widget.token, items[index].id.toString());
+                                                                                if (deleteClients.data == true) {
+                                                                                  Common.toastMessaage(deleteClients.message, Colors.green);
+                                                                                  refreshData();
+                                                                                  if (context.mounted) {
+                                                                                    Navigator.pop(context);
+                                                                                    Navigator.pop(context);
+                                                                                  }
+                                                                                } else {
+                                                                                  if (context.mounted) {
+                                                                                    Navigator.of(context).pop();
+                                                                                    Navigator.of(context).pop();
+                                                                                    deleteFailedPopup(context, index, deleteClients.message.toString());
+                                                                                  }
+                                                                                }
+                                                                              },
+                                                                              child: const Text('Yes')),
+                                                                        ],
+                                                                      );
+                                                                    });
+                                                              },
+                                                              child: Container(
+                                                                decoration: BoxDecoration(
+                                                                    borderRadius:
+                                                                        BorderRadius
+                                                                            .circular(
+                                                                                6),
+                                                                    color: const Color(
+                                                                        0xfffcbcbc)),
+                                                                child:
+                                                                    const Padding(
+                                                                  padding:
+                                                                      EdgeInsets
+                                                                          .all(
+                                                                              5.0),
+                                                                  child: Icon(
+                                                                      Icons
+                                                                          .delete_outline,
+                                                                      color: Colors
+                                                                          .red,
+                                                                      size: 18),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        )
                                                       ],
                                                     ),
                                                     const SizedBox(
@@ -773,168 +1037,9 @@ class _ClientListState extends State<ClientList> {
                                                           ],
                                                         ),
                                                         Row(
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
                                                           children: [
-                                                            InkWell(
-                                                              onTap: () {
-                                                                Navigator.push(
-                                                                  context,
-                                                                  MaterialPageRoute(
-                                                                      builder: (context) => AddInvoice(
-                                                                          widget
-                                                                              .token,
-                                                                          items[index]
-                                                                              .id
-                                                                              .toString(),
-                                                                          "")),
-                                                                ).then((_) {
-                                                                  items.clear();
-                                                                  page = 1;
-                                                                  add = 1;
-                                                                  _shouldRestoreScroll =
-                                                                      false;
-                                                                  getData();
-                                                                });
-                                                              },
-                                                              child: Container(
-                                                                decoration: BoxDecoration(
-                                                                    borderRadius:
-                                                                        BorderRadius
-                                                                            .circular(
-                                                                                2),
-                                                                    color: const Color(
-                                                                        0xffceffe1)),
-                                                                child:
-                                                                    const Padding(
-                                                                  padding:
-                                                                      EdgeInsets
-                                                                          .all(
-                                                                              4.0),
-                                                                  child: Icon(
-                                                                      Icons
-                                                                          .currency_rupee,
-                                                                      color: Colors
-                                                                          .green),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            const SizedBox(
-                                                              width: 7,
-                                                            ),
-                                                            InkWell(
-                                                              onTap: () {
-                                                                Navigator.push(
-                                                                  context,
-                                                                  MaterialPageRoute(
-                                                                      builder: (context) => EditClients(
-                                                                          widget
-                                                                              .token,
-                                                                          items[index]
-                                                                              .id
-                                                                              .toString())),
-                                                                ).then((_) {
-                                                                  items.clear();
-                                                                  page = 1;
-                                                                  add = 1;
-                                                                  _shouldRestoreScroll =
-                                                                      false;
-                                                                  getData();
-                                                                });
-                                                              },
-                                                              child: Container(
-                                                                decoration: BoxDecoration(
-                                                                    borderRadius:
-                                                                        BorderRadius
-                                                                            .circular(
-                                                                                2),
-                                                                    color: const Color(
-                                                                        0xffaedcf4)),
-                                                                child:
-                                                                    const Padding(
-                                                                  padding:
-                                                                      EdgeInsets
-                                                                          .all(
-                                                                              4.0),
-                                                                  child: Icon(
-                                                                      Icons
-                                                                          .mode_edit_outlined,
-                                                                      color: Colors
-                                                                          .blue),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            const SizedBox(
-                                                              width: 7,
-                                                            ),
-                                                            InkWell(
-                                                              onTap: () {
-                                                                showDialog(
-                                                                    context:
-                                                                        context,
-                                                                    builder:
-                                                                        (BuildContext
-                                                                            context) {
-                                                                      return AlertDialog(
-                                                                        scrollable:
-                                                                            true,
-                                                                        title: const Text(
-                                                                            'Please Confirm'),
-                                                                        content:
-                                                                            const Text('Are you sure to Delete?'),
-                                                                        actions: [
-                                                                          TextButton(
-                                                                              onPressed: () {
-                                                                                Navigator.of(context).pop();
-                                                                              },
-                                                                              child: const Text('No')),
-                                                                          TextButton(
-                                                                              onPressed: () async {
-                                                                                Common.showProgressDialog(context, "Loading..");
-                                                                                DeleteMainClientModel deleteClients = await HttpService.deleteMainClients(widget.token, items[index].id.toString());
-                                                                                if (deleteClients.data == true) {
-                                                                                  Common.toastMessaage(deleteClients.message, Colors.green);
-                                                                                  getData();
-                                                                                  if (context.mounted) {
-                                                                                    Navigator.pop(context);
-                                                                                    Navigator.pop(context);
-                                                                                  }
-                                                                                } else {
-                                                                                  if (context.mounted) {
-                                                                                    Navigator.of(context).pop();
-                                                                                    Navigator.of(context).pop();
-                                                                                    deleteFailedPopup(context, index, deleteClients.message.toString());
-                                                                                  }
-                                                                                }
-                                                                              },
-                                                                              child: const Text('Yes')),
-                                                                        ],
-                                                                      );
-                                                                    });
-                                                              },
-                                                              child: Container(
-                                                                decoration: BoxDecoration(
-                                                                    borderRadius:
-                                                                        BorderRadius
-                                                                            .circular(
-                                                                                2),
-                                                                    color: const Color(
-                                                                        0xfffcbcbc)),
-                                                                child:
-                                                                    const Padding(
-                                                                  padding:
-                                                                      EdgeInsets
-                                                                          .all(
-                                                                              4.0),
-                                                                  child: Icon(
-                                                                      Icons
-                                                                          .delete_outline,
-                                                                      color: Colors
-                                                                          .red),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            const SizedBox(
-                                                              width: 7,
-                                                            ),
                                                             InkWell(
                                                               onTap: () {
                                                                 Navigator.push(
@@ -950,7 +1055,7 @@ class _ClientListState extends State<ClientList> {
                                                                   add = 1;
                                                                   _shouldRestoreScroll =
                                                                       false;
-                                                                  getData();
+                                                                  refreshData();
                                                                 });
                                                               },
                                                               child: Container(
@@ -958,21 +1063,82 @@ class _ClientListState extends State<ClientList> {
                                                                     borderRadius:
                                                                         BorderRadius
                                                                             .circular(
-                                                                                2),
-                                                                    color: Colors
-                                                                        .blueGrey
-                                                                        .shade400),
+                                                                                6),
+                                                                    color: const Color(
+                                                                        0xffe2e8f0)),
                                                                 child:
-                                                                    const Padding(
+                                                                    Padding(
                                                                   padding:
-                                                                      EdgeInsets
+                                                                      const EdgeInsets
                                                                           .all(
-                                                                              4.0),
+                                                                              5.0),
                                                                   child: Icon(
                                                                       Icons
                                                                           .history,
                                                                       color: Colors
-                                                                          .white),
+                                                                          .blueGrey
+                                                                          .shade700,
+                                                                      size: 18),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 6,
+                                                            ),
+                                                            InkWell(
+                                                              onTap: () {
+                                                                if (items[index]
+                                                                        .isNegative ==
+                                                                    "1") {
+                                                                  _showCustomerNormalDialog(
+                                                                      context,
+                                                                      items[index]
+                                                                          .id
+                                                                          .toString());
+                                                                } else {
+                                                                  _showCustomerFollowupDialog(
+                                                                      context,
+                                                                      items[index]
+                                                                          .id
+                                                                          .toString());
+                                                                }
+                                                              },
+                                                              child: Tooltip(
+                                                                message: items[index]
+                                                                            .isNegative ==
+                                                                        "1"
+                                                                    ? "Negative Customer"
+                                                                    : "Customer Follow-up",
+                                                                child:
+                                                                    Container(
+                                                                  decoration:
+                                                                      BoxDecoration(
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                            6),
+                                                                    color: items[index].isNegative ==
+                                                                            "1"
+                                                                        ? const Color(
+                                                                            0xfffcbcbc)
+                                                                        : const Color(
+                                                                            0xffffe8e0),
+                                                                  ),
+                                                                  child:
+                                                                      Padding(
+                                                                    padding:
+                                                                        const EdgeInsets.all(
+                                                                            5.0),
+                                                                    child: Icon(
+                                                                        items[index].isNegative ==
+                                                                                "1"
+                                                                            ? Icons.person_off_outlined
+                                                                            : Icons.notifications_active_outlined,
+                                                                        color: items[index].isNegative == "1"
+                                                                            ? Colors.red
+                                                                            : const Color(
+                                                                                0xFFF28B74),
+                                                                        size: 18),
+                                                                  ),
                                                                 ),
                                                               ),
                                                             ),
@@ -1117,4 +1283,448 @@ class _ClientListState extends State<ClientList> {
           );
         });
   }
+
+  void _showCustomerFollowupDialog(BuildContext context, String clientId) {
+    final TextEditingController reasonController = TextEditingController();
+    String? errorMessage;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.0),
+              ),
+              elevation: 4,
+              backgroundColor: Colors.white,
+              clipBehavior: Clip.antiAlias,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.85,
+                ),
+                child: Stack(
+                  children: [
+                    SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(20.0, 28.0, 20.0, 20.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const SizedBox(height: 8),
+                          Container(
+                            width: 68,
+                            height: 68,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFFFF0ED),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.notifications_active_outlined,
+                                size: 40,
+                                color: Color(0xFFF28B74),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          const Text(
+                            'You are about to Mark This Customer as\nNegative?',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2D3748),
+                              height: 1.3,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'This will mark the customer as negative and will be visible across all customer lists.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF718096),
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: RichText(
+                              text: const TextSpan(
+                                text: 'Reason for marking negative ',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF2D3748),
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: '*',
+                                    style: TextStyle(
+                                      color: Colors.red,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: reasonController,
+                            maxLines: 4,
+                            minLines: 3,
+                            onChanged: (val) {
+                              if (errorMessage != null) {
+                                setDialogState(() {
+                                  errorMessage = null;
+                                });
+                              }
+                            },
+                            decoration: InputDecoration(
+                              hintText: 'Enter reason for marking customer as negative...',
+                              hintStyle: TextStyle(
+                                color: Colors.grey.shade400,
+                                fontSize: 13,
+                              ),
+                              errorText: errorMessage,
+                              contentPadding: const EdgeInsets.all(12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: Color(0xFF406DBE), width: 1.5),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              InkWell(
+                                onTap: () {
+                                  Navigator.of(context).pop();
+                                },
+                                borderRadius: BorderRadius.circular(6),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(
+                                        Icons.close,
+                                        size: 16,
+                                        color: Color(0xFF00A884),
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Close',
+                                        style: TextStyle(
+                                          color: Color(0xFF00A884),
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFF28B74),
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                onPressed: () async {
+                                  final reason = reasonController.text.trim();
+                                  if (reason.isEmpty) {
+                                    setDialogState(() {
+                                      errorMessage = 'Please enter reason for marking customer as negative';
+                                    });
+                                    return;
+                                  }
+
+                                  Common.showProgressDialog(context, "Loading..");
+                                  DeleteMainClientModel deleteClients =
+                                      await HttpService.markCustomerNegative(
+                                          widget.token, clientId, reason);
+
+                                  if (context.mounted) {
+                                    Navigator.of(context).pop(); // dismiss loading
+                                  }
+
+                                  if (deleteClients.data == true || deleteClients.status == true) {
+                                    Common.toastMessaage(
+                                      deleteClients.message ?? "Customer marked as negative successfully",
+                                      Colors.green,
+                                    );
+                                    if (context.mounted) {
+                                      Navigator.of(context).pop(); // dismiss dialog
+                                    }
+                                    refreshData();
+                                  } else {
+                                    Common.toastMessaage(
+                                      deleteClients.message ?? "Failed to mark customer as negative",
+                                      Colors.red,
+                                    );
+                                  }
+                                },
+                                child: const Text(
+                                  'Yes, Mark Negative!',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).pop();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          color: Colors.transparent,
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.grey,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showCustomerNormalDialog(BuildContext context, String clientId) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          elevation: 4,
+          backgroundColor: Colors.white,
+          clipBehavior: Clip.antiAlias,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+            child: Stack(
+              children: [
+                SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(24.0, 32.0, 24.0, 24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: 64,
+                        height: 64,
+                        child: CustomPaint(
+                          painter: _NormalCustomerIconPainter(),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'You are about to Mark This Customer as\nNormal?',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2D3748),
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'This will remove the negative status from the customer.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF718096),
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          InkWell(
+                            onTap: () {
+                              Navigator.of(context).pop();
+                            },
+                            borderRadius: BorderRadius.circular(6),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(
+                                    Icons.close,
+                                    size: 16,
+                                    color: Color(0xFF00A884),
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Close',
+                                    style: TextStyle(
+                                      color: Color(0xFF00A884),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00A884),
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: () async {
+                              Common.showProgressDialog(context, "Loading..");
+                              DeleteMainClientModel deleteClients =
+                                  await HttpService.markCustomerNormal(
+                                      widget.token, clientId);
+
+                              if (context.mounted) {
+                                Navigator.of(context).pop(); // dismiss loading
+                              }
+
+                              if (deleteClients.data == true || deleteClients.status == true) {
+                                Common.toastMessaage(
+                                  deleteClients.message != null && deleteClients.message!.isNotEmpty
+                                      ? deleteClients.message!
+                                      : "Customer marked as normal successfully",
+                                  Colors.green,
+                                );
+                                if (context.mounted) {
+                                  Navigator.of(context).pop(); // dismiss dialog
+                                }
+                                refreshData();
+                              } else {
+                                Common.toastMessaage(
+                                  deleteClients.message != null && deleteClients.message!.isNotEmpty
+                                      ? deleteClients.message!
+                                      : "Failed to mark customer as normal",
+                                  Colors.red,
+                                );
+                              }
+                            },
+                            child: const Text(
+                              'Yes, Mark Normal!',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      color: Colors.transparent,
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.grey,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
+
+class _NormalCustomerIconPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final headPaint = Paint()
+      ..color = const Color(0xFFF28B74)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.8;
+
+    final bodyPaint = Paint()
+      ..color = const Color(0xFF00A884)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.8
+      ..strokeCap = StrokeCap.round;
+
+    double headRadius = size.width * 0.20;
+    Offset headCenter = Offset(size.width / 2, size.height * 0.28);
+    canvas.drawCircle(headCenter, headRadius, headPaint);
+
+    Rect bodyRect = Rect.fromLTWH(
+      size.width * 0.16,
+      size.height * 0.48,
+      size.width * 0.68,
+      size.height * 0.44,
+    );
+    Path bodyPath = Path();
+    bodyPath.addArc(bodyRect, 3.14159, 3.14159);
+    canvas.drawPath(bodyPath, bodyPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+

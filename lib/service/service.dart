@@ -28,6 +28,10 @@ import 'package:login2/models/customers/customerPaymentReportModel.dart';
 import 'package:login2/models/customers/customerProjectModel.dart';
 import 'package:login2/models/customers/customerQuotationModel.dart';
 import 'package:login2/models/customers/customer_payment_response_model.dart';
+import 'package:login2/models/customers/customerFollowupDetailsModel.dart';
+import 'package:login2/models/customers/customerGrowthModel.dart';
+import 'package:login2/models/customers/customerDashboardCountsModel.dart';
+import 'package:login2/models/customers/customerFollowupListModel.dart';
 import 'package:login2/models/expense/account_dashboard.dart';
 import 'package:login2/models/expense/account_head_model.dart';
 import 'package:login2/models/expense/bank_acc_list.dart';
@@ -3341,6 +3345,133 @@ class HttpService {
       }
     } catch (e) {
       log("error: $e");
+    }
+  }
+
+  static Future markCustomerNegative(token, clientId, reason) async {
+    var formData = FormData.fromMap({
+      "token": token,
+      "client_id": clientId,
+      "customer_id": clientId,
+      "reason": reason,
+    });
+    try {
+      var result = await _dio.post(
+        "${await Config.getUrl()}mark_customer_negative",
+        data: formData,
+        queryParameters: {
+          "token": token,
+          "client_id": clientId,
+          "clientId": clientId,
+          "customer_id": clientId,
+          "reason": reason,
+        },
+      );
+      if (result.statusCode == 200) {
+        var data = result.data;
+        if (data is String) {
+          data = jsonDecode(data);
+        }
+        if (data is Map<String, dynamic>) {
+          return DeleteMainClientModel.fromJson(data);
+        }
+        return DeleteMainClientModel(
+          status: true,
+          message: "Customer status updated successfully",
+          data: true,
+        );
+      } else {
+        return DeleteMainClientModel(
+          status: false,
+          message: "Failed to mark customer as negative",
+          data: false,
+        );
+      }
+    } catch (e) {
+      log("error: $e");
+      return DeleteMainClientModel(
+        status: false,
+        message: "Something went wrong: $e",
+        data: false,
+      );
+    }
+  }
+
+  static Future markCustomerNormal(token, clientId) async {
+    var formData = FormData.fromMap({
+      "token": token,
+      "client_id": clientId,
+      "customer_id": clientId,
+      "is_negative": "0",
+    });
+    try {  
+      var result = await _dio.post(
+        "${await Config.getUrl()}unmark_customer_negative",
+        data: formData,
+        queryParameters: {
+          "token": token,
+          "client_id": clientId,
+          "customer_id": clientId,
+          "is_negative": "0",
+        },
+      );
+      if (result.statusCode == 200) {
+        var data = result.data;
+        if (data is String) {
+          data = jsonDecode(data);
+        }
+        if (data is Map<String, dynamic>) {
+          return DeleteMainClientModel.fromJson(data);
+        }
+        return DeleteMainClientModel(
+          status: true,
+          message: "Customer marked as normal successfully",
+          data: true,
+        );
+      } else {
+        return DeleteMainClientModel(
+          status: false,
+          message: "Failed to mark customer as normal",
+          data: false,
+        );
+      }
+    } catch (e) {
+      log("error: $e");
+      try {
+        var formData2 = FormData.fromMap({
+          "token": token,
+          "client_id": clientId,
+          "is_negative": "0",
+          "status": "0",
+          "reason": "",
+        });
+        var result2 = await _dio.post(
+          "${await Config.getUrl()}mark_customer_negative",
+          data: formData2,
+          queryParameters: {
+            "token": token,
+            "client_id": clientId,
+            "is_negative": "0",
+          },
+        );
+        var data2 = result2.data;
+        if (data2 is String) data2 = jsonDecode(data2);
+        if (data2 is Map<String, dynamic>) {
+          return DeleteMainClientModel.fromJson(data2);
+        }
+        return DeleteMainClientModel(
+          status: true,
+          message: "Customer marked as normal successfully",
+          data: true,
+        );
+      } catch (e2) {
+        log("error fallback: $e2");
+        return DeleteMainClientModel(
+          status: false,
+          message: "Something went wrong: $e2",
+          data: false,
+        );
+      }
     }
   }
 
@@ -11766,6 +11897,545 @@ class HttpService {
       log("StackTrace: $stackTrace");
     }
 
+    return null;
+  }
+
+  static Future<CustomerFollowupDetailsModel?> customerFollowupDetails(
+      String custId,
+      {String? token,
+      String? callMasterId}) async {
+    try {
+      final authToken = (token != null && token.isNotEmpty)
+          ? token
+          : await Common.getSharedPref("token");
+      if (authToken == null || authToken.isEmpty) {
+        log("Token is null or empty");
+        return null;
+      }
+      final map = <String, dynamic>{
+        "token": authToken,
+        "cust_id": custId,
+        "customer_id": custId,
+      };
+      if (callMasterId != null && callMasterId.isNotEmpty) {
+        map["call_master_id"] = callMasterId;
+      }
+      final formData = FormData.fromMap(map);
+      final response = await _dio.post(
+        "${await Config.getUrl()}customer_followup_details",
+        data: formData,
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final Map<String, dynamic> json = response.data is Map<String, dynamic>
+            ? Map<String, dynamic>.from(response.data)
+            : jsonDecode(response.data.toString());
+        return CustomerFollowupDetailsModel.fromJson(json);
+      } else {
+        log("customer_followup_details failed with status: ${response.statusCode}");
+      }
+    } on DioException catch (e) {
+      log("Dio error in customer_followup_details: ${e.message}");
+      if (e.response != null) {
+        log("Response: ${e.response?.data}");
+      }
+    } catch (e, stackTrace) {
+      log("Unexpected error in customer_followup_details: $e");
+      log("StackTrace: $stackTrace");
+    }
+    return null;
+  }
+
+  static Future<CustomerGrowthModel?> getCustomerGrowthData({
+    String? token,
+    required String startDate,
+    required String endDate,
+  }) async {
+    try {
+      final authToken = (token != null && token.isNotEmpty)
+          ? token
+          : await Common.getSharedPref("token");
+      if (authToken == null || authToken.isEmpty) {
+        log("Token is null or empty");
+        return null;
+      }
+
+      final url = "${await Config.getUrl()}get_customer_growth_data";
+      final params = <String, dynamic>{
+        "token": authToken,
+        "start_date": startDate,
+        "end_date": endDate,
+      };
+
+      Response? response;
+      try {
+        final formData = FormData.fromMap(params);
+        response = await _dio.post(
+          url,
+          data: formData,
+        );
+      } catch (postError) {
+        log("POST FormData get_customer_growth_data failed ($postError), trying form-urlencoded...");
+        try {
+          response = await _dio.post(
+            url,
+            data: params,
+            options: Options(
+              contentType: Headers.formUrlEncodedContentType,
+            ),
+          );
+        } catch (urlEncError) {
+          log("POST form-urlencoded failed ($urlEncError), trying GET...");
+          response = await _dio.get(url, queryParameters: params);
+        }
+      }
+
+      if (response != null && response.statusCode == 200 && response.data != null) {
+        final Map<String, dynamic> json;
+        if (response.data is Map<String, dynamic>) {
+          json = Map<String, dynamic>.from(response.data);
+        } else if (response.data is String) {
+          json = jsonDecode(response.data as String);
+        } else {
+          json = jsonDecode(response.data.toString());
+        }
+        log("get_customer_growth_data response json: $json");
+        return CustomerGrowthModel.fromJson(json);
+      } else {
+        log("get_customer_growth_data failed with status: ${response?.statusCode}, response: ${response?.data}");
+      }
+    } catch (e, stackTrace) {
+      log("Error fetching customer growth data: $e");
+      log("StackTrace: $stackTrace");
+    }
+    return null;
+  }
+
+  static Future<CustomerDashboardCountsModel?> getCustomerDashboardCounts({
+    String? token,
+    String? fromDate,
+    String? toDate,
+  }) async {
+    try {
+      final authToken = (token != null && token.isNotEmpty)
+          ? token
+          : await Common.getSharedPref("token");
+      if (authToken == null || authToken.isEmpty) {
+        log("Token is null or empty");
+        return null;
+      }
+
+      final url = "${await Config.getUrl()}get_customer_dashboard_counts";
+      final params = <String, dynamic>{
+        "token": authToken,
+      };
+      if (fromDate != null && fromDate.isNotEmpty) {
+        params["from_date"] = fromDate;
+        params["start_date"] = fromDate;
+      }
+      if (toDate != null && toDate.isNotEmpty) {
+        params["to_date"] = toDate;
+        params["end_date"] = toDate;
+      }
+
+      Response? response;
+      try {
+        final formData = FormData.fromMap(params);
+        response = await _dio.post(
+          url,
+          data: formData,
+        );
+      } catch (postError) {
+        log("POST FormData get_customer_dashboard_counts failed ($postError), trying form-urlencoded...");
+        try {
+          response = await _dio.post(
+            url,
+            data: params,
+            options: Options(
+              contentType: Headers.formUrlEncodedContentType,
+            ),
+          );
+        } catch (urlEncError) {
+          log("POST form-urlencoded failed ($urlEncError), trying GET...");
+          response = await _dio.get(url, queryParameters: params);
+        }
+      }
+
+      if (response != null && response.statusCode == 200 && response.data != null) {
+        final Map<String, dynamic> json;
+        if (response.data is Map<String, dynamic>) {
+          json = Map<String, dynamic>.from(response.data);
+        } else if (response.data is String) {
+          json = jsonDecode(response.data as String);
+        } else {
+          json = jsonDecode(response.data.toString());
+        }
+        log("get_customer_dashboard_counts response json: $json");
+        return CustomerDashboardCountsModel.fromJson(json);
+      } else {
+        log("get_customer_dashboard_counts failed with status: ${response?.statusCode}, response: ${response?.data}");
+      }
+    } catch (e, stackTrace) {
+      log("Error fetching customer dashboard counts: $e");
+      log("StackTrace: $stackTrace");
+    }
+    return null;
+  }
+
+  static Future<CustomerFollowupListModel?> getCustomerFollowupList({
+    String? token,
+    String? filterType,
+    int? filterCount,
+    int? followupCount,
+    int? calledCount,
+    int? missedCount,
+    int? transferredCount,
+    String? fromDate,
+    String? toDate,
+    String? search,
+    int? page,
+    int? pageSize,
+  }) async {
+    try {
+      final authToken = (token != null && token.isNotEmpty)
+          ? token
+          : await Common.getSharedPref("token");
+      if (authToken == null || authToken.isEmpty) {
+        log("Token is null or empty in getCustomerFollowupList");
+        return null;
+      }
+
+      final url = "${await Config.getUrl()}get_customer_followup_list";
+      final params = <String, dynamic>{
+        "token": authToken,
+      };
+
+      if (filterCount != null) {
+        params["filter_count"] = filterCount;
+      }
+      if (followupCount != null) {
+        params["followup_count"] = followupCount;
+        params["filter"] = "followup";
+        params["type"] = "followup_count";
+        params["filter_type"] = "followup";
+      }
+      if (calledCount != null) {
+        params["called_count"] = calledCount;
+        params["filter"] = "called";
+        params["type"] = "called_count";
+        params["filter_type"] = "called";
+      }
+      if (missedCount != null) {
+        params["missed_count"] = missedCount;
+        params["filter"] = "missed";
+        params["type"] = "missed_count";
+        params["filter_type"] = "missed";
+      }
+      if (transferredCount != null) {
+        params["transferred_count"] = transferredCount;
+        params["filter"] = "transferred";
+        params["type"] = "transferred_count";
+        params["filter_type"] = "transferred";
+      }
+      if (fromDate != null && fromDate.isNotEmpty) {
+        params["from_date"] = fromDate;
+        params["start_date"] = fromDate;
+      }
+      if (toDate != null && toDate.isNotEmpty) {
+        params["to_date"] = toDate;
+        params["end_date"] = toDate;
+      }
+      if (filterType != null && filterType.isNotEmpty) {
+        params["filter_category"] = filterType;
+      }
+      if (search != null && search.isNotEmpty) {
+        params["search"] = search;
+      }
+      if (page != null) {
+        params["page"] = page;
+      }
+      if (pageSize != null) {
+        params["page_size"] = pageSize;
+      }
+
+      Response? response;
+      try {
+        final formData = FormData.fromMap(params);
+        response = await _dio.post(
+          url,
+          data: formData,
+        );
+      } catch (postError) {
+        log("POST FormData get_customer_followup_list failed ($postError), trying form-urlencoded...");
+        try {
+          response = await _dio.post(
+            url,
+            data: params,
+            options: Options(
+              contentType: Headers.formUrlEncodedContentType,
+            ),
+          );
+        } catch (urlEncError) {
+          log("POST form-urlencoded failed ($urlEncError), trying GET...");
+          response = await _dio.get(url, queryParameters: params);
+        }
+      }
+
+      if (response != null &&
+          response.statusCode == 200 &&
+          response.data != null) {
+        final Map<String, dynamic> json;
+        if (response.data is Map<String, dynamic>) {
+          json = Map<String, dynamic>.from(response.data);
+        } else if (response.data is String) {
+          json = jsonDecode(response.data as String);
+        } else {
+          json = jsonDecode(response.data.toString());
+        }
+        log("get_customer_followup_list response json: $json");
+        return CustomerFollowupListModel.fromJson(json);
+      } else {
+        log("get_customer_followup_list failed with status: ${response?.statusCode}, response: ${response?.data}");
+      }
+    } catch (e, stackTrace) {
+      log("Error fetching customer followup list: $e");
+      log("StackTrace: $stackTrace");
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> addLeadFollowupDirect({
+    required String token,
+    required String callMasterId,
+    required String calledDate,
+    required String callResponseId,
+    required String callResultId,
+    String? productId,
+    String? cost,
+    String? priorityId,
+    String? remarks,
+    String? leadCategoryId,
+    String? leadSubCategoryId,
+    String? nextFollowupDate,
+    bool? reminder,
+    String? timeBefore,
+    String? reasonId,
+  }) async {
+    try {
+      final mapData = <String, dynamic>{
+        "token": token,
+        "call_master_id": callMasterId,
+        "called_date": calledDate,
+        "call_response_id": callResponseId,
+        "call_result_id": callResultId,
+        "products": productId ?? '',
+        "products_lead": productId ?? '',
+        "cost": cost ?? '0',
+        "priority": priorityId ?? '',
+        "remarks": remarks ?? '',
+        "lead_category_id": leadCategoryId ?? '',
+        "lead_sub_category_id": leadSubCategoryId ?? '',
+        "next_followup_date": nextFollowupDate ?? '',
+        "cloud_call_id": '',
+        "address": '',
+        "reminder": reminder ?? false,
+        "time_before": timeBefore ?? '',
+        "reason_id": reasonId ?? '',
+      };
+
+      var formData = FormData.fromMap(mapData);
+      var result = await _dio.post(
+        "${await Config.getUrl()}add_lead_followup_updated",
+        data: formData,
+      );
+
+      if (result.statusCode == 200 && result.data != null) {
+        if (result.data is Map<String, dynamic>) {
+          return Map<String, dynamic>.from(result.data);
+        } else if (result.data is String) {
+          return Map<String, dynamic>.from(jsonDecode(result.data));
+        }
+      }
+    } catch (e, stackTrace) {
+      log("Error in addLeadFollowupDirect: $e");
+      log("StackTrace: $stackTrace");
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> insertCustomerFollowup({
+    required String token,
+    required String customerId,
+    required String callMasterId,
+    required String calledDate,
+    required String callResponseId,
+    required String callResultId,
+    String? productId,
+    String? cost,
+    String? priorityId,
+    String? remarks,
+    String? leadCategoryId,
+    String? leadSubCategoryId,
+    String? nextFollowupDate,
+    bool? reminder,
+    String? timeBefore,
+    String? reasonId,
+  }) async {
+    try {
+      final mapData = <String, dynamic>{
+        "token": token,
+        "customer_id": customerId,
+        "cust_id": customerId,
+        "call_master_id": callMasterId,
+        "called_date": calledDate,
+        "call_response_id": callResponseId,
+        "call_response": callResponseId,
+        "call_status": callResponseId,
+        "call_result_id": callResultId,
+        "call_result": callResultId,
+        "stage_id": callResultId,
+        "products": productId ?? '',
+        "products_lead": productId ?? '',
+        "cost": cost ?? '0',
+        "priority": priorityId ?? '',
+        "priority_id": priorityId ?? '',
+        "remarks": remarks ?? '',
+        // "lead_category_id": leadCategoryId ?? '',
+        // "lead_sub_category_id": leadSubCategoryId ?? '',
+        "next_followup_date": nextFollowupDate ?? '',
+        "cloud_call_id": '',
+        // "address": '',
+        "reminder": reminder ?? false,
+        "time_before": timeBefore ?? '',
+        "reason_id": reasonId ?? '',
+        "tag_id": reasonId ?? '',
+        "tags": reasonId ?? '',
+      };
+
+      var formData = FormData.fromMap(mapData);
+      var result = await _dio.post(
+        "${await Config.getUrl()}insert_customer_followup",
+        data: formData,
+      );
+
+      if (result.statusCode == 200 && result.data != null) {
+        if (result.data is Map<String, dynamic>) {
+          return Map<String, dynamic>.from(result.data);
+        } else if (result.data is String) {
+          return Map<String, dynamic>.from(jsonDecode(result.data));
+        }
+      }
+    } catch (e, stackTrace) {
+      log("Error in insertCustomerFollowup: $e");
+      log("StackTrace: $stackTrace");
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> editCustomerFollowup({
+    required String token,
+    required String customerId,
+    required String callMasterId,
+    required String followupId,
+    required String calledDate,
+    required String callResponseId,
+    required String callResultId,
+    String? productId,
+    String? cost,
+    String? priorityId,
+    String? remarks,
+    String? leadCategoryId,
+    String? leadSubCategoryId,
+    String? nextFollowupDate,
+    bool? reminder,
+    String? timeBefore,
+    String? reasonId,
+  }) async {
+    try {
+      final mapData = <String, dynamic>{
+        "token": token,
+        "customer_id": customerId,
+        "cust_id": customerId,
+        "call_master_id": callMasterId,
+        "followup_id": followupId,
+        "called_date": calledDate,
+        "call_response_id": callResponseId,
+        "call_response": callResponseId,
+        "call_status": callResponseId,
+        "call_result_id": callResultId,
+        "call_result": callResultId,
+        "stage_id": callResultId,
+        "products": productId ?? '',
+        "products_lead": productId ?? '',
+        "cost": cost ?? '0',
+        "priority": priorityId ?? '',
+        "priority_id": priorityId ?? '',
+        "remarks": remarks ?? '',
+        "next_followup_date": nextFollowupDate ?? '',
+        "cloud_call_id": '',
+        "reminder": reminder ?? false,
+        "time_before": timeBefore ?? '',
+        "reason_id": reasonId ?? '',
+        "tag_id": reasonId ?? '',
+        "tags": reasonId ?? '',
+      };
+
+      var formData = FormData.fromMap(mapData);
+      var result = await _dio.post(
+        "${await Config.getUrl()}edit_customer_followup",
+        data: formData,
+      );
+
+      if (result.statusCode == 200 && result.data != null) {
+        if (result.data is Map<String, dynamic>) {
+          return Map<String, dynamic>.from(result.data);
+        } else if (result.data is String) {
+          return Map<String, dynamic>.from(jsonDecode(result.data));
+        }
+      }
+    } catch (e, stackTrace) {
+      log("Error in editCustomerFollowup: $e");
+      log("StackTrace: $stackTrace");
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> deleteCustomerFollowup({
+    required String token,
+    required String followupId,
+    String? customerId,
+    String? callMasterId,
+  }) async {
+    try {
+      final mapData = <String, dynamic>{
+        "token": token,
+        "followup_id": followupId,
+        "id": followupId,
+      };
+      if (customerId != null && customerId.isNotEmpty) {
+        mapData["customer_id"] = customerId;
+        mapData["cust_id"] = customerId;
+      }
+      if (callMasterId != null && callMasterId.isNotEmpty) {
+        mapData["call_master_id"] = callMasterId;
+      }
+
+      var formData = FormData.fromMap(mapData);
+      var result = await _dio.post(
+        "${await Config.getUrl()}delete_customer_followup",
+        data: formData,
+      );
+
+      if (result.statusCode == 200 && result.data != null) {
+        if (result.data is Map<String, dynamic>) {
+          return Map<String, dynamic>.from(result.data);
+        } else if (result.data is String) {
+          return Map<String, dynamic>.from(jsonDecode(result.data));
+        }
+      }
+    } catch (e, stackTrace) {
+      log("Error in deleteCustomerFollowup: $e");
+      log("StackTrace: $stackTrace");
+    }
     return null;
   }
 

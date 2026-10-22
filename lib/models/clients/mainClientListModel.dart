@@ -43,6 +43,7 @@ class ClientLists {
     String createdAt;
     String totalDue;
     String totalInvoiceCount;
+    String? isNegative;
 
     ClientLists({
         required this.id,
@@ -55,19 +56,21 @@ class ClientLists {
         required this.createdAt,
         required this.totalDue,
         required this.totalInvoiceCount,
+        this.isNegative,
     });
 
     factory ClientLists.fromJson(Map<String, dynamic> json) => ClientLists(
-        id: json["id"],
-        clientName: json["clientName"],
-        phoneNumber: json["phoneNumber"],
-        location: json["location"],
-        pincode: json["pincode"],
-        postOffice: json["post_office"],
-        createdBy: json["created_by"],
-        createdAt: json["created_at"],
-        totalDue: json["total_due"],
-        totalInvoiceCount: json["total_invoice_count"],
+        id: json["id"] ?? "",
+        clientName: json["clientName"] ?? "",
+        phoneNumber: json["phoneNumber"] ?? "",
+        location: json["location"] ?? "",
+        pincode: json["pincode"] ?? "",
+        postOffice: json["post_office"] ?? "",
+        createdBy: json["created_by"] ?? "",
+        createdAt: json["created_at"] ?? "",
+        totalDue: json["total_due"] ?? "",
+        totalInvoiceCount: json["total_invoice_count"] ?? "",
+        isNegative: json["is_negative"]?.toString() ?? "0",
     );
 
     Map<String, dynamic> toJson() => {
@@ -81,5 +84,6 @@ class ClientLists {
         "created_at": createdAt,
         "total_due": totalDue,
         "total_invoice_count": totalInvoiceCount,
+        "is_negative": isNegative,
     };
 }

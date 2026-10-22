@@ -1417,7 +1417,7 @@ class _ProductServiceListPageState extends State<ProductServiceListPage> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            "Vendor: ${item.vendorName}${item.vendorMobile.isNotEmpty ? ' (${item.vendorMobile})' : ''}",
+                            "Staff: ${item.vendorName}${item.vendorMobile.isNotEmpty ? ' (${item.vendorMobile})' : ''}",
                             style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1434,7 +1434,7 @@ class _ProductServiceListPageState extends State<ProductServiceListPage> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            "Place: ${item.servicePlace}${item.servicePlaceContact.isNotEmpty ? ' (${item.servicePlaceContact})' : ''}",
+                            "Service Place: ${item.servicePlace}${item.servicePlaceContact.isNotEmpty ? ' (${item.servicePlaceContact})' : ''}",
                             style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
                             overflow: TextOverflow.ellipsis,
                           ),

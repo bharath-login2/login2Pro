@@ -7,6 +7,7 @@ import 'package:lottie/lottie.dart';
 import '../../models/lead_management/delete_notification.dart';
 import '../../models/lead_management/leadNotificationListModel.dart';
 import '../../service/service.dart';
+import '../customer/customerDasboard.dart';
 import '../officialWhatsapp/chatScreen.dart';
 import 'viewLeadsNew.dart';
 
@@ -151,6 +152,12 @@ class _NotificationPageState extends State<NotificationPage> {
                         child: ListView.builder(
                           itemCount: leadNotification!.data.length,
                           itemBuilder: (context, i) {
+                            final bool isNewLead =
+                                leadNotification!.data[i].type == "20" ||
+                                    leadNotification!.data[i].type
+                                            .toString()
+                                            .trim() ==
+                                        "20";
                             return Dismissible(
                               key: const Key('0'),
                               background: Container(
@@ -243,6 +250,68 @@ class _NotificationPageState extends State<NotificationPage> {
                                             ).then((r) {
                                               getData();
                                             });
+                                          }
+                                        } else if (leadNotification!
+                                                .data[i].type ==
+                                            "20" ||
+                                            leadNotification!.data[i].type
+                                                    .toString()
+                                                    .trim() ==
+                                                "20") {
+                                          final String rawId = leadNotification!
+                                              .data[i].id
+                                              .toString()
+                                              .trim();
+                                          if (rawId.isEmpty ||
+                                              rawId == '0' ||
+                                              rawId.toLowerCase() == 'null') {
+                                            Common.toastMessaage(
+                                                'Customer ID not available',
+                                                Colors.red);
+                                          } else {
+                                            final String token =
+                                                (widget.token != null &&
+                                                        widget.token!.isNotEmpty)
+                                                    ? widget.token!
+                                                    : ((await Common.getSharedPref(
+                                                            "token"))
+                                                        ?.toString() ??
+                                                        '');
+                                            final String name =
+                                                (await Common.getSharedPref(
+                                                        "name"))
+                                                    ?.toString() ??
+                                                    '';
+                                            final String userId =
+                                                (await Common.getSharedPref(
+                                                        "userId"))
+                                                    ?.toString() ??
+                                                    '';
+                                            final String?
+                                                phoneCallLogPermission =
+                                                (await Common.getSharedPref(
+                                                        "phoneCallLogPermission"))
+                                                    ?.toString();
+
+                                            if (context.mounted) {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      CustomerDashboard(
+                                                    name: name,
+                                                    token: token,
+                                                    userId: userId,
+                                                    phoneCallLogPermission:
+                                                        phoneCallLogPermission,
+                                                    custId: rawId,
+                                                    openFollowupTab: true,
+                                                  ),
+                                                ),
+                                              ).then((r) {
+                                                getData();
+                                              });
+                                            }
                                           }
                                         } else if (leadNotification!
                                                 .data[i].type ==
@@ -386,112 +455,138 @@ class _NotificationPageState extends State<NotificationPage> {
                                                       .data[i].notificationId);
                                         }
                                       },
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          CircleAvatar(
-                                            radius: 22,
-                                            backgroundColor: leadNotification!
-                                                        .data[i].type ==
-                                                    "3"
-                                                ? Colors.green
-                                                : Colors.white,
-                                            child: Image.asset(
-                                                leadNotification!
-                                                            .data[i].type ==
-                                                        "3"
-                                                    ? "assets/icons/whatsapp_white.png"
-                                                    : "assets/main/logo.png",
-                                                width: 25),
-                                          ),
-                                          SizedBox(
-                                            width: MediaQuery.of(context)
-                                                    .size
-                                                    .width *
-                                                .78,
-                                            child: Column(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.start,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceBetween,
-                                                  children: [
-                                                    Text(
-                                                        leadNotification!
-                                                            .data[i].title
-                                                            .toString(),
-                                                        style: const TextStyle(
-                                                          fontSize: 14,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                        )),
-                                                    Text(
-                                                        leadNotification!
-                                                            .data[i].dateTime
-                                                            .toString(),
-                                                        style: TextStyle(
-                                                            fontSize: 12,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            color: Colors.grey
-                                                                .shade400)),
-                                                  ],
-                                                ),
-                                                const SizedBox(
-                                                  height: 6,
-                                                ),
-                                                Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceBetween,
-                                                  children: [
-                                                    SizedBox(
-                                                      width:
-                                                          MediaQuery.of(context)
-                                                                  .size
-                                                                  .width *
-                                                              0.7,
-                                                      child: Text(
+                                      child: Container(
+                                        padding: isNewLead
+                                            ? const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 10)
+                                            : EdgeInsets.zero,
+                                        decoration: BoxDecoration(
+                                          color: isNewLead
+                                              ? Colors.green.shade50
+                                              : Colors.transparent,
+                                          borderRadius: isNewLead
+                                              ? BorderRadius.circular(8)
+                                              : BorderRadius.zero,
+                                          border: isNewLead
+                                              ? Border.all(
+                                                  color: Colors.green.shade200,
+                                                  width: 0.8)
+                                              : null,
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            CircleAvatar(
+                                              radius: 22,
+                                              backgroundColor: leadNotification!
+                                                          .data[i].type ==
+                                                      "3"
+                                                  ? Colors.green
+                                                  : Colors.white,
+                                              child: Image.asset(
+                                                  leadNotification!
+                                                              .data[i].type ==
+                                                          "3"
+                                                      ? "assets/icons/whatsapp_white.png"
+                                                      : "assets/main/logo.png",
+                                                  width: 25),
+                                            ),
+                                            SizedBox(
+                                              width: MediaQuery.of(context)
+                                                      .size
+                                                      .width *
+                                                  (isNewLead ? .72 : .78),
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      Text(
                                                           leadNotification!
-                                                              .data[i].content
+                                                              .data[i].title
                                                               .toString(),
                                                           style:
                                                               const TextStyle(
                                                             fontSize: 14,
                                                             fontWeight:
-                                                                FontWeight.w400,
+                                                                FontWeight.w700,
                                                           )),
-                                                    ),
-                                                    leadNotification!.data[i]
-                                                                .isRead ==
-                                                            false
-                                                        ? Container(
-                                                            height: 15,
-                                                            width: 15,
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              shape: BoxShape
-                                                                  .circle,
-                                                              border:
-                                                                  Border.all(
-                                                                color: Colors
-                                                                    .white,
+                                                      Text(
+                                                          leadNotification!
+                                                              .data[i].dateTime
+                                                              .toString(),
+                                                          style: TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w700,
+                                                              color: Colors.grey
+                                                                  .shade400)),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(
+                                                    height: 6,
+                                                  ),
+                                                  Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      SizedBox(
+                                                        width: MediaQuery.of(
+                                                                    context)
+                                                                .size
+                                                                .width *
+                                                            (isNewLead
+                                                                ? 0.65
+                                                                : 0.7),
+                                                        child: Text(
+                                                            leadNotification!
+                                                                .data[i]
+                                                                .content
+                                                                .toString(),
+                                                            style:
+                                                                const TextStyle(
+                                                              fontSize: 14,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w400,
+                                                            )),
+                                                      ),
+                                                      leadNotification!.data[i]
+                                                                  .isRead ==
+                                                              false
+                                                          ? Container(
+                                                              height: 15,
+                                                              width: 15,
+                                                              decoration:
+                                                                  BoxDecoration(
+                                                                shape: BoxShape
+                                                                    .circle,
+                                                                border:
+                                                                    Border.all(
+                                                                  color: Colors
+                                                                      .white,
+                                                                ),
+                                                                color:
+                                                                    Colors.red,
                                                               ),
-                                                              color: Colors.red,
-                                                            ),
-                                                          )
-                                                        : const SizedBox(),
-                                                  ],
-                                                ),
-                                              ],
+                                                            )
+                                                          : const SizedBox(),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(

@@ -18,6 +18,7 @@ import 'package:login2/screens/accounts/dashboard/accountsDashboardNew.dart';
 
 import 'package:login2/screens/accounts/dashboard/accounts_dashboard.dart';
 import 'package:login2/screens/accounts/clients/clientList.dart';
+import 'package:login2/screens/customer/customer_dashboard_home.dart';
 import 'package:login2/screens/authentication/face_detection_camera.dart';
 import 'package:login2/screens/authentication/login.dart';
 import 'package:login2/screens/fileManager/fileManagerList.dart';
@@ -1225,9 +1226,9 @@ class _HomePageState extends State<HomePage> {
                                                 context,
                                                 MaterialPageRoute(
                                                     builder: (context) =>
-                                                        ClientList(
-                                                            widget.token!,
-                                                            _scaffoldKey)),
+                                                        CustomerDashboardHome(
+                                                            token: widget.token!,
+                                                            scaffoldKey: _scaffoldKey)),
                                               );
                                             } else if (userDashboard!
                                                     .data.modules[i].menuName ==
