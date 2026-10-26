@@ -3725,7 +3725,44 @@ class HttpService {
     }
   }
 
-  static Future invoiceListTemp(
+  // static Future invoiceListTemp(
+  //   String token,
+  //   String isDash,
+  //   String status,
+  //   String custId,
+  //   String fromDate,
+  //   String toDate,
+  //   String clientId,
+  //   String collectedBy,
+  //   String createdBy,
+  //   String staff,
+  //   String type,
+  //   String statusFilter,
+  // ) async {
+  //   var formData = FormData.fromMap({
+  //     'token': token,
+  //     'from_dashboard': isDash,
+  //     'status': status,
+  //     'cust_id': custId,
+  //     'from_date': fromDate,
+  //     'to_date': toDate,
+  //     'client_id': clientId,
+  //     'collected_by': collectedBy,
+  //     'created_by': createdBy,
+  //     'staff_id': staff,
+  //     'invoice_type': type,
+  //     'status': statusFilter
+  //   });
+  //   try {
+  //     var result = await _dio
+  //         .post("${await Config.getUrl()}getInvoiceListsTemp", data: formData);
+  //     InvoiceListModelTemp model = InvoiceListModelTemp.fromJson(result.data);
+  //     return model;
+  //   } catch (e) {
+  //     log("error: $e");
+  //   }
+  // }
+  static Future<InvoiceListModelTemp?> invoiceListTemp(
     String token,
     String isDash,
     String status,
@@ -3739,10 +3776,14 @@ class HttpService {
     String type,
     String statusFilter,
   ) async {
+    // FIX: Combine or separate your status parameters properly
+    // (If statusFilter is empty, fallback to the main status parameter)
+    String finalStatus = statusFilter.isNotEmpty ? statusFilter : status;
+
     var formData = FormData.fromMap({
       'token': token,
       'from_dashboard': isDash,
-      'status': status,
+      'status': finalStatus, // Now using a single, non-overwritten key
       'cust_id': custId,
       'from_date': fromDate,
       'to_date': toDate,
@@ -3751,15 +3792,21 @@ class HttpService {
       'created_by': createdBy,
       'staff_id': staff,
       'invoice_type': type,
-      'status': statusFilter
     });
+
     try {
       var result = await _dio
           .post("${await Config.getUrl()}getInvoiceListsTemp", data: formData);
+
+      // Print response data to check if JSON matches your model
+      log("API Response: ${result.data}");
+
       InvoiceListModelTemp model = InvoiceListModelTemp.fromJson(result.data);
       return model;
-    } catch (e) {
-      log("error: $e");
+    } catch (e, stackTrace) {
+      log("error in invoiceListTemp: $e");
+      log("stacktrace: $stackTrace");
+      return null; // CRITICAL: Explicitly return null so your UI handles the failure instead of hanging
     }
   }
 
@@ -8068,6 +8115,7 @@ class HttpService {
     }
     return null;
   }
+
   static Future<StaffServiceModel?> getStaffservice() async {
     var token = await Common.getSharedPref('token');
     try {
@@ -16126,55 +16174,55 @@ class HttpService {
   }
 
   static Future<GetServiceListModel?> getServiceList([
-  String productId = "",
-  String staffId = "",
-  String serviceType = "",
-  String fromDate = "",
-  String toDate = "",
-]) async {
-  try {
-    final token = await Common.getSharedPref("token");
+    String productId = "",
+    String staffId = "",
+    String serviceType = "",
+    String fromDate = "",
+    String toDate = "",
+  ]) async {
+    try {
+      final token = await Common.getSharedPref("token");
 
-    if (token?.isEmpty ?? true) {
-      log("getServiceList error: Token not found");
-      return null;
+      if (token?.isEmpty ?? true) {
+        log("getServiceList error: Token not found");
+        return null;
+      }
+
+      final Map<String, dynamic> map = {
+        "token": token,
+        if (productId.isNotEmpty) "product_id": productId,
+        if (staffId.isNotEmpty) "staff_id": staffId,
+        if (staffId.isNotEmpty) "vendor_user_id": staffId,
+        if (serviceType.isNotEmpty) "service_type": serviceType,
+        if (serviceType.isNotEmpty) "filter_service_type": serviceType,
+        if (fromDate.isNotEmpty) "from_date": fromDate,
+        if (toDate.isNotEmpty) "to_date": toDate,
+      };
+
+      final formData = FormData.fromMap(map);
+
+      final response = await _dio.post(
+        "${await Config.getUrl()}get_service_list",
+        data: formData,
+      );
+
+      if (response.statusCode == 200 &&
+          (response.data['status'] == true ||
+              response.data['status'] == 'success' ||
+              response.data['status'] == 'true')) {
+        return GetServiceListModel.fromJson(response.data);
+      }
+
+      log(
+        "getServiceList error: "
+        "${response.data?['message'] ?? 'Unknown error'}",
+      );
+    } catch (e) {
+      log("getServiceList error: $e");
     }
 
-    final Map<String, dynamic> map = {
-      "token": token,
-      if (productId.isNotEmpty) "product_id": productId,
-      if (staffId.isNotEmpty) "staff_id": staffId,
-      if (staffId.isNotEmpty) "vendor_user_id": staffId,
-      if (serviceType.isNotEmpty) "service_type": serviceType,
-      if (serviceType.isNotEmpty) "filter_service_type": serviceType,
-      if (fromDate.isNotEmpty) "from_date": fromDate,
-      if (toDate.isNotEmpty) "to_date": toDate,
-    };
-
-    final formData = FormData.fromMap(map);
-
-    final response = await _dio.post(
-      "${await Config.getUrl()}get_service_list",
-      data: formData,
-    );
-
-    if (response.statusCode == 200 &&
-        (response.data['status'] == true ||
-            response.data['status'] == 'success' ||
-            response.data['status'] == 'true')) {
-      return GetServiceListModel.fromJson(response.data);
-    }
-
-    log(
-      "getServiceList error: "
-      "${response.data?['message'] ?? 'Unknown error'}",
-    );
-  } catch (e) {
-    log("getServiceList error: $e");
+    return null;
   }
-
-  return null;
-}
 
   static Future<List<Map<String, dynamic>>> getServicePlaces() async {
     try {
@@ -16202,7 +16250,8 @@ class HttpService {
     return [];
   }
 
-  static Future<bool> postServicePlace(String placeName, String contactNumber) async {
+  static Future<bool> postServicePlace(
+      String placeName, String contactNumber) async {
     try {
       final token = await Common.getSharedPref("token");
       if (token?.isEmpty ?? true) {
@@ -16439,7 +16488,7 @@ class HttpService {
         data: formData,
       );
 
-print("getProductPaymentList request: ${response}");
+      print("getProductPaymentList request: ${response}");
       if (response.statusCode == 200 &&
           (response.data['status'] == true ||
               response.data['status'] == 'success' ||
@@ -17918,7 +17967,8 @@ print("getProductPaymentList request: ${response}");
     return null;
   }
 
-  static Future<Map<String, dynamic>?> getServicePaymentHistory(String serviceId) async {
+  static Future<Map<String, dynamic>?> getServicePaymentHistory(
+      String serviceId) async {
     final token = await Common.getSharedPref("token");
     final data = {
       'token': token,
@@ -17970,7 +18020,8 @@ print("getProductPaymentList request: ${response}");
     return false;
   }
 
-  static Future<bool> deleteServicePayment(String paymentId, String serviceId) async {
+  static Future<bool> deleteServicePayment(
+      String paymentId, String serviceId) async {
     try {
       final token = await Common.getSharedPref("token");
       if (token?.isEmpty ?? true) {
@@ -18010,7 +18061,7 @@ print("getProductPaymentList request: ${response}");
     int pageSize = 10,
   }) async {
     final effectiveToken = token ?? await Common.getSharedPref("token");
-    
+
     final data = {
       'token': effectiveToken ?? '',
       'from_date': fromDate,
@@ -18026,7 +18077,7 @@ print("getProductPaymentList request: ${response}");
         "${await Config.getUrl()}get_detailed_summary_report", // Replace with your exact endpoint name if needed
         data: FormData.fromMap(data),
       );
-      
+
       if (response.statusCode == 200) {
         return CallReportModel.fromJson(response.data);
       }
@@ -18036,5 +18087,3 @@ print("getProductPaymentList request: ${response}");
     return null;
   }
 }
-
-
