@@ -16,6 +16,7 @@ import 'package:login2/screens/leadManagement/minimalDashboard.dart';
 import 'package:login2/screens/leadManagement/projectDashboard.dart';
 import 'package:login2/screens/serviceman/bottomNavBar.dart';
 import 'package:login2/screens/serviceman/dashboard_card.dart';
+import 'package:login2/screens/serviceman/addWorkPage.dart';
 import 'package:login2/screens/serviceman/notificationPage.dart';
 import 'package:login2/screens/serviceman/sideBar.dart';
 import 'package:login2/screens/serviceman/workCategoryWidget.dart';
@@ -32,6 +33,7 @@ import 'package:intl/intl.dart';
 import 'package:login2/models/serviceman/workModel.dart';
 import 'package:login2/models/serviceman/serviceDashboardCountsModel.dart';
 import 'package:login2/models/serviceman/serviceCollectionModel.dart';
+import 'attendanceListPage.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -53,6 +55,7 @@ class _DashboardPageState extends State<DashboardPage> {
   String? NewleadDashboardPermission;
   String name = '';
   String role = '';
+  String roleId = '';
   String userId = '';
   String token = '';
   int notificationCount = 0;
@@ -101,20 +104,79 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  DateTime? _parseEstimatedDateTime(String? raw) {
+    if (raw == null) return null;
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty ||
+        trimmed == "0000-00-00 00:00:00" ||
+        trimmed == "0000-00-00" ||
+        trimmed == "null" ||
+        trimmed.toLowerCase() == "n/a") {
+      return null;
+    }
+    final dt = DateTime.tryParse(trimmed);
+    if (dt != null) return dt;
+
+    final formats = [
+      'yyyy-MM-dd HH:mm:ss',
+      'yyyy-MM-dd HH:mm',
+      'yyyy-MM-dd',
+      'dd-MM-yyyy HH:mm:ss',
+      'dd-MM-yyyy HH:mm',
+      'dd-MM-yyyy',
+      'dd/MM/yyyy HH:mm:ss',
+      'dd/MM/yyyy HH:mm',
+      'dd/MM/yyyy',
+      'MM/dd/yyyy HH:mm:ss',
+      'MM/dd/yyyy',
+    ];
+    for (final fmt in formats) {
+      try {
+        return DateFormat(fmt).parseLoose(trimmed);
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  bool _isWorkOverdue(WorkOrder work) {
+    final status = (work.status ?? '').trim().toLowerCase();
+    if (status.contains('completed')) {
+      return false;
+    }
+    final estDate = _parseEstimatedDateTime(work.estimatedDatetime);
+    if (estDate == null) {
+      return false;
+    }
+    return estDate.isBefore(DateTime.now());
+  }
+
   Future<void> _fetchDashboardCounts() async {
     setState(() => isLoadingDashboardCounts = true);
     try {
       final httpService = HttpService();
       final model = await httpService.getServiceDashboardCounts();
       if (model != null && model.status == true && model.data != null) {
-        setState(() {
-          dashboardCounts = model.data;
-        });
+        dashboardCounts = model.data;
       }
+      try {
+        final today = DateTime.now().toIso8601String().split('T').first;
+        final staffId = await Common.getSharedPref("staff_id") ?? "1";
+        final overdueWorkModel =
+            await httpService.getWorkList(staffId, today, "5");
+        if (overdueWorkModel != null && overdueWorkModel.data?.lists != null) {
+          final count = overdueWorkModel.data!.lists!
+              .where((w) => _isWorkOverdue(w))
+              .length;
+          dashboardCounts?.overdueOrders = count;
+        }
+      } catch (err) {
+        debugPrint("Error updating overdue count: $err");
+      }
+      if (mounted) setState(() {});
     } catch (e) {
       debugPrint("Error fetching service dashboard counts: $e");
     } finally {
-      setState(() => isLoadingDashboardCounts = false);
+      if (mounted) setState(() => isLoadingDashboardCounts = false);
     }
   }
 
@@ -186,12 +248,14 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  void _refreshPage() {
+  Future<void> _refreshPage() async {
     debugPrint("Page Refreshed!");
-    _fetchOngoingWorks();
-    _fetchDashboardCounts();
-    _fetchRecentPaymentReports();
-    setState(() {});
+    await Future.wait([
+      _fetchOngoingWorks(),
+      _fetchDashboardCounts(),
+      _fetchRecentPaymentReports(),
+    ]);
+    if (mounted) setState(() {});
   }
 
   String _formatAmount(num? amount) {
@@ -211,6 +275,7 @@ class _DashboardPageState extends State<DashboardPage> {
     userId = await Common.getSharedPref("userId");
     token = await Common.getSharedPref("token");
     final String pPic = await Common.getSharedPref("profile_pic") ?? "";
+    final String rId = (await Common.getSharedPref("roleId"))?.toString() ?? "";
     configure = await HttpService.configure(token);
     ProjectDashboardPermission =
         await Common.getSharedPref("ProjectDashboardPermission");
@@ -224,6 +289,7 @@ class _DashboardPageState extends State<DashboardPage> {
     setState(() {
       staffName = prefs.getString('staff_name') ?? "Staff";
       profilePic = pPic;
+      roleId = rId;
     });
   }
 
@@ -240,7 +306,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       key: _scaffoldKey,
-      endDrawer: const SideBar(),
+      endDrawer: SideBar(onRefresh: _refreshPage),
       appBar: PreferredSize(
         preferredSize:
             Size.fromHeight(MediaQuery.of(context).size.height * 0.08),
@@ -346,6 +412,27 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
                 Row(
                   children: [
+                    if (roleId != "3")
+                      InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CreateNewJobPage(),
+                            ),
+                          ).then((_) {
+                            _refreshPage();
+                          });
+                        },
+                        child: const Padding(
+                          padding: EdgeInsets.only(right: 20),
+                          child: Icon(
+                            Icons.add_circle_outline,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                      ),
                     InkWell(
                       onTap: () {
                         Navigator.push(
@@ -354,6 +441,7 @@ class _DashboardPageState extends State<DashboardPage> {
                               builder: (context) => NotificationPageService()),
                         ).then((r) {
                           _loadStaffName();
+                          _refreshPage();
                         });
                       },
                       child: Padding(
@@ -395,8 +483,12 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
+      body: RefreshIndicator(
+        color: const Color(0xFF2A86C9),
+        onRefresh: _refreshPage,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
           children: [
             // Welcome Section
             Container(
@@ -475,29 +567,35 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
             ),
 
+            // Add Work Button directly below the Welcome Back section
+            _buildAddWorkButton(),
+
+            // Attendance List Section
+            if (roleId == '2') _buildAttendanceListCard(),
+
             // Search Bar
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(25),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12.withOpacity(0.1),
-                    blurRadius: 6,
-                    offset: const Offset(2, 2),
-                  ),
-                ],
-              ),
-              child: const TextField(
-                decoration: InputDecoration(
-                  hintText: "Search work, tasks...",
-                  border: InputBorder.none,
-                  icon: Icon(Icons.search, color: Color(0xFF2a86c9)),
-                ),
-              ),
-            ),
+            // Container(
+            //   margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            //   padding: const EdgeInsets.symmetric(horizontal: 15),
+            //   decoration: BoxDecoration(
+            //     color: Colors.white,
+            //     borderRadius: BorderRadius.circular(25),
+            //     boxShadow: [
+            //       BoxShadow(
+            //         color: Colors.black12.withOpacity(0.1),
+            //         blurRadius: 6,
+            //         offset: const Offset(2, 2),
+            //       ),
+            //     ],
+            //   ),
+            //   child: const TextField(
+            //     decoration: InputDecoration(
+            //       hintText: "Search work, tasks...",
+            //       border: InputBorder.none,
+            //       icon: Icon(Icons.search, color: Color(0xFF2a86c9)),
+            //     ),
+            //   ),
+            // ),
 
             const SizedBox(height: 10),
 
@@ -527,7 +625,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           typeId: "1",
                         ),
                       ),
-                    ),
+                    ).then((_) => _refreshPage()),
                   ),
                   _buildModernStatCard(
                     title: "Pending Work",
@@ -544,7 +642,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           typeId: "2",
                         ),
                       ),
-                    ),
+                    ).then((_) => _refreshPage()),
                   ),
                   _buildModernStatCard(
                     title: "Ongoing Work",
@@ -561,7 +659,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           typeId: "3",
                         ),
                       ),
-                    ),
+                    ).then((_) => _refreshPage()),
                   ),
                   _buildModernStatCard(
                     title: "Completed Work",
@@ -578,7 +676,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           typeId: "4",
                         ),
                       ),
-                    ),
+                    ).then((_) => _refreshPage()),
                   ),
                   _buildModernStatCard(
                     title: "Overdue",
@@ -593,9 +691,10 @@ class _DashboardPageState extends State<DashboardPage> {
                         builder: (_) => const WorkListPage(
                           pageTitle: "Overdue Work",
                           typeId: "5",
+                          excludeCompleted: true,
                         ),
                       ),
-                    ),
+                    ).then((_) => _refreshPage()),
                   ),
                   _buildModernStatCard(
                     title: "Today Collected",
@@ -612,7 +711,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           title: "Today Collected",
                         ),
                       ),
-                    ),
+                    ).then((_) => _refreshPage()),
                   ),
                   _buildModernStatCard(
                     title: "This Month Collection",
@@ -629,7 +728,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           title: "This Month Collection",
                         ),
                       ),
-                    ),
+                    ).then((_) => _refreshPage()),
                   ),
                   _buildModernStatCard(
                     title: "Balance to Receive",
@@ -646,7 +745,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           title: "Balance to Receive",
                         ),
                       ),
-                    ),
+                    ).then((_) => _refreshPage()),
                   ),
                 ],
               ),
@@ -668,7 +767,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     typeId: "3",
                   ),
                 ),
-              ),
+              ).then((_) => _refreshPage()),
             ),
 
             if (isLoadingOngoingWorks)
@@ -749,7 +848,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         typeId: "3",
                       ),
                     ),
-                  ),
+                  ).then((_) => _refreshPage()),
                 );
               }),
 
@@ -769,7 +868,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     title: "This Month Collection",
                   ),
                 ),
-              ),
+              ).then((_) => _refreshPage()),
             ),
 
             if (isLoadingRecentPaymentReports)
@@ -846,7 +945,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         title: "This Month Collection",
                       ),
                     ),
-                  ),
+                  ).then((_) => _refreshPage()),
                 );
               }),
 
@@ -854,6 +953,7 @@ class _DashboardPageState extends State<DashboardPage> {
           ],
         ),
       ),
+    ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF2a86c9),
@@ -899,6 +999,200 @@ class _DashboardPageState extends State<DashboardPage> {
               userId: userId,
             )
           : const SizedBox(),
+    );
+  }
+
+  Widget _buildAddWorkButton() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2a86c9), Color(0xFF1D4ED8)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2a86c9).withOpacity(0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const CreateNewJobPage(),
+              ),
+            ).then((_) => _refreshPage());
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.add_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  "Add Work",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttendanceListCard() {
+    if (roleId != '2') return const SizedBox();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2A86C9).withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+        border: Border.all(
+          color: const Color(0xFF2A86C9).withOpacity(0.18),
+          width: 1.2,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AttendanceListPage(
+                  staffId: userId.isNotEmpty ? userId : null,
+                  staffName: name.isNotEmpty ? name : staffName,
+                ),
+              ),
+            ).then((_) => _refreshPage());
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF2A86C9), Color(0xFF1E3A8A)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF2A86C9).withOpacity(0.3),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.how_to_reg_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            "Attendance List",
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              "Daily",
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF059669),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        "View login, logout times & location history",
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2A86C9).withOpacity(0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 12,
+                    color: Color(0xFF2A86C9),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1206,37 +1500,37 @@ class _DashboardPageState extends State<DashboardPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                "Progress",
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                              Text(
-                                "${(progress * 100).toInt()}%",
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2A86C9),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: progress,
-                              minHeight: 5,
-                              backgroundColor: Colors.grey.shade100,
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                  Color(0xFF2A86C9)),
-                            ),
-                          ),
+                          // Row(
+                          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          //   children: [
+                          //     Text(
+                          //       "Progress",
+                          //       style: TextStyle(
+                          //         fontSize: 11,
+                          //         color: Colors.grey.shade600,
+                          //       ),
+                          //     ),
+                          //     Text(
+                          //       "${(progress * 100).toInt()}%",
+                          //       style: const TextStyle(
+                          //         fontSize: 11,
+                          //         fontWeight: FontWeight.bold,
+                          //         color: Color(0xFF2A86C9),
+                          //       ),
+                          //     ),
+                          //   ],
+                          // ),
+                          // const SizedBox(height: 4),
+                          // ClipRRect(
+                          //   borderRadius: BorderRadius.circular(4),
+                          //   child: LinearProgressIndicator(
+                          //     value: progress,
+                          //     minHeight: 5,
+                          //     backgroundColor: Colors.grey.shade100,
+                          //     valueColor: const AlwaysStoppedAnimation<Color>(
+                          //         Color(0xFF2A86C9)),
+                          //   ),
+                          // ),
                         ],
                       ),
                     ),

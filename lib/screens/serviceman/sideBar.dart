@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:login2/screens/authentication/login.dart';
 import 'package:login2/screens/leadManagement/quotationPage.dart';
+import 'package:login2/screens/serviceman/addWorkPage.dart';
 import 'package:login2/screens/serviceman/leadDashboard.dart';
 import 'package:login2/screens/serviceman/workList.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SideBar extends StatelessWidget {
-  const SideBar({super.key});
+  final VoidCallback? onRefresh;
+  const SideBar({super.key, this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +30,6 @@ class SideBar extends StatelessWidget {
               ),
             ),
           ),
-
           ListTile(
             leading: const Icon(
               Icons.dashboard,
@@ -50,6 +51,28 @@ class SideBar extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(
+              Icons.add_circle_outline,
+              color: Color.fromARGB(255, 37, 118, 194),
+            ),
+            title: const Text(
+              "Add Work",
+              style: TextStyle(
+                color: Color.fromARGB(255, 39, 37, 194),
+                fontSize: 16,
+              ),
+            ),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CreateNewJobPage()),
+              ).then((_) {
+                onRefresh?.call();
+              });
+            },
+          ),
+          ListTile(
+            leading: const Icon(
               Icons.work,
               color: Color.fromARGB(255, 37, 118, 194),
             ),
@@ -63,8 +86,12 @@ class SideBar extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const WorkListPage(pageTitle: "All Works",typeId:"5")),
-              );
+                MaterialPageRoute(
+                    builder: (_) => const WorkListPage(
+                        pageTitle: "All Works", typeId: "5")),
+              ).then((_) {
+                onRefresh?.call();
+              });
             },
           ),
           ListTile(
@@ -82,7 +109,8 @@ class SideBar extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const QuotationPage(status:"All")),
+                MaterialPageRoute(
+                    builder: (_) => const QuotationPage(status: "All")),
               );
             },
           ),
@@ -113,4 +141,3 @@ class SideBar extends StatelessWidget {
     );
   }
 }
-

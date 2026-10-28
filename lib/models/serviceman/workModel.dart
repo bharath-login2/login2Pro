@@ -60,6 +60,7 @@ class WorkOrder {
   final String? emailId;
   final String? address;
   final String? location;
+  final String? serviceType;
   final String? jobType;
   final String? issueDescription;
   final String? preferredDateTime;
@@ -74,8 +75,10 @@ class WorkOrder {
   final String? createdBy;
   final String? assignedServiceMan;
   final String? assignedStaffIds;
+  final String? assignedRoleId;
   final List<History>? history;
   final List<AddProduct>? addProducts; // ✅ New field added
+  final String? pipelineName; // ✅ Pipeline stages JSON or string from api_workorders
 
   WorkOrder({
     this.workOrderID,
@@ -93,6 +96,7 @@ class WorkOrder {
     this.emailId,
     this.address,
     this.location,
+    this.serviceType,
     this.jobType,
     this.issueDescription,
     this.preferredDateTime,
@@ -107,8 +111,10 @@ class WorkOrder {
     this.createdBy,
     this.assignedServiceMan,
     this.assignedStaffIds,
+    this.assignedRoleId,
     this.history,
     this.addProducts, // ✅ added here
+    this.pipelineName,
   });
 
   factory WorkOrder.fromJson(Map<String, dynamic> json) {
@@ -128,10 +134,16 @@ class WorkOrder {
       emailId: json['EmailID'] ?? "",
       address: json['Address'] ?? "",
       location: json['Location'] ?? "",
+      serviceType: json['service_type']?.toString() ??
+          json['editservice_type']?.toString() ??
+          "",
       jobType: json['job_type'] ?? "",
       issueDescription: json['IssueDescription'] ?? "",
       preferredDateTime: json['PreferredDateTime'] ?? "",
-      estimatedDatetime: json['Estimated_datetime'] ?? "",
+      estimatedDatetime: json['Estimated_datetime'] ??
+          json['estimated_datetime'] ??
+          json['editestimated_datetime'] ??
+          "",
       priority: json['Priority'] ?? "",
       dealerName: json['dealer_name'] ?? "",
       userPassword: json['user_password'] ?? "",
@@ -142,6 +154,10 @@ class WorkOrder {
       createdBy: json['CreatedBy'] ?? "",
       assignedServiceMan: json['assigned_service_man'] ?? "",
       assignedStaffIds: json['assigned_staff_ids'] ?? "",
+      assignedRoleId: json['assigned_role_id']?.toString() ??
+          json['role_id']?.toString() ??
+          json['assigned_role']?.toString() ??
+          "",
       history: (json['history'] as List<dynamic>?)
           ?.map((e) => History.fromJson(e))
           .toList(),
@@ -149,6 +165,11 @@ class WorkOrder {
           (json['add_products'] as List<dynamic>?) // ✅ parse add_products
               ?.map((e) => AddProduct.fromJson(e))
               .toList(),
+      pipelineName: json['pipeline_name'] is String
+          ? json['pipeline_name']
+          : (json['pipeline_name'] != null
+              ? jsonEncode(json['pipeline_name'])
+              : (json['pipelineName']?.toString() ?? "")),
     );
   }
 
@@ -169,6 +190,7 @@ class WorkOrder {
       "EmailID": emailId,
       "Address": address,
       "Location": location,
+      "service_type": serviceType,
       "job_type": jobType,
       "IssueDescription": issueDescription,
       "PreferredDateTime": preferredDateTime,
@@ -183,10 +205,12 @@ class WorkOrder {
       "CreatedBy": createdBy,
       "assigned_service_man": assignedServiceMan,
       "assigned_staff_ids": assignedStaffIds,
+      "assigned_role_id": assignedRoleId,
       "history": history?.map((e) => e.toJson()).toList(),
       "add_products": addProducts
           ?.map((e) => e.toJson())
           .toList(), // ✅ added here
+      "pipeline_name": pipelineName,
     };
   }
 
@@ -215,6 +239,7 @@ class AddProduct {
   final String? unitPrice;
   final String? amount;
   final String? currentStock;
+  final String? pipelineName;
 
   AddProduct({
     this.id,
@@ -227,6 +252,7 @@ class AddProduct {
     this.unitPrice,
     this.amount,
     this.currentStock,
+    this.pipelineName,
   });
 
   factory AddProduct.fromJson(Map<String, dynamic> json) {
@@ -248,6 +274,11 @@ class AddProduct {
       unitPrice: price,
       amount: json['amount']?.toString() ?? "",
       currentStock: json['current_stock']?.toString() ?? "",
+      pipelineName: json['pipeline_name'] is String
+          ? json['pipeline_name']
+          : (json['pipeline_name'] != null
+              ? jsonEncode(json['pipeline_name'])
+              : (json['pipelineName']?.toString() ?? "")),
     );
   }
 
@@ -263,6 +294,7 @@ class AddProduct {
       "unit_price": unitPrice,
       "amount": amount,
       "current_stock": currentStock,
+      "pipeline_name": pipelineName,
     };
   }
 }
@@ -375,7 +407,8 @@ class History {
         json['milestone'] ??
         json['val_milestone'] ??
         json['stoppipeline_name'] ??
-        json['val_stoppipeline_name'];
+        json['val_stoppipeline_name'] ??
+        json['pipeline_name'];
 
     return History(
       histID: json['HistID'] ?? "",
@@ -457,9 +490,29 @@ class PipelineProgress {
   PipelineProgress({this.name, this.status});
 
   factory PipelineProgress.fromJson(Map<String, dynamic> json) {
+    int st = 0;
+    final rawStatus = json['status'] ?? json['val_status'];
+    if (rawStatus is int) {
+      st = rawStatus;
+    } else if (rawStatus is bool) {
+      st = rawStatus ? 1 : 0;
+    } else if (rawStatus != null) {
+      final s = rawStatus.toString().trim().toLowerCase();
+      if (s == "1" || s == "true" || s == "completed" || s == "done") {
+        st = 1;
+      } else {
+        st = int.tryParse(s) ?? 0;
+      }
+    }
     return PipelineProgress(
-      name: (json['name'] ?? json['pipeline_name'] ?? json['milestone_name'] ?? json['title'] ?? '').toString(),
-      status: int.tryParse((json['status'] ?? json['val_status'] ?? 0).toString()) ?? 0,
+      name: (json['name'] ??
+              json['pipeline_name'] ??
+              json['stage_name'] ??
+              json['milestone_name'] ??
+              json['title'] ??
+              '')
+          .toString(),
+      status: st,
     );
   }
 

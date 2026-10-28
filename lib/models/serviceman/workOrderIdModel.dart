@@ -63,6 +63,7 @@ class WorkOrderData {
   ProductDetails productDetails;
   String serviceOption;
   String serviceCharge;
+  String serviceType;
 
   WorkOrderData({
     required this.workOrderID,
@@ -105,6 +106,7 @@ class WorkOrderData {
     required this.productDetails,
     this.serviceOption = '',
     this.serviceCharge = '',
+    this.serviceType = '',
   });
 
   factory WorkOrderData.fromJson(Map<String, dynamic> json) => WorkOrderData(
@@ -155,6 +157,9 @@ class WorkOrderData {
             '',
         serviceCharge: json["service_charge"]?.toString() ??
             json["editservice_charge"]?.toString() ??
+            '',
+        serviceType: json["service_type"]?.toString() ??
+            json["editservice_type"]?.toString() ??
             '',
       );
 }

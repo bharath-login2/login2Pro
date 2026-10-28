@@ -86,6 +86,50 @@ class _StaffCalendarPageState extends State<StaffCalendarPage> {
       );
 
       if (reportResult != null && reportResult.status == true) {
+        if (reportResult.data?.list != null) {
+          for (var item in reportResult.data!.list!) {
+            final itemDate = _parseDateString(item.date);
+            if (itemDate != null) {
+              final key =
+                  DateTime.utc(itemDate.year, itemDate.month, itemDate.day);
+              if (attendanceMap.containsKey(key)) {
+                if (item.leaveReason != null && item.leaveReason!.isNotEmpty) {
+                  attendanceMap[key]!["leave_reason"] = item.leaveReason!;
+                  attendanceMap[key]!["reason"] = item.leaveReason!;
+                }
+                if (item.status?.toLowerCase() == 'leave') {
+                  attendanceMap[key]!["status"] = "leave";
+                  if (attendanceMap[key]!["title"] == "Not Added" ||
+                      attendanceMap[key]!["title"] == "Absent") {
+                    attendanceMap[key]!["title"] = "Leave";
+                  }
+                }
+              } else {
+                attendanceMap[key] = {
+                  "title": item.status ?? "Leave",
+                  "status": item.status?.toLowerCase() == "leave"
+                      ? "leave"
+                      : (item.status ?? "leave"),
+                  "login": item.loginTime?.isNotEmpty == true
+                      ? item.loginTime!
+                      : "--",
+                  "logout": item.logoutTime?.isNotEmpty == true
+                      ? item.logoutTime!
+                      : "--",
+                  "totalDuration": "--",
+                  "ideal_time": item.idleTime?.isNotEmpty == true
+                      ? item.idleTime!
+                      : "--",
+                  "work_time": item.workingTime?.isNotEmpty == true
+                      ? item.workingTime!
+                      : "--",
+                  "reason": item.leaveReason ?? "--",
+                  "leave_reason": item.leaveReason ?? "--",
+                };
+              }
+            }
+          }
+        }
         setState(() {
           attendanceReport = reportResult;
           isLoadingWorkData = false;
@@ -391,11 +435,13 @@ class _StaffCalendarPageState extends State<StaffCalendarPage> {
                 item.totalDuration.isNotEmpty ? item.totalDuration : "--",
             "ideal_time": item.idealTime.isNotEmpty ? item.idealTime : "--",
             "work_time": item.workTime.isNotEmpty ? item.workTime : "--",
+            "reason": item.reason.isNotEmpty ? item.reason : "--",
+            "leave_reason": item.reason.isNotEmpty ? item.reason : "--",
           };
         }
-        final firstDay = DateTime.utc(_focusedDay.year, _focusedDay.month, 1);
+        final firstDay = DateTime.utc(currentMonth.year, currentMonth.month, 1);
         final lastDay =
-            DateTime.utc(_focusedDay.year, _focusedDay.month + 1, 0);
+            DateTime.utc(currentMonth.year, currentMonth.month + 1, 0);
         final today = DateTime.now();
 
         for (DateTime date = firstDay;
@@ -422,6 +468,51 @@ class _StaffCalendarPageState extends State<StaffCalendarPage> {
                 "ideal_time": "--",
                 "work_time": "--",
               };
+            }
+          }
+        }
+
+        if (attendanceReport?.data?.list != null) {
+          for (var item in attendanceReport!.data!.list!) {
+            final itemDate = _parseDateString(item.date);
+            if (itemDate != null) {
+              final dateKey =
+                  DateTime.utc(itemDate.year, itemDate.month, itemDate.day);
+              if (parsedData.containsKey(dateKey)) {
+                if (item.leaveReason != null && item.leaveReason!.isNotEmpty) {
+                  parsedData[dateKey]!["leave_reason"] = item.leaveReason!;
+                  parsedData[dateKey]!["reason"] = item.leaveReason!;
+                }
+                if (item.status?.toLowerCase() == 'leave') {
+                  parsedData[dateKey]!["status"] = "leave";
+                  if (parsedData[dateKey]!["title"] == "Not Added" ||
+                      parsedData[dateKey]!["title"] == "Absent") {
+                    parsedData[dateKey]!["title"] = "Leave";
+                  }
+                }
+              } else {
+                parsedData[dateKey] = {
+                  "title": item.status ?? "Leave",
+                  "status": item.status?.toLowerCase() == "leave"
+                      ? "leave"
+                      : (item.status ?? "leave"),
+                  "login": item.loginTime?.isNotEmpty == true
+                      ? item.loginTime!
+                      : "--",
+                  "logout": item.logoutTime?.isNotEmpty == true
+                      ? item.logoutTime!
+                      : "--",
+                  "totalDuration": "--",
+                  "ideal_time": item.idleTime?.isNotEmpty == true
+                      ? item.idleTime!
+                      : "--",
+                  "work_time": item.workingTime?.isNotEmpty == true
+                      ? item.workingTime!
+                      : "--",
+                  "reason": item.leaveReason ?? "--",
+                  "leave_reason": item.leaveReason ?? "--",
+                };
+              }
             }
           }
         }
@@ -457,22 +548,140 @@ class _StaffCalendarPageState extends State<StaffCalendarPage> {
     }
   }
 
-  void _showLoginLogoutPopup(DateTime day) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
-    final selectedDay = DateTime(day.year, day.month, day.day);
-    if (!selectedDay.isBefore(tomorrow)) return;
+  DateTime? _parseDateString(String? dateStr) {
+    if (dateStr == null || dateStr.trim().isEmpty) return null;
+    final trimmed = dateStr.trim();
+    try {
+      return DateFormat('dd-MM-yyyy').parse(trimmed);
+    } catch (_) {}
+    try {
+      return DateFormat('yyyy-MM-dd').parse(trimmed);
+    } catch (_) {}
+    try {
+      return DateTime.parse(trimmed);
+    } catch (_) {}
+    return null;
+  }
+
+  bool _isSameDate(String? itemDateStr, DateTime targetDay) {
+    if (itemDateStr == null || itemDateStr.trim().isEmpty) return false;
+    final trimmed = itemDateStr.trim();
+    final d1 = DateFormat('dd-MM-yyyy').format(targetDay);
+    final d2 = DateFormat('yyyy-MM-dd').format(targetDay);
+    if (trimmed == d1 || trimmed == d2) return true;
+    final parsed = _parseDateString(trimmed);
+    if (parsed != null) {
+      return parsed.year == targetDay.year &&
+          parsed.month == targetDay.month &&
+          parsed.day == targetDay.day;
+    }
+    return false;
+  }
+
+  Future<void> _showLoginLogoutPopup(DateTime day) async {
+    final firstDayOfMonth = DateTime(day.year, day.month, 1);
+    final lastDayOfMonth = DateTime(day.year, day.month + 1, 0);
+    final fromDateStr = DateFormat('yyyy-MM-dd').format(firstDayOfMonth);
+    final toDateStr = DateFormat('yyyy-MM-dd').format(lastDayOfMonth);
+
+    if (attendanceReport == null || attendanceReport!.data == null) {
+      try {
+        final reportResult = await HttpService.getAttendanceReport(
+          fromDateStr,
+          toDateStr,
+          widget.staffId,
+        );
+        if (reportResult != null && reportResult.status == true) {
+          if (mounted) {
+            setState(() {
+              attendanceReport = reportResult;
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint("Error fetching attendance report for popup: $e");
+      }
+    }
+    if (!mounted) return;
 
     final key = DateTime.utc(day.year, day.month, day.day);
     final data = attendanceMap[key];
-    final title = data?["title"] ?? "Not Added";
-    final status = data?["status"] ?? "Not Added";
-    final login = data?["login"] ?? "--";
-    final logout = data?["logout"] ?? "--";
-    final totalDuration = data?["totalDuration"] ?? "--";
-    final ideal_time = data?["ideal_time"] ?? "--";
-    final work_time = data?["work_time"] ?? "--";
+    String title = data?["title"] ?? "Not Added";
+    String status = data?["status"] ?? "Not Added";
+    String login = data?["login"] ?? "--";
+    String logout = data?["logout"] ?? "--";
+    String totalDuration = data?["totalDuration"] ?? "--";
+    String ideal_time = data?["ideal_time"] ?? "--";
+    String work_time = data?["work_time"] ?? "--";
+    String reason = data?["leave_reason"] ?? data?["reason"] ?? "--";
+
+    // Match item in attendanceReport for the selected date
+    ListData? reportItem;
+    if (attendanceReport?.data?.list != null) {
+      for (final item in attendanceReport!.data!.list!) {
+        if (_isSameDate(item.date, day)) {
+          reportItem = item;
+          break;
+        }
+      }
+    }
+
+    if (reportItem != null) {
+      final isLeave = (reportItem.status != null &&
+              reportItem.status!.toLowerCase() == 'leave') ||
+          status.toLowerCase() == 'leave' ||
+          title.toLowerCase().contains('leave');
+
+      if (isLeave) {
+        status = reportItem.status?.isNotEmpty == true
+            ? reportItem.status!
+            : "Leave";
+        if (title == "Not Added" ||
+            title == "Absent" ||
+            title.toLowerCase() == "unknown") {
+          title = status;
+        }
+        if (reportItem.leaveReason != null &&
+            reportItem.leaveReason!.trim().isNotEmpty) {
+          reason = reportItem.leaveReason!.trim();
+        } else if (reportItem.remarks != null &&
+            reportItem.remarks!.trim().isNotEmpty) {
+          reason = reportItem.remarks!.trim();
+        }
+      } else {
+        if ((status == "Not Added" || status == "not_added") &&
+            reportItem.status != null &&
+            reportItem.status!.isNotEmpty) {
+          status = reportItem.status!;
+          title = reportItem.status!;
+        }
+      }
+
+      if (login == "--" &&
+          reportItem.loginTime != null &&
+          reportItem.loginTime!.isNotEmpty) {
+        login = reportItem.loginTime!;
+      }
+      if (logout == "--" &&
+          reportItem.logoutTime != null &&
+          reportItem.logoutTime!.isNotEmpty) {
+        logout = reportItem.logoutTime!;
+      }
+      if (work_time == "--" &&
+          reportItem.workingTime != null &&
+          reportItem.workingTime!.isNotEmpty) {
+        work_time = reportItem.workingTime!;
+      }
+      if (ideal_time == "--" &&
+          reportItem.idleTime != null &&
+          reportItem.idleTime!.isNotEmpty) {
+        ideal_time = reportItem.idleTime!;
+      }
+    }
+
+    if (reason.trim().isEmpty) {
+      reason = "--";
+    }
 
     // Dialog state
     bool isEditing = false;
@@ -574,6 +783,7 @@ class _StaffCalendarPageState extends State<StaffCalendarPage> {
                               totalDuration,
                               ideal_time,
                               work_time,
+                              reason,
                               () {
                                 setStateDialog(() {
                                   isEditing = true;
@@ -1511,6 +1721,7 @@ class _StaffCalendarPageState extends State<StaffCalendarPage> {
     String totalDuration,
     String idealTime,
     String workTime,
+    String reason,
     VoidCallback onEdit,
   ) {
     return Column(
@@ -1543,6 +1754,7 @@ class _StaffCalendarPageState extends State<StaffCalendarPage> {
           _buildDetailRow("Total Duration", totalDuration),
         _buildDetailRow("Ideal Time", idealTime),
         _buildDetailRow("Work Time", workTime),
+        _buildDetailRow("Reason", reason.isNotEmpty ? reason : "--"),
       ],
     );
   }

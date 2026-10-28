@@ -417,26 +417,26 @@ class _ServiceCollectionListPageState extends State<ServiceCollectionListPage> {
                     ),
                   ],
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: statusColor.withOpacity(0.4),
-                      width: 0.8,
-                    ),
-                  ),
-                  child: Text(
-                    (record.paymentStatus ?? "UNKNOWN").toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: statusColor,
-                    ),
-                  ),
-                ),
+                // Container(
+                //   padding:
+                //       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                //   decoration: BoxDecoration(
+                //     color: statusColor.withOpacity(0.12),
+                //     borderRadius: BorderRadius.circular(20),
+                //     border: Border.all(
+                //       color: statusColor.withOpacity(0.4),
+                //       width: 0.8,
+                //     ),
+                //   ),
+                  // child: Text(
+                  //   (record.paymentStatus ?? "UNKNOWN").toUpperCase(),
+                  //   style: TextStyle(
+                  //     fontSize: 10,
+                  //     fontWeight: FontWeight.bold,
+                  //     color: statusColor,
+                  //   ),
+                  // ),
+                // ),
               ],
             ),
           ),

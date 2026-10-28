@@ -120,6 +120,8 @@ class Data {
   String? viewLeadCategoryOnly;
   String? viewAllCategory;
   String? addAttendanceRemarks;
+  String? startWorkOrder;
+  String? startWorkOrderCamera;
   Data({
     this.ProjectDashboard,
     this.LeadDashboard,
@@ -218,6 +220,8 @@ class Data {
     this.viewLeadCategoryOnly,
     this.viewAllCategory,
     this.addAttendanceRemarks,
+    this.startWorkOrder,
+    this.startWorkOrderCamera,
   });
 
   Data.fromJson(Map<String, dynamic> json) {
@@ -318,6 +322,8 @@ class Data {
     viewLeadCategoryOnly = json['viewLeadCategoryOnly'];
     viewAllCategory = json['viewAllCategory'];
     addAttendanceRemarks = json['add_attendance_remark'];
+    startWorkOrder = json['start_work_order']?.toString();
+    startWorkOrderCamera = json['start_work_order_camera']?.toString();
   }
 
   Map<String, dynamic> toJson() {
@@ -414,6 +420,8 @@ class Data {
     data['viewLeadCategoryOnly'] = viewLeadCategoryOnly;
     data['viewAllCategory'] = viewAllCategory;
     data['add_attendance_remark'] = addAttendanceRemarks;
+    data['start_work_order'] = startWorkOrder;
+    data['start_work_order_camera'] = startWorkOrderCamera;
     return data;
   }
 }

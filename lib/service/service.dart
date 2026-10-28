@@ -262,6 +262,7 @@ import 'package:login2/models/serviceman/workOrderIdModel.dart';
 import 'package:login2/models/serviceman/workTypeModel.dart';
 import 'package:login2/models/serviceman/serviceDashboardCountsModel.dart';
 import 'package:login2/models/serviceman/serviceCollectionModel.dart';
+import 'package:login2/models/serviceman/attendanceListModel.dart';
 import 'package:login2/models/staff_report/AttendanceStaffwiseModel.dart';
 import 'package:login2/models/staff_report/staff_call_details_model.dart';
 import 'package:login2/models/staff_report/staff_details_model.dart';
@@ -3500,6 +3501,94 @@ class HttpService {
       return model;
     } catch (e) {
       log("error: $e");
+    }
+  }
+
+  static Future<Map<String, dynamic>?> postQuickCustomer(dynamic body) async {
+    try {
+      var result = await _dio.post(
+        "${await Config.getUrl()}postClient",
+        data: body,
+      );
+      if (result.data is Map<String, dynamic>) {
+        return result.data;
+      } else if (result.data is String) {
+        try {
+          return jsonDecode(result.data);
+        } catch (_) {
+          return {"status": true, "message": result.data};
+        }
+      }
+      return {"status": true, "data": result.data};
+    } catch (e) {
+      log("post_quick_customer error: $e");
+      return null;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> postQuickCustomerType(dynamic body) async {
+    try {
+      var result = await _dio.post(
+        "${await Config.getUrl()}post_quick_customer_type",
+        data: body,
+      );
+      if (result.data is Map<String, dynamic>) {
+        return result.data;
+      } else if (result.data is String) {
+        try {
+          return jsonDecode(result.data);
+        } catch (_) {
+          return {"status": true, "message": result.data};
+        }
+      }
+      return {"status": true, "data": result.data};
+    } catch (e) {
+      log("post_quick_customer_type error: $e");
+      return null;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> postQuickWorkCategory(dynamic body) async {
+    try {
+      var result = await _dio.post(
+        "${await Config.getUrl()}post_quick_work_category",
+        data: body,
+      );
+      if (result.data is Map<String, dynamic>) {
+        return result.data;
+      } else if (result.data is String) {
+        try {
+          return jsonDecode(result.data);
+        } catch (_) {
+          return {"status": true, "message": result.data};
+        }
+      }
+      return {"status": true, "data": result.data};
+    } catch (e) {
+      log("post_quick_work_category error: $e");
+      return null;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> postQuickReceivedThrough(dynamic body) async {
+    try {
+      var result = await _dio.post(
+        "${await Config.getUrl()}post_quick_received_tru",
+        data: body,
+      );
+      if (result.data is Map<String, dynamic>) {
+        return result.data;
+      } else if (result.data is String) {
+        try {
+          return jsonDecode(result.data);
+        } catch (_) {
+          return {"status": true, "message": result.data};
+        }
+      }
+      return {"status": true, "data": result.data};
+    } catch (e) {
+      log("post_quick_received_tru error: $e");
+      return null;
     }
   }
 
@@ -7875,14 +7964,54 @@ class HttpService {
     required double latitude,
     required double longitude,
     required String? faceData,
+    dynamic image,
   }) async {
-    var body = {
-      "token": await Common.getSharedPref("token"),
-      "start_time": startTime.toIso8601String(),
-      "latitude": latitude.toString(),
-      "longitude": longitude.toString(),
-      'face_data': faceData ?? '',
-    };
+    final token = await Common.getSharedPref("token");
+
+    String? imagePath;
+    String? fileName;
+    if (image is File) {
+      imagePath = image.path;
+      fileName = image.path.split('/').last.split('\\').last;
+    } else if (image is XFile) {
+      imagePath = image.path;
+      fileName = image.name;
+    } else if (image is String && image.isNotEmpty) {
+      imagePath = image;
+      fileName = image.split('/').last.split('\\').last;
+    }
+
+    dynamic body;
+    if (imagePath != null && imagePath.isNotEmpty) {
+      final formData = FormData.fromMap({
+        "token": token,
+        "start_time": startTime.toIso8601String(),
+        "latitude": latitude.toString(),
+        "longitude": longitude.toString(),
+        'face_data': faceData ?? '',
+      });
+      // formData.files.add(MapEntry(
+      //   'image',
+      //   await MultipartFile.fromFile(imagePath, filename: fileName),
+      // ));
+      // formData.files.add(MapEntry(
+      //   'file',
+      //   await MultipartFile.fromFile(imagePath, filename: fileName),
+      // ));
+      formData.files.add(MapEntry(
+        'start_work_image',
+        await MultipartFile.fromFile(imagePath, filename: fileName),
+      ));
+      body = formData;
+    } else {
+      body = {
+        "token": token,
+        "start_time": startTime.toIso8601String(),
+        "latitude": latitude.toString(),
+        "longitude": longitude.toString(),
+        'face_data': faceData ?? '',
+      };
+    }
 
     try {
       var result = await _dio.post(
@@ -9957,6 +10086,28 @@ class HttpService {
     return null;
   }
 
+  static Future<MaterialListModel?> getMaterialsProduct() async {
+    try {
+      final token = await Common.getSharedPref("token");
+      final response = await _dio.post(
+        "${await Config.getUrl()}get_materials_product",
+        data: FormData.fromMap({"token": token}),
+        options: Options(contentType: "multipart/form-data"),
+      );
+      print("🟢 Materials Product Response: ${response.data}");
+      if (response.statusCode == 200 && response.data != null) {
+        return MaterialListModel.fromJson(response.data);
+      }
+    } catch (e, stackTrace) {
+      log("🔥 getMaterialsProduct error: $e");
+      log("StackTrace: $stackTrace");
+    }
+    return null;
+  }
+
+  static Future<MaterialListModel?> get_materials_product() async =>
+      getMaterialsProduct();
+
   static Future<CustomerModel?> getCustomerList() async {
     final token = await Common.getSharedPref('token');
 
@@ -11219,7 +11370,7 @@ class HttpService {
         "${await Config.getUrl()}api_workorders",
         data: formData,
       );
-
+      // print('api_workorders:,$result');
       if (result.statusCode == 200 && result.data != null) {
         return WorkModelPage.fromJson(result.data);
       } else {
@@ -11273,6 +11424,40 @@ class HttpService {
       }
     } catch (e) {
       log("getServiceCollection error: $e");
+    }
+    return null;
+  }
+
+  Future<AttendanceListModel?> getAttendanceList({
+    required String fromDate,
+    required String toDate,
+    required String staffId,
+  }) async {
+    try {
+      final token = await Common.getSharedPref("token");
+      var formData = FormData.fromMap({
+        "token": token,
+        "from_date": fromDate,
+        "to_date": toDate,
+        "staff_id": staffId,
+      });
+
+      var result = await _dio.post(
+        "${await Config.getUrl()}getAttendanceList",
+        data: formData,
+      );
+
+      if (result.statusCode == 200 && result.data != null) {
+        if (result.data is Map<String, dynamic>) {
+          return AttendanceListModel.fromJson(result.data);
+        } else if (result.data is String) {
+          return AttendanceListModel.fromJson(jsonDecode(result.data));
+        }
+      } else {
+        log("getAttendanceList unexpected status code: ${result.statusCode}");
+      }
+    } catch (e) {
+      log("getAttendanceList error: $e");
     }
     return null;
   }

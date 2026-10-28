@@ -63,6 +63,7 @@ class CalendarDatum {
   String idealTime;
   String workTime;
   String totalDuration;
+  String reason;
 
   CalendarDatum({
     required this.date,
@@ -74,6 +75,7 @@ class CalendarDatum {
     required this.idealTime,
     required this.workTime,
     required this.totalDuration,
+    required this.reason,
   });
 
   factory CalendarDatum.fromJson(Map<String, dynamic> json) => CalendarDatum(
@@ -86,6 +88,7 @@ class CalendarDatum {
         idealTime: json["idle_time"] ?? "",
         workTime: json["work_time"] ?? "",
         totalDuration: json["total_duration"] ?? "",
+        reason: json["leave_reason"] ?? "",
       );
 
   Map<String, dynamic> toJson() => {
@@ -99,6 +102,7 @@ class CalendarDatum {
         "idle_time": idealTime,
         "work_time": workTime,
         "total_duration": totalDuration,
+        "leave_reason": reason,
       };
 }
 

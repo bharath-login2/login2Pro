@@ -11,7 +11,12 @@ import 'package:login2/service/service.dart';
 
 class EditWorkPage extends StatefulWidget {
   final String workOrderId;
-  const EditWorkPage({super.key, required this.workOrderId});
+  final String? initialServiceType;
+  const EditWorkPage({
+    super.key,
+    required this.workOrderId,
+    this.initialServiceType,
+  });
   @override
   State<EditWorkPage> createState() => _EditWorkPageState();
 }
@@ -39,6 +44,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
   String? _selectedProduct;
   String? _selectedCategory;
   String? _selectedServiceMan;
+  String? _selectedServiceType;
   String? _selectedJobType;
   String? _selectedReceivedThrough;
   String? _selectedAccessory;
@@ -57,9 +63,25 @@ class _EditWorkPageState extends State<EditWorkPage> {
   bool _pushNotify = false;
   bool _isLoading = true;
   String? _errorMessage;
+
+  String? _normalizeServiceType(String? val) {
+    if (val == null || val.trim().isEmpty) return null;
+    final lower = val.trim().toLowerCase();
+    if (lower == 'onsite' || lower.contains('onsite') || lower.contains('on-site')) {
+      return 'onsite';
+    } else if (lower == 'workshop' || lower.contains('workshop') || lower.contains('office') || lower.contains('in-office')) {
+      return 'workshop';
+    }
+    return lower;
+  }
+
   @override
   void initState() {
     super.initState();
+    if (widget.initialServiceType != null &&
+        widget.initialServiceType!.trim().isNotEmpty) {
+      _selectedServiceType = _normalizeServiceType(widget.initialServiceType);
+    }
     _loadAllData();
   }
 
@@ -311,6 +333,12 @@ class _EditWorkPageState extends State<EditWorkPage> {
     _selectedCategory = data.workCategory;
     _selectedServiceMan = data.assignedServiceMan;
     _selectedStatus = data.status;
+    final rawServiceType = data.serviceType.isNotEmpty
+        ? data.serviceType
+        : widget.initialServiceType;
+    if (rawServiceType != null && rawServiceType.trim().isNotEmpty) {
+      _selectedServiceType = _normalizeServiceType(rawServiceType);
+    }
     _selectedJobType = data.jobType;
     _selectedReceivedThrough = data.receivedTru;
     _selectedAccessory = data.accessories;
@@ -433,6 +461,8 @@ class _EditWorkPageState extends State<EditWorkPage> {
         "remarks_customer": _remarksCustomerController.text,
         "editservice_option": _selectedServiceOption,
         "service_option": _selectedServiceOption,
+        "editservice_type": _selectedServiceType,
+        "service_type": _selectedServiceType,
         "editservice_charge": _serviceChargeController.text,
         "service_charge": _serviceChargeController.text,
         "editDescription": _remarksController.text,
@@ -638,23 +668,33 @@ class _EditWorkPageState extends State<EditWorkPage> {
               ),
 
               const SizedBox(height: 8),
-              _buildDropdown(
-                "Service Option",
-                _selectedServiceOption,
-                [
-                  "Quarterwise Service",
-                  "Yearlywise Service",
-                ].map((e) => {"id": e, "name": e}).toList(),
-                (val) => setState(() => _selectedServiceOption = val),
-              ),
-              const SizedBox(height: 8),
-              _buildTextField(
-                _serviceChargeController,
-                "Service Charge",
-                keyboardType: TextInputType.number,
-              ),
+              // _buildDropdown(
+              //   "Service Option",
+              //   _selectedServiceOption,
+              //   [
+              //     "Quarterwise Service",
+              //     "Yearlywise Service",
+              //   ].map((e) => {"id": e, "name": e}).toList(),
+              //   (val) => setState(() => _selectedServiceOption = val),
+              // ),
+              // const SizedBox(height: 8),
+              // _buildTextField(
+              //   _serviceChargeController,
+              //   "Service Charge",
+              //   keyboardType: TextInputType.number,
+              // ),
 
               _buildTextField(_remarksController, "Description", maxLines: 2),
+
+              _buildDropdown(
+                "Service Type",
+                _selectedServiceType,
+                [
+                  {"id": "onsite", "name": "On-site Service"},
+                  {"id": "workshop", "name": "In-office / Workshop Service"},
+                ],
+                (val) => setState(() => _selectedServiceType = val),
+              ),
 
               _buildDropdown(
                 "Job Type",
@@ -695,17 +735,17 @@ class _EditWorkPageState extends State<EditWorkPage> {
               // ),
               _buildAccessoriesDropdown(),
 
-              const SizedBox(height: 20),
-              const Text(
-                "Notification Settings",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              // const SizedBox(height: 20),
+              // const Text(
+              //   "Notification Settings",
+              //   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              // ),
 
-              _buildCheckbox(
-                "WhatsApp Notification",
-                _whatsappNotify,
-                (val) => setState(() => _whatsappNotify = val!),
-              ),
+              // _buildCheckbox(
+              //   "WhatsApp Notification",
+              //   _whatsappNotify,
+              //   (val) => setState(() => _whatsappNotify = val!),
+              // ),
 
               // _buildCheckbox(
               //   "Push Notification",

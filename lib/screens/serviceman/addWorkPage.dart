@@ -6,7 +6,11 @@ import 'package:login2/models/serviceman/receivedThroughModel.dart';
 import 'package:login2/models/serviceman/staffModel.dart';
 import 'package:login2/models/serviceman/workCategoryModel.dart';
 import 'package:login2/models/serviceman/workTypeModel.dart';
+import 'package:dio/dio.dart';
+import 'package:login2/core/common.dart';
 import 'package:login2/service/service.dart';
+import 'package:login2/widgets/add_new_customer_dialog.dart';
+import 'package:login2/widgets/quick_add_single_field_dialog.dart';
 
 
 class CreateNewJobPage extends StatefulWidget {
@@ -43,12 +47,13 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
   String? _selectedProduct;
   String? _selectedCategory;
   String? _selectedServiceMan;
-  // String? _selectedStatus;
+  String? _selectedServiceType;
   String? _selectedJobType;
   String? _selectedReceivedThrough;
   String? _selectedAccessory;
   String? _selectedServiceOption;
   String? _selectedStatus = "New";
+  bool _isMoreDetailsExpanded = false;
   DateTime? _preferredDate;
   DateTime? _estimatedDate;
 
@@ -324,14 +329,404 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
   }
 
   void _showError(String message) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(message),
-      backgroundColor: Colors.red,
-    ),
-  );
-}
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
 
+  Future<void> _openAddNewCustomerPopup() async {
+    final CustomerDetails? newCustomer = await showDialog<CustomerDetails>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AddNewCustomerDialog(),
+    );
+
+    if (newCustomer != null) {
+      // Refresh customer list from backend if possible
+      try {
+        final refreshedModel = await HttpService().getCustomerListService();
+        if (refreshedModel != null && refreshedModel.data.isNotEmpty) {
+          customerModel = refreshedModel;
+        }
+      } catch (e) {
+        debugPrint("Error refreshing customer list: $e");
+      }
+
+      customerModel ??= CustomerModelService(status: "true", data: []);
+
+      // Find matching customer
+      CustomerDetails? matchedCustomer;
+      if (newCustomer.id.isNotEmpty) {
+        try {
+          matchedCustomer = customerModel!.data.firstWhere(
+            (c) => c.id.toString() == newCustomer.id.toString(),
+          );
+        } catch (_) {}
+      }
+
+      if (matchedCustomer == null && newCustomer.name.isNotEmpty) {
+        try {
+          matchedCustomer = customerModel!.data.lastWhere(
+            (c) =>
+                c.name.trim().toLowerCase() ==
+                newCustomer.name.trim().toLowerCase(),
+          );
+        } catch (_) {}
+      }
+
+      if (matchedCustomer == null) {
+        customerModel!.data.add(newCustomer);
+        matchedCustomer = newCustomer;
+      }
+
+      setState(() {
+        _selectedCustomerId = matchedCustomer!.id;
+        _phoneController.text = matchedCustomer.contactNo;
+        _addressController.text = matchedCustomer.address;
+        _emailController.text = matchedCustomer.emailId;
+      });
+    }
+  }
+
+  Future<void> _openAddNewCustomerTypePopup() async {
+    await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => QuickAddSingleFieldDialog(
+        title: "Add New Customer Type",
+        fieldLabel: "Customer Type",
+        hintText: "",
+        onSubmit: (value) async {
+          final token = await Common.getSharedPref("token") ?? '';
+          final formData = FormData.fromMap({
+            "token": token,
+            "customer_type": value,
+            "name": value,
+          });
+
+          final response = await HttpService.postQuickCustomerType(formData);
+          bool isSuccess = false;
+          String message = "Customer type added successfully";
+
+          if (response != null) {
+            final status = response['status'];
+            if (status == true ||
+                status == 'true' ||
+                status == 200 ||
+                status == '200' ||
+                status == 'success') {
+              isSuccess = true;
+            }
+            if (response['message'] != null &&
+                response['message'].toString().isNotEmpty) {
+              message = response['message'].toString();
+            }
+          }
+
+          if (isSuccess) {
+            String newId = '';
+            if (response!['data'] is Map) {
+              newId = response['data']['customer_type_id']?.toString() ??
+                  response['data']['id']?.toString() ??
+                  '';
+            } else if (response['data'] != null &&
+                response['data'].toString().isNotEmpty &&
+                response['data'].toString() != 'null') {
+              newId = response['data'].toString();
+            }
+            if (newId.isEmpty && response['customer_type_id'] != null) {
+              newId = response['customer_type_id'].toString();
+            }
+            if (newId.isEmpty && response['id'] != null) {
+              newId = response['id'].toString();
+            }
+
+            try {
+              final refreshed = await HttpService().getCustomerType();
+              if (refreshed != null && refreshed.data.isNotEmpty) {
+                custTypeModel = refreshed;
+              }
+            } catch (e) {
+              debugPrint("Error refreshing customer type: $e");
+            }
+
+            custTypeModel ??= CustomerTypeModel(status: "true", data: []);
+
+            CustType? matched;
+            if (newId.isNotEmpty) {
+              try {
+                matched = custTypeModel!.data.firstWhere(
+                  (c) => c.customerTypeId.toString() == newId.toString(),
+                );
+              } catch (_) {}
+            }
+
+            if (matched == null) {
+              try {
+                matched = custTypeModel!.data.lastWhere(
+                  (c) =>
+                      c.customerType.trim().toLowerCase() ==
+                      value.trim().toLowerCase(),
+                );
+              } catch (_) {}
+            }
+
+            if (matched == null) {
+              matched = CustType(
+                customerTypeId: newId.isNotEmpty
+                    ? newId
+                    : DateTime.now().millisecondsSinceEpoch.toString(),
+                customerType: value,
+              );
+              custTypeModel!.data.add(matched);
+            }
+
+            setState(() {
+              _selectedCustomerType = matched!.customerTypeId;
+            });
+
+            Common.toastMessaage(message, Colors.green);
+            return true;
+          } else {
+            Common.toastMessaage(
+              response?['message']?.toString() ??
+                  'Failed to add customer type',
+              Colors.red,
+            );
+            return false;
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _openAddNewWorkCategoryPopup() async {
+    await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => QuickAddSingleFieldDialog(
+        title: "Add New Work Category",
+        fieldLabel: "Work Category",
+        hintText: "Work Category",
+        onSubmit: (value) async {
+          final token = await Common.getSharedPref("token") ?? '';
+          final formData = FormData.fromMap({
+            "token": token,
+            "work_category": value,
+            // "workCategory": value,
+            "name": value,
+          });
+
+          final response = await HttpService.postQuickWorkCategory(formData);
+          bool isSuccess = false;
+          String message = "Work category added successfully";
+
+          if (response != null) {
+            final status = response['status'];
+            if (status == true ||
+                status == 'true' ||
+                status == 200 ||
+                status == '200' ||
+                status == 'success') {
+              isSuccess = true;
+            }
+            if (response['message'] != null &&
+                response['message'].toString().isNotEmpty) {
+              message = response['message'].toString();
+            }
+          }
+
+          if (isSuccess) {
+            String newId = '';
+            if (response!['data'] is Map) {
+              newId = response['data']['workCategory_id']?.toString() ??
+                  response['data']['id']?.toString() ??
+                  '';
+            } else if (response['data'] != null &&
+                response['data'].toString().isNotEmpty &&
+                response['data'].toString() != 'null') {
+              newId = response['data'].toString();
+            }
+            if (newId.isEmpty && response['workCategory_id'] != null) {
+              newId = response['workCategory_id'].toString();
+            }
+            if (newId.isEmpty && response['id'] != null) {
+              newId = response['id'].toString();
+            }
+
+            try {
+              final refreshed = await HttpService().getWorkCategory();
+              if (refreshed != null && refreshed.data.isNotEmpty) {
+                workCategory = refreshed;
+              }
+            } catch (e) {
+              debugPrint("Error refreshing work category: $e");
+            }
+
+            workCategory ??= WorkCategory(status: "true", data: []);
+
+            Datum? matched;
+            if (newId.isNotEmpty) {
+              try {
+                matched = workCategory!.data.firstWhere(
+                  (c) => c.workCategoryId.toString() == newId.toString(),
+                );
+              } catch (_) {}
+            }
+
+            if (matched == null) {
+              try {
+                matched = workCategory!.data.lastWhere(
+                  (c) =>
+                      c.workCategory.trim().toLowerCase() ==
+                      value.trim().toLowerCase(),
+                );
+              } catch (_) {}
+            }
+
+            if (matched == null) {
+              matched = Datum(
+                workCategoryId: newId.isNotEmpty
+                    ? newId
+                    : DateTime.now().millisecondsSinceEpoch.toString(),
+                workCategory: value,
+              );
+              workCategory!.data.add(matched);
+            }
+
+            setState(() {
+              _selectedCategory = matched!.workCategory;
+            });
+
+            Common.toastMessaage(message, Colors.green);
+            return true;
+          } else {
+            Common.toastMessaage(
+              response?['message']?.toString() ??
+                  'Failed to add work category',
+              Colors.red,
+            );
+            return false;
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _openAddNewReceivedThroughPopup() async {
+    await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => QuickAddSingleFieldDialog(
+        title: "Add New Recieved through",
+        fieldLabel: "Received Through",
+        hintText: "Received Through",
+        onSubmit: (value) async {
+          final token = await Common.getSharedPref("token") ?? '';
+          final formData = FormData.fromMap({
+            "token": token,
+            "received_through": value,
+            "name": value,
+          });
+
+          final response = await HttpService.postQuickReceivedThrough(formData);
+          bool isSuccess = false;
+          String message = "Received through added successfully";
+
+          if (response != null) {
+            final status = response['status'];
+            if (status == true ||
+                status == 'true' ||
+                status == 200 ||
+                status == '200' ||
+                status == 'success') {
+              isSuccess = true;
+            }
+            if (response['message'] != null &&
+                response['message'].toString().isNotEmpty) {
+              message = response['message'].toString();
+            }
+          }
+
+          if (isSuccess) {
+            String newId = '';
+            if (response!['data'] is Map) {
+              newId = response['data']['recieved_tru_id']?.toString() ??
+                  response['data']['id']?.toString() ??
+                  '';
+            } else if (response['data'] != null &&
+                response['data'].toString().isNotEmpty &&
+                response['data'].toString() != 'null') {
+              newId = response['data'].toString();
+            }
+            if (newId.isEmpty && response['recieved_tru_id'] != null) {
+              newId = response['recieved_tru_id'].toString();
+            }
+            if (newId.isEmpty && response['id'] != null) {
+              newId = response['id'].toString();
+            }
+
+            try {
+              final refreshed = await HttpService().getReceivedThrough();
+              if (refreshed != null && refreshed.data.isNotEmpty) {
+                receivedOne = refreshed;
+              }
+            } catch (e) {
+              debugPrint("Error refreshing received through: $e");
+            }
+
+            receivedOne ??= ReceivedThroughModel(status: "true", data: []);
+
+            ReceivedThrough? matched;
+            if (newId.isNotEmpty) {
+              try {
+                matched = receivedOne!.data.firstWhere(
+                  (c) => c.recievedTruId.toString() == newId.toString(),
+                );
+              } catch (_) {}
+            }
+
+            if (matched == null) {
+              try {
+                matched = receivedOne!.data.lastWhere(
+                  (c) =>
+                      c.recievedThrough.trim().toLowerCase() ==
+                      value.trim().toLowerCase(),
+                );
+              } catch (_) {}
+            }
+
+            if (matched == null) {
+              matched = ReceivedThrough(
+                recievedTruId: newId.isNotEmpty
+                    ? newId
+                    : DateTime.now().millisecondsSinceEpoch.toString(),
+                recievedThrough: value,
+              );
+              receivedOne!.data.add(matched);
+            }
+
+            setState(() {
+              _selectedReceivedThrough = matched!.recievedTruId;
+            });
+
+            Common.toastMessaage(message, Colors.green);
+            return true;
+          } else {
+            Common.toastMessaage(
+              response?['message']?.toString() ??
+                  'Failed to add received through',
+              Colors.red,
+            );
+            return false;
+          }
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -357,91 +752,138 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 20),
-                    GestureDetector(
-                      onTap: () async {
-                        final CustomerDetails? selected =
-                            await showDialog<CustomerDetails>(
-                              context: context,
-                              builder: (context) {
-                                String searchText = '';
-                                List<CustomerDetails> filteredList =
-                                    customerModel?.data ?? [];
-                                return StatefulBuilder(
-                                  builder: (context, setState) => AlertDialog(
-                                    title: const Text('Select Customer'),
-                                    content: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        TextField(
-                                          decoration: const InputDecoration(
-                                            hintText: 'Search by name',
-                                          ),
-                                          onChanged: (value) {
-                                            setState(() {
-                                              searchText = value.toLowerCase();
-                                              filteredList = customerModel!.data
-                                                  .where(
-                                                    (c) => c.name
-                                                        .toLowerCase()
-                                                        .contains(searchText),
-                                                  )
-                                                  .toList();
-                                            });
-                                          },
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () async {
+                                final CustomerDetails? selected =
+                                    await showDialog<CustomerDetails>(
+                                  context: context,
+                                  builder: (context) {
+                                    String searchText = '';
+                                    List<CustomerDetails> filteredList =
+                                        customerModel?.data ?? [];
+                                    return StatefulBuilder(
+                                      builder: (context, setState) => AlertDialog(
+                                        title: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            const Text('Select Customer'),
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.add,
+                                                color: Color(0xFF2a86c9),
+                                              ),
+                                              tooltip: 'Add New Customer',
+                                              onPressed: () async {
+                                                Navigator.of(context).pop();
+                                                await _openAddNewCustomerPopup();
+                                              },
+                                            ),
+                                          ],
                                         ),
-                                        SizedBox(
-                                          height: 300,
-                                          width: double.maxFinite,
-                                          child: ListView.builder(
-                                            itemCount: filteredList.length,
-                                            itemBuilder: (context, index) {
-                                              final c = filteredList[index];
-                                              return ListTile(
-                                                title: Text(c.name),
-                                                onTap: () => Navigator.of(
-                                                  context,
-                                                ).pop(c),
-                                              );
-                                            },
-                                          ),
+                                        content: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            TextField(
+                                              decoration: const InputDecoration(
+                                                hintText: 'Search by name',
+                                              ),
+                                              onChanged: (value) {
+                                                setState(() {
+                                                  searchText =
+                                                      value.toLowerCase();
+                                                  filteredList = customerModel!
+                                                      .data
+                                                      .where(
+                                                        (c) => c.name
+                                                            .toLowerCase()
+                                                            .contains(searchText),
+                                                      )
+                                                      .toList();
+                                                });
+                                              },
+                                            ),
+                                            SizedBox(
+                                              height: 300,
+                                              width: double.maxFinite,
+                                              child: ListView.builder(
+                                                itemCount: filteredList.length,
+                                                itemBuilder: (context, index) {
+                                                  final c = filteredList[index];
+                                                  return ListTile(
+                                                    title: Text(c.name),
+                                                    onTap: () => Navigator.of(
+                                                      context,
+                                                    ).pop(c),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      ],
+                                      ),
+                                    );
+                                  },
+                                );
+
+                                if (selected != null) {
+                                  setState(() {
+                                    _selectedCustomerId = selected.id;
+                                    _phoneController.text = selected.contactNo;
+                                    _addressController.text = selected.address;
+                                    _emailController.text = selected.emailId;
+                                  });
+                                }
+                              },
+                              child: AbsorbPointer(
+                                child: DropdownButtonFormField<String>(
+                                  decoration: InputDecoration(
+                                    labelText: "Customer Name *",
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
                                   ),
-                                );
-                              },
-                            );
-
-                        if (selected != null) {
-                          setState(() {
-                            _selectedCustomerId = selected.id;
-                            _phoneController.text = selected.contactNo;
-                            _addressController.text = selected.address;
-                            _emailController.text = selected.emailId;
-                          });
-                        }
-                      },
-                      child: AbsorbPointer(
-                        child: DropdownButtonFormField<String>(
-                          decoration: InputDecoration(
-                            labelText: "Customer Name *",
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                                  value: _selectedCustomerId,
+                                  items: customerModel?.data.map((c) {
+                                    return DropdownMenuItem(
+                                      value: c.id,
+                                      child: Text(c.name),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedCustomerId = value!;
+                                    });
+                                  },
+                                ),
+                              ),
                             ),
                           ),
-                          value: _selectedCustomerId,
-                          items: customerModel?.data.map((c) {
-                            return DropdownMenuItem(
-                              value: c.id,
-                              child: Text(c.name),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedCustomerId = value!;
-                            });
-                          },
-                        ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: _openAddNewCustomerPopup,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              height: 52,
+                              width: 52,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2a86c9),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.add,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     _buildDropdown(
@@ -456,6 +898,7 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
                           )
                           .toList(),
                       (val) => setState(() => _selectedCustomerType = val),
+                      onAddPressed: _openAddNewCustomerTypePopup,
                     ),
                     _buildTextField(_phoneController, "Mobile Number *"),
                     _buildTextField(_emailController, "Email"),
@@ -505,6 +948,7 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
                           )
                           .toList(),
                       (val) => setState(() => _selectedCategory = val),
+                      onAddPressed: _openAddNewWorkCategoryPopup,
                     ),
 
                     _buildTextField(
@@ -527,7 +971,7 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
                       () => _pickDateTime(context, true),
                     ),
                     _buildDateField(
-                      "Estimated Date",
+                      "Estimated Date *",
                       _estimatedDate,
                       () => _pickDateTime(context, false),
                     ),
@@ -542,11 +986,12 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
 
                     _buildDropdown(
                       "Status",
-                      _selectedStatus,
+                      "New",
                       ["New", "In Progress", "Completed"]
                           .map((status) => {"id": status, "name": status})
                           .toList(),
                       (val) => setState(() => _selectedStatus = val),
+                      readOnly: true,
                     ),
 
                     _buildTextField(
@@ -554,78 +999,150 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
                       "Remarks About Customer",
                     ),
                     const SizedBox(height: 8),
-                    _buildDropdown(
-                      "Service Option",
-                      _selectedServiceOption,
-                      [
-                        "Quarterwise Service",
-                        "Yearlywise Service",
-                      ].map((e) => {"id": e, "name": e}).toList(),
-                      (val) => setState(() => _selectedServiceOption = val),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildTextField(
-                      _serviceChargeController,
-                      "Service Charge",
-                      keyboardType: TextInputType.number,
-                    ),
+                    // _buildDropdown(
+                    //   "Service Option",
+                    //   _selectedServiceOption,
+                    //   [
+                    //     "Quarterwise Service",
+                    //     "Yearlywise Service",
+                    //   ].map((e) => {"id": e, "name": e}).toList(),
+                    //   (val) => setState(() => _selectedServiceOption = val),
+                    // ),
+                    // const SizedBox(height: 8),
+                    // _buildTextField(
+                    //   _serviceChargeController,
+                    //   "Service Charge",
+                    //   keyboardType: TextInputType.number,
+                    // ),
                     _buildTextField(
                       _remarksController,
                       "Description",
                       maxLines: 2,
                     ),
-                    _buildDropdown(
-                      "Job Type",
-                      _selectedJobType,
-                      [
-                        "New",
-                        "Repeat",
-                      ].map((type) => {"id": type, "name": type}).toList(),
-                      (val) => setState(() => _selectedJobType = val),
-                    ),
 
-                    _buildTextField(
-                      _dealerCustomerController,
-                      "Dealer / Customer",
-                    ),
-                    _buildTextField(
-                      _userPasswordController,
-                      "User Password",
-                      obscureText: true,
-                    ),
-                    _buildDropdown(
-                      "Received Through",
-                      _selectedReceivedThrough,
-                      receivedOne!.data
-                          .map(
-                            (e) => {
-                              "id": e.recievedTruId,
-                              "name": e.recievedThrough,
-                            },
-                          )
-                          .toList(),
-                      (val) => setState(() => _selectedReceivedThrough = val),
-                    ),
-
-                    _buildTextField(
-                      _remarksController,
-                      "Remarks from Customer",
-                    ),
-                    _buildAccessoriesDropdown(),
-
-                    const SizedBox(height: 20),
-                    const Text(
-                      "Notification Settings",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          _isMoreDetailsExpanded = !_isMoreDetailsExpanded;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.tune_rounded,
+                                  color: Color(0xFF2a86c9),
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  "More Details",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF1E293B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Icon(
+                              _isMoreDetailsExpanded
+                                  ? Icons.keyboard_arrow_up_rounded
+                                  : Icons.keyboard_arrow_down_rounded,
+                              color: const Color(0xFF64748B),
+                              size: 22,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    _buildCheckbox(
-                      "WhatsApp Notification",
-                      _whatsappNotify,
-                      (val) => setState(() => _whatsappNotify = val!),
+
+                    Visibility(
+                      visible: _isMoreDetailsExpanded,
+                      maintainState: true,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 8),
+                                _buildDropdown(
+                                  "Service Type",
+                                  _selectedServiceType,
+                                  [
+                                    {"id": "onsite", "name": "On-site Service"},
+                                    {"id": "workshop", "name": "In-office / Workshop Service"},
+                                  ],
+                                  (val) => setState(() => _selectedServiceType = val),
+                                ),
+                                const SizedBox(height: 8),
+                                _buildDropdown(
+                                  "Job Type",
+                                  _selectedJobType,
+                                  [
+                                    "New",
+                                    "Repeat",
+                                  ].map((type) => {"id": type, "name": type}).toList(),
+                                  (val) => setState(() => _selectedJobType = val),
+                                ),
+                          const SizedBox(height: 8),
+                          _buildTextField(
+                            _dealerCustomerController,
+                            "Dealer / Customer",
+                          ),
+                          _buildTextField(
+                            _userPasswordController,
+                            "User Password",
+                            obscureText: true,
+                          ),
+                          _buildDropdown(
+                            "Received Through",
+                            _selectedReceivedThrough,
+                            receivedOne!.data
+                                .map(
+                                  (e) => {
+                                    "id": e.recievedTruId,
+                                    "name": e.recievedThrough,
+                                  },
+                                )
+                                .toList(),
+                            (val) => setState(() => _selectedReceivedThrough = val),
+                            onAddPressed: _openAddNewReceivedThroughPopup,
+                          ),
+                          _buildTextField(
+                            _remarksController,
+                            "Remarks from Customer",
+                          ),
+                          _buildAccessoriesDropdown(),
+                        ],
+                      ),
                     ),
+
+                    // const SizedBox(height: 20),
+                    // const Text(
+                    //   "Notification Settings",
+                    //   style: TextStyle(
+                    //     fontSize: 18,
+                    //     fontWeight: FontWeight.bold,
+                    //   ),
+                    // ),
+                    // _buildCheckbox(
+                    //   "WhatsApp Notification",
+                    //   _whatsappNotify,
+                    //   (val) => setState(() => _whatsappNotify = val!),
+                    // ),
                     // _buildCheckbox(
                     //   "Push Notification",
                     //   _pushNotify,
@@ -703,6 +1220,7 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
                             "service_option": _selectedServiceOption,
                             "service_charge": _serviceChargeController.text,
                             "remarks": _remarksController.text,
+                            "service_type": _selectedServiceType ?? "",
                             "job_type": _selectedJobType,
                             "dealer_customer": _dealerCustomerController.text,
                             "user_password": _userPasswordController.text,
@@ -787,42 +1305,77 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
     );
   }
 
-  Widget _buildDropdown(
-    String label,
-    String? selectedValue,
-    List<Map<String, dynamic>> items,
-    ValueChanged<String?> onChanged,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+  
+Widget _buildDropdown(
+  String label,
+  String? selectedValue,
+  List<Map<String, dynamic>> items,
+  ValueChanged<String?>? onChanged, {
+  VoidCallback? onAddPressed,
+  bool readOnly = false,
+}) {
+  Widget dropdown = DropdownButtonFormField<String>(
+    value: selectedValue,
+    isExpanded: true,
+    hint: Text("Select $label"),
+    items: items.map((item) {
+      return DropdownMenuItem<String>(
+        value: item["id"].toString(),
+        child: Text(
+          item["name"] ?? "",
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
         ),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          value: selectedValue,
-          isExpanded: true,
-          hint: Text("Select $label"),
-          items: items.map((item) {
-            return DropdownMenuItem<String>(
-              value: item["id"].toString(), 
-              child: Text(
-                item["name"] ?? "",
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
+      );
+    }).toList(),
+    onChanged: readOnly ? null : onChanged,
+    decoration: InputDecoration(
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    ),
+  );
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+        ),
+      ),
+      const SizedBox(height: 6),
+      if (onAddPressed != null)
+        Row(
+          children: [
+            Expanded(child: dropdown),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: onAddPressed,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                height: 52,
+                width: 52,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2a86c9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.add,
+                  color: Colors.white,
+                  size: 28,
+                ),
               ),
-            );
-          }).toList(),
-          onChanged: onChanged,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-      ],
-    );
-  }
+            ),
+          ],
+        )
+      else
+        dropdown,
+    ],
+  );
+}
 
   Widget _buildDateField(String label, DateTime? date, VoidCallback onTap) {
     return Padding(

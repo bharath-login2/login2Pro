@@ -444,6 +444,10 @@ class _LoginState extends State<Login> with TickerProviderStateMixin {
                   object1.data!.viewWorkReport.toString());
               Common.saveSharedPref("startAndStopWorkPermission",
                   object1.data!.startAndStopWork.toString());
+              Common.saveSharedPref("start_work_order",
+                  object1.data!.startWorkOrder?.toString() ?? "false");
+              Common.saveSharedPref("start_work_order_camera",
+                  object1.data!.startWorkOrderCamera?.toString() ?? "false");
               Common.saveSharedPref(
                   "adminCheckPermission", object1.data!.adminCheck.toString());
               Common.saveSharedPref(

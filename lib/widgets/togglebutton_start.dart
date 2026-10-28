@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:login2/screens/leadManagement/CompanyLocationPage.dart';
 import 'package:lottie/lottie.dart';
 
+import 'package:image_picker/image_picker.dart';
+
 import '../core/common.dart';
 import '../screens/leadManagement/viewLogoutPage.dart';
 import '../service/service.dart';
@@ -15,11 +17,15 @@ class StartStopToggle extends StatefulWidget {
   final bool initialStatus;
   final Function(bool) onToggle;
   final Function(bool) setDashboardLoading;
+  final bool? startWorkOrder;
+  final bool? startWorkOrderCamera;
   const StartStopToggle({
     super.key,
     required this.initialStatus,
     required this.onToggle,
     required this.setDashboardLoading,
+    this.startWorkOrder,
+    this.startWorkOrderCamera,
   });
 
   @override
@@ -32,20 +38,47 @@ class _StartStopToggleState extends State<StartStopToggle> {
   String? _faceBase64;
   String faceDetection = "true";
   String companyLocation = "true";
+  bool isStartWorkOrder = false;
   // static  renewalPermission =  Common.getSharedPref("renewalPermission");
   @override
   void initState() {
     super.initState();
     isWorkStarted = widget.initialStatus;
+    isStartWorkOrder =
+        widget.startWorkOrderCamera ?? widget.startWorkOrder ?? false;
     _loadSharedPrefs();
+  }
+
+  @override
+  void didUpdateWidget(covariant StartStopToggle oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final currentCameraSetting =
+        widget.startWorkOrderCamera ?? widget.startWorkOrder;
+    if (currentCameraSetting != null &&
+        currentCameraSetting != isStartWorkOrder) {
+      setState(() {
+        isStartWorkOrder = currentCameraSetting;
+      });
+    }
   }
 
   Future<void> _loadSharedPrefs() async {
     final facepermission = await Common.getSharedPref("faceDetection");
     final companylocation = await Common.getSharedPref("companyLocation");
+    final startWorkOrderCameraPref =
+        await Common.getSharedPref("start_work_order_camera");
+    final startWorkOrderPref = await Common.getSharedPref("start_work_order");
     setState(() {
       faceDetection = facepermission ?? "false";
       companyLocation = companylocation ?? "false";
+      if (widget.startWorkOrderCamera != null) {
+        isStartWorkOrder = widget.startWorkOrderCamera!;
+      } else if (widget.startWorkOrder != null) {
+        isStartWorkOrder = widget.startWorkOrder!;
+      } else {
+        isStartWorkOrder =
+            (startWorkOrderCameraPref ?? startWorkOrderPref) == "true";
+      }
     });
   }
 
@@ -135,6 +168,24 @@ class _StartStopToggleState extends State<StartStopToggle> {
     }
 
     if (!isWorkStarted) {
+      XFile? capturedImage;
+      if (isStartWorkOrder) {
+        try {
+          final ImagePicker picker = ImagePicker();
+          capturedImage = await picker.pickImage(
+            source: ImageSource.camera,
+            imageQuality: 80,
+          );
+          if (capturedImage == null) {
+            showError("Image capture is required to start work.");
+            return;
+          }
+        } catch (e) {
+          showError("Camera error: $e");
+          return;
+        }
+      }
+
       setState(() => isLoading = true);
       widget.setDashboardLoading(true);
 
@@ -345,6 +396,7 @@ class _StartStopToggleState extends State<StartStopToggle> {
           latitude: position.latitude,
           longitude: position.longitude,
           faceData: _faceBase64,
+          image: capturedImage != null ? File(capturedImage.path) : null,
         );
         if (response != null && response.status == true) {
           await Common.saveSharedPref("is_work_started", "true");

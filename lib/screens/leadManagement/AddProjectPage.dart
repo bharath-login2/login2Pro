@@ -67,11 +67,17 @@ class _AddProjectPageState extends State<AddProjectPage> {
 }
 
   void filterProjects(String query) {
-    final lowerQuery = query.toLowerCase();
+    final lowerQuery = query.toLowerCase().trim();
     setState(() {
-      filteredProjects = projects
-          .where((p) => p.projectName.toLowerCase().contains(lowerQuery))
-          .toList();
+      if (lowerQuery.isEmpty) {
+        filteredProjects = List.from(projects);
+      } else {
+        filteredProjects = projects
+            .where((p) =>
+                p.projectName.toLowerCase().contains(lowerQuery) ||
+                p.customerName.toLowerCase().contains(lowerQuery))
+            .toList();
+      }
     });
   }
 
@@ -467,8 +473,17 @@ class _AddProjectPageState extends State<AddProjectPage> {
                         child: TextField(
                           controller: searchController,
                           decoration: InputDecoration(
-                            hintText: 'Search by project name...',
+                            hintText: 'Search by project or customer name...',
                             prefixIcon: const Icon(Icons.search),
+                            suffixIcon: searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      searchController.clear();
+                                      filterProjects('');
+                                    },
+                                  )
+                                : null,
                             border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8)),
                           ),

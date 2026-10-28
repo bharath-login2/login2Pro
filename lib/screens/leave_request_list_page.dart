@@ -38,6 +38,9 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
   bool _canEdit = false;
   bool _canDelete = false;
 
+  // Selected leaves for bulk approval (maps item.id -> item)
+  final Map<String, dynamic> _selectedLeaves = {};
+
   // Filter variables
   String? _selectedLeaveType;
   DateTime? _fromDate;
@@ -96,11 +99,19 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabChange);
     _loadData();
+  }
+
+  void _handleTabChange() {
+    if (!_tabController.indexIsChanging) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabChange);
     _debounce?.cancel();
     _tabController.dispose();
     _searchController.dispose();
@@ -108,7 +119,10 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _selectedLeaves.clear();
+    });
     await Future.wait([
       _fetchPendingLeaves(),
       _fetchApprovedLeaves(),
@@ -860,6 +874,19 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
         elevation: 2,
         foregroundColor: Colors.white,
         actions: [
+          if (_selectedLeaves.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.done_all, color: Colors.white),
+                onPressed: _showBulkApproveDialog,
+                tooltip: 'Bulk Approve (${_selectedLeaves.length})',
+              ),
+            ),
           Container(
             margin: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
@@ -1035,6 +1062,9 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
               ],
             ),
           ),
+          if (_canApprove) ...[
+            _buildBulkSelectionBar(),
+          ],
           Expanded(
             child: TabBarView(
               controller: _tabController,
@@ -1046,6 +1076,9 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
           ),
         ],
       ),
+      bottomNavigationBar: _selectedLeaves.isNotEmpty
+          ? _buildBulkActionBar()
+          : null,
       floatingActionButton: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(30),
@@ -1150,14 +1183,23 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
   }
 
   Widget _buildLeaveCard(dynamic item, bool isPending) {
+    final bool isEligible = _isLeaveEligibleForApproval(item);
+    final String itemId = item.id.toString();
+    final bool isSelected = _selectedLeaves.containsKey(itemId);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
+        border: isSelected
+            ? Border.all(color: primaryBlue, width: 2)
+            : Border.all(color: Colors.transparent, width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: isSelected
+                ? primaryBlue.withOpacity(0.15)
+                : Colors.black.withOpacity(0.06),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -1166,7 +1208,7 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: Material(
-          color: Colors.transparent,
+          color: isSelected ? lightBlue.withOpacity(0.25) : Colors.transparent,
           child: InkWell(
             onTap: () => _showDetails(item),
             child: Padding(
@@ -1177,6 +1219,33 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (_canApprove) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8.0, top: 8.0),
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Checkbox(
+                              value: isSelected,
+                              activeColor: primaryBlue,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              onChanged: isEligible
+                                  ? (bool? val) {
+                                      setState(() {
+                                        if (val == true) {
+                                          _selectedLeaves[itemId] = item;
+                                        } else {
+                                          _selectedLeaves.remove(itemId);
+                                        }
+                                      });
+                                    }
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ],
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -1978,154 +2047,180 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
       context: context,
       builder: (_) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                lightBlue.withOpacity(0.3),
-              ],
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [primaryBlue, secondaryBlue],
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.description_outlined,
-                        color: Colors.white, size: 24),
-                  ),
-                  const SizedBox(width: 16),
-                  const Text(
-                    "Leave Details",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: primaryBlue,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, color: darkGrey),
-                  ),
+        clipBehavior: Clip.antiAlias,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white,
+                  lightBlue.withOpacity(0.3),
                 ],
               ),
-              const Divider(height: 24),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    _buildDetailRow(
-                        Icons.person_outline, "Staff", item.staffName ?? 'N/A'),
-                    _buildDetailRow(Icons.category_outlined, "Leave Type",
-                        item.leaveType ?? 'N/A'),
-                    _buildDetailRow(Icons.calendar_today_outlined, "Duration",
-                        '${item.noOfDays ?? '0'} Days'),
-                    if (item.session != null && item.session != "")
-                      _buildDetailRow(
-                          Icons.access_time,
-                          "Session",
-                          item.session[0].toUpperCase() +
-                              item.session.substring(1)),
-                    // _buildDetailRow(
-                    //     Icons.date_range, "From Date", item.fromDate ?? 'N/A'),
-                    // _buildDetailRow(
-                    //     Icons.date_range, "To Date", item.toDate ?? 'N/A'),
-                    // _buildDetailRow(Icons.access_time, "Applied On",
-                    //     item.createdAt ?? 'N/A'),
-                    _buildDetailRow(
-                        Icons.info_outline, "Status", item.status ?? 'Pending',
-                        isStatus: true, status: item.status),
-                    if (item.approvedBy != "")
-                      _buildDetailRow(Icons.person_pin_outlined, "Approved By",
-                          item.approvedBy),
-                    if (item.approvedDates != "")
-                      _buildDetailRow(Icons.date_range_outlined,
-                          "Approved Dates", item.approvedDates),
-                    if (item.remarks != null && item.remarks!.isNotEmpty)
-                      _buildDetailRow(Icons.notes, "Remarks", item.remarks!,
-                          isRemarks: true),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => StaffCalendarPage(
-                              staffId: item.userId,
-                              selectedDate: DateTime.now(),
-                              staffName: item.staffName,
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [primaryBlue, secondaryBlue],
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.description_outlined,
+                            color: Colors.white, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          "Leave Details",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: primaryBlue,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: darkGrey, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _buildDetailRow(
+                            Icons.person_outline, "Staff", item.staffName ?? 'N/A'),
+                        _buildDetailRow(Icons.category_outlined, "Leave Type",
+                            item.leaveType ?? 'N/A'),
+                        _buildDetailRow(Icons.calendar_today_outlined, "Duration",
+                            '${item.noOfDays ?? '0'} Days'),
+                        if (item.session != null && item.session != "")
+                          _buildDetailRow(
+                              Icons.access_time,
+                              "Session",
+                              item.session[0].toUpperCase() +
+                                  item.session.substring(1)),
+                        // _buildDetailRow(
+                        //     Icons.date_range, "From Date", item.fromDate ?? 'N/A'),
+                        // _buildDetailRow(
+                        //     Icons.date_range, "To Date", item.toDate ?? 'N/A'),
+                        // _buildDetailRow(Icons.access_time, "Applied On",
+                        //     item.createdAt ?? 'N/A'),
+                        _buildDetailRow(
+                            Icons.info_outline, "Status", item.status ?? 'Pending',
+                            isStatus: true, status: item.status),
+                        _buildDetailRow(
+                          Icons.note_alt_outlined,
+                          "Reason",
+                          (item.reason != null &&
+                                  item.reason.toString().trim().isNotEmpty)
+                              ? item.reason.toString().trim()
+                              : 'N/A',
+                        ),
+                        if (item.approvedBy != null && item.approvedBy != "")
+                          _buildDetailRow(Icons.person_pin_outlined, "Approved By",
+                              item.approvedBy),
+                        if (item.approvedDates != null && item.approvedDates != "")
+                          _buildDetailRow(Icons.date_range_outlined,
+                              "Approved Dates", item.approvedDates),
+                        if (item.remarks != null && item.remarks!.isNotEmpty)
+                          _buildDetailRow(Icons.notes, "Remarks", item.remarks!,
+                              isRemarks: true),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => StaffCalendarPage(
+                                  staffId: item.userId,
+                                  selectedDate: DateTime.now(),
+                                  staffName: item.staffName,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.calendar_month_outlined,
+                              size: 16, color: primaryBlue),
+                          label: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              "Attendance",
+                              style: TextStyle(color: primaryBlue, fontSize: 13),
                             ),
                           ),
-                        );
-                      },
-                      icon: const Icon(Icons.calendar_month_outlined,
-                          size: 18, color: primaryBlue),
-                      label: const Text(
-                        "Attendance",
-                        style: TextStyle(color: primaryBlue, fontSize: 14),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: primaryBlue),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 13, horizontal: 8),
+                          ),
+                        ),
                       ),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: primaryBlue),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryBlue,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 13, horizontal: 8),
+                            elevation: 0,
+                          ),
+                          child: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              "Close",
+                              style: TextStyle(
+                                  fontSize: 15, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryBlue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        "Close",
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -2498,6 +2593,423 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
     );
   }
 
+  bool _isLeaveEligibleForApproval(dynamic item) {
+    if (!_canApprove) return false;
+    final status = (item.status ?? '').toString().trim().toLowerCase();
+    // Do not allow requests with Approved or Rejected status to be selected for bulk approval
+    if (status.contains('approved') || status.contains('rejected')) {
+      return false;
+    }
+    return status.contains('pending') ||
+        status.contains('partial') ||
+        status.isEmpty;
+  }
+
+  Widget _buildBulkSelectionBar() {
+    final List<dynamic> currentList =
+        _tabController.index == 0 ? _pendingLeaves : _approvedLeaves;
+    final List<dynamic> eligibleItems =
+        currentList.where(_isLeaveEligibleForApproval).toList();
+    if (eligibleItems.isEmpty && _selectedLeaves.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final bool allEligibleSelected = eligibleItems.isNotEmpty &&
+        eligibleItems.every(
+            (item) => _selectedLeaves.containsKey((item as dynamic).id.toString()));
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: mediumGrey.withOpacity(0.5), width: 1),
+        ),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: Checkbox(
+              value: allEligibleSelected,
+              activeColor: primaryBlue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+              onChanged: eligibleItems.isEmpty
+                  ? null
+                  : (bool? val) {
+                      setState(() {
+                        if (val == true) {
+                          for (var item in eligibleItems) {
+                            _selectedLeaves[(item as dynamic).id.toString()] = item;
+                          }
+                        } else {
+                          for (var item in eligibleItems) {
+                            _selectedLeaves.remove((item as dynamic).id.toString());
+                          }
+                        }
+                      });
+                    },
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            "Select All (${eligibleItems.length} eligible)",
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: darkGrey,
+            ),
+          ),
+          const Spacer(),
+          if (_selectedLeaves.isNotEmpty)
+            TextButton.icon(
+              onPressed: _showBulkApproveDialog,
+              icon: const Icon(Icons.check_circle_outline,
+                  size: 16, color: softGreen),
+              label: Text(
+                "Approve (${_selectedLeaves.length})",
+                style: const TextStyle(
+                  color: softGreen,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                backgroundColor: softGreen.withOpacity(0.1),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBulkActionBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "${_selectedLeaves.length} selected",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: primaryBlue,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedLeaves.clear();
+                      });
+                    },
+                    child: const Text(
+                      "Clear Selection",
+                      style: TextStyle(
+                        color: softRed,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: _showBulkApproveDialog,
+              icon: const Icon(Icons.check_circle_outline,
+                  color: Colors.white, size: 18),
+              label: Text(
+                "Bulk Approve (${_selectedLeaves.length})",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: softGreen,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showBulkApproveDialog() {
+    if (_selectedLeaves.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              const Text("Please select at least one leave request to approve"),
+          backgroundColor: softRed,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    final TextEditingController remarksCtrl = TextEditingController();
+    bool isActionLoading = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: !isActionLoading,
+      builder: (context) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) => Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          child: SingleChildScrollView(
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white,
+                    softGreen.withOpacity(0.05),
+                  ],
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: softGreen.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.check_circle_outline,
+                            color: softGreen, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "Bulk Approve",
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: softGreen,
+                              ),
+                            ),
+                            Text(
+                              "${_selectedLeaves.length} leave request(s) selected",
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: darkGrey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24),
+                  const Text(
+                    "Admin Remarks",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: primaryBlue,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: remarksCtrl,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: "Enter approval remarks...",
+                      hintStyle: const TextStyle(color: darkGrey),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
+                      fillColor: lightGrey,
+                      contentPadding: const EdgeInsets.all(16),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: isActionLoading
+                              ? null
+                              : () => Navigator.pop(dialogCtx),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text("Cancel"),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: softGreen,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            elevation: 4,
+                          ),
+                          onPressed: isActionLoading
+                              ? null
+                              : () async {
+                                  setDialogState(() {
+                                    isActionLoading = true;
+                                  });
+
+                                  final selectedList = _selectedLeaves.values
+                                      .where(_isLeaveEligibleForApproval)
+                                      .toList();
+                                  final remarks = remarksCtrl.text.trim();
+                                  int successCount = 0;
+                                  int failureCount = 0;
+
+                                  for (final item in selectedList) {
+                                    final dates =
+                                        (item.leaveDates?.toString() ?? '')
+                                            .split(',')
+                                            .map((e) => e.trim())
+                                            .where((e) => e.isNotEmpty)
+                                            .join(',');
+
+                                    try {
+                                      final res =
+                                          await HttpService.approveLeave(
+                                        item.id.toString(),
+                                        dates,
+                                        remarks,
+                                      );
+                                      if (res != null &&
+                                          (res.status == true ||
+                                              res.message
+                                                  .toString()
+                                                  .toLowerCase()
+                                                  .contains('success'))) {
+                                        successCount++;
+                                      } else {
+                                        failureCount++;
+                                      }
+                                    } catch (e) {
+                                      failureCount++;
+                                    }
+                                  }
+
+                                  if (dialogCtx.mounted) {
+                                    Navigator.pop(dialogCtx);
+                                  }
+                                  if (!mounted) return;
+                                  setState(() {
+                                    _selectedLeaves.clear();
+                                  });
+
+                                  if (failureCount == 0) {
+                                    messenger.showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                            "Successfully approved $successCount leave request(s)"),
+                                        backgroundColor: softGreen,
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(10)),
+                                      ),
+                                    );
+                                  } else {
+                                    messenger.showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                            "Approved $successCount request(s), $failureCount failed"),
+                                        backgroundColor: successCount > 0
+                                            ? softOrange
+                                            : softRed,
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(10)),
+                                      ),
+                                    );
+                                  }
+
+                                  _loadData();
+                                },
+                          child: isActionLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  "Confirm",
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _confirmReject(dynamic item) {
     TextEditingController remarksCtrl = TextEditingController();
     bool isActionLoading = false;
@@ -2507,210 +3019,252 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
         builder: (context, setState) => Dialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white,
-                  softRed.withOpacity(0.05),
-                ],
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: softRed.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.cancel_outlined,
-                          color: softRed, size: 24),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      "Reject Leave",
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: softRed,
-                      ),
-                    ),
+          clipBehavior: Clip.antiAlias,
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white,
+                    softRed.withOpacity(0.05),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      const Text(
-                        "Are you sure you want to reject this leave request?",
-                        style: TextStyle(fontSize: 15),
-                        textAlign: TextAlign.center,
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: softRed.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.cancel_outlined,
+                              color: softRed, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            "Reject Leave",
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: softRed,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close, color: darkGrey, size: 20),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      if (_allTemplates != null &&
-                          _allTemplates!.any((e) =>
-                              e.templateType?.toLowerCase() == 'reject')) ...[
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Center(
+                            child: Text(
+                              "Are you sure you want to reject this leave request?",
+                              style: TextStyle(fontSize: 15),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          if (_allTemplates != null &&
+                              _allTemplates!.any((e) =>
+                                  e.templateType?.toLowerCase() == 'reject')) ...[
+                            const Text(
                               "Select Template",
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                                fontSize: 15,
                                 color: primaryBlue,
                               ),
                             ),
-                            SizedBox(height: 8),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: _allTemplates!
+                                  .where((e) =>
+                                      e.templateType?.toLowerCase() == 'reject')
+                                  .map((t) => ActionChip(
+                                        label: Text(t.templateName ?? '',
+                                            style: const TextStyle(fontSize: 12)),
+                                        backgroundColor: softRed.withOpacity(0.1),
+                                        onPressed: () {
+                                          setState(() {
+                                            if (remarksCtrl.text.isEmpty) {
+                                              remarksCtrl.text =
+                                                  t.templateBody ?? '';
+                                            } else {
+                                              remarksCtrl.text +=
+                                                  "\n${t.templateBody ?? ''}";
+                                            }
+                                          });
+                                        },
+                                      ))
+                                  .toList(),
+                            ),
+                            const SizedBox(height: 16),
                           ],
-                        ),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _allTemplates!
-                              .where((e) =>
-                                  e.templateType?.toLowerCase() == 'reject')
-                              .map((t) => ActionChip(
-                                    label: Text(t.templateName ?? '',
-                                        style: const TextStyle(fontSize: 12)),
-                                    backgroundColor: softRed.withOpacity(0.1),
-                                    onPressed: () {
-                                      setState(() {
-                                        if (remarksCtrl.text.isEmpty) {
-                                          remarksCtrl.text =
-                                              t.templateBody ?? '';
-                                        } else {
-                                          remarksCtrl.text +=
-                                              "\n${t.templateBody ?? ''}";
-                                        }
-                                      });
-                                    },
-                                  ))
-                              .toList(),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: remarksCtrl,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          hintText: "Reason for rejection...",
-                          hintStyle: const TextStyle(color: darkGrey),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
+                          TextField(
+                            controller: remarksCtrl,
+                            minLines: 2,
+                            maxLines: 4,
+                            decoration: InputDecoration(
+                              hintText: "Reason for rejection...",
+                              hintStyle: const TextStyle(color: darkGrey),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              filled: true,
+                              fillColor: lightGrey,
+                              contentPadding: const EdgeInsets.all(14),
+                            ),
                           ),
-                          filled: true,
-                          fillColor: lightGrey,
-                          contentPadding: const EdgeInsets.all(16),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: const Text("Cancel"),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: softRed,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          elevation: 4,
-                        ),
-                        onPressed: isActionLoading
-                            ? null
-                            : () async {
-                                setState(() {
-                                  isActionLoading = true;
-                                });
-
-                                try {
-                                  final res = await HttpService.rejectLeave(
-                                      item.id,
-                                      remarks: remarksCtrl.text);
-                                  if (res != null && res.status == true) {
-                                    Navigator.pop(context);
-                                    _loadData();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: const Text(
-                                            "Leave request rejected"),
-                                        backgroundColor: softGreen,
-                                        behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(10)),
-                                      ),
-                                    );
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                            res?.message ?? "Failed to reject"),
-                                        backgroundColor: softRed,
-                                        behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(10)),
-                                      ),
-                                    );
-                                  }
-                                } finally {
-                                  setState(() {
-                                    isActionLoading = false;
-                                  });
-                                }
-                              },
-                        child: isActionLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text(
-                                "Reject",
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: mediumGrey),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 13, horizontal: 8),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                "Cancel",
                                 style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.bold),
+                                  color: darkGrey,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                      ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: softRed,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 13, horizontal: 8),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              elevation: 2,
+                            ),
+                            onPressed: isActionLoading
+                                ? null
+                                : () async {
+                                    setState(() {
+                                      isActionLoading = true;
+                                    });
+
+                                    try {
+                                      final res = await HttpService.rejectLeave(
+                                          item.id,
+                                          remarks: remarksCtrl.text);
+                                      if (!context.mounted) return;
+                                      if (res != null && res.status == true) {
+                                        Navigator.pop(context);
+                                        _loadData();
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: const Text(
+                                                "Leave request rejected"),
+                                            backgroundColor: softGreen,
+                                            behavior:
+                                                SnackBarBehavior.floating,
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10)),
+                                          ),
+                                        );
+                                      } else {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(res?.message ??
+                                                "Failed to reject"),
+                                            backgroundColor: softRed,
+                                            behavior:
+                                                SnackBarBehavior.floating,
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10)),
+                                          ),
+                                        );
+                                      }
+                                    } finally {
+                                      setState(() {
+                                        isActionLoading = false;
+                                      });
+                                    }
+                                  },
+                            child: isActionLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      "Reject",
+                                      style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

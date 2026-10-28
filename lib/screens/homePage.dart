@@ -48,6 +48,7 @@ import 'package:login2/screens/stock/stockDashboard.dart';
 import 'package:login2/screens/purchase/purchaseDashboard.dart';
 import 'package:login2/screens/staff_reports/followupCalendarPage.dart';
 import 'package:login2/screens/staff_reports/staffwiseCallReports.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:login2/widgets/togglebutton_start.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -104,6 +105,8 @@ class _HomePageState extends State<HomePage> {
   String phoneCallLogPermission = '';
   String viewWorkReportPermission = '';
   String startAndStopWorkPermission = '';
+  String startWorkOrderCameraPermission = 'false';
+  String startWorkOrderPermission = 'false';
   String viewLeadPermission = '';
   bool isLoading = false;
   int notificationCount = 0;
@@ -170,6 +173,24 @@ class _HomePageState extends State<HomePage> {
         await Common.getSharedPref("viewWorkReportPermission");
     startAndStopWorkPermission =
         await Common.getSharedPref("startAndStopWorkPermission");
+    startWorkOrderCameraPermission =
+        await Common.getSharedPref("start_work_order_camera") ?? 'false';
+    startWorkOrderPermission = startWorkOrderCameraPermission;
+    try {
+      final userPermModel = await HttpService.userPermissionCheck(
+          token.isNotEmpty ? token : (widget.token ?? ''));
+      if (userPermModel != null &&
+          userPermModel.status == true &&
+          userPermModel.data != null) {
+        startWorkOrderCameraPermission =
+            userPermModel.data!.startWorkOrderCamera?.toString() ?? 'false';
+        startWorkOrderPermission = startWorkOrderCameraPermission;
+        await Common.saveSharedPref(
+            "start_work_order_camera", startWorkOrderCameraPermission);
+      }
+    } catch (e) {
+      log("Error fetching user_permissions in homePage: $e");
+    }
     createLeadCategory = await Common.getSharedPref("createLeadCategory");
     updateLeadCategory = await Common.getSharedPref("updateLeadCategory");
     deleteLeadCategory = await Common.getSharedPref("deleteLeadCategory");
@@ -448,6 +469,12 @@ class _HomePageState extends State<HomePage> {
                                   StartStopToggle(
                                       initialStatus:
                                           userDashboard!.data.loginCheck,
+                                      startWorkOrder:
+                                          startWorkOrderCameraPermission ==
+                                              "true",
+                                      startWorkOrderCamera:
+                                          startWorkOrderCameraPermission ==
+                                              "true",
                                       onToggle: (bool started) {
                                         setState(() {
                                           userDashboard!.data.loginCheck =
@@ -2306,6 +2333,35 @@ class _HomePageState extends State<HomePage> {
               onPressed: () async {
                 Navigator.of(dialogContext).pop();
 
+                XFile? capturedImage;
+                if (startWorkOrderCameraPermission == "true") {
+                  try {
+                    final ImagePicker picker = ImagePicker();
+                    capturedImage = await picker.pickImage(
+                      source: ImageSource.camera,
+                      imageQuality: 80,
+                    );
+                    if (capturedImage == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content:
+                              Text("Image capture is required to start work."),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("Camera error: $e"),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+                }
+
                 showDialog(
                   context: context,
                   barrierDismissible: false,
@@ -2441,6 +2497,9 @@ class _HomePageState extends State<HomePage> {
                     latitude: position.latitude,
                     longitude: position.longitude,
                     faceData: faceBase64,
+                    image: capturedImage != null
+                        ? File(capturedImage.path)
+                        : null,
                   );
                   Navigator.of(context).pop();
                   if (res != null && res.status == true) {
