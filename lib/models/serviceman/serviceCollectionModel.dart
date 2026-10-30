@@ -39,14 +39,19 @@ class ServiceCollectionData {
 
   ServiceCollectionData.fromJson(Map<String, dynamic> json) {
     type = _parseInt(json['type']);
-    collection = _parseNum(json['collection']);
-    totalRecords = _parseInt(json['total_records']);
+    collection = _parseNum(json['collection']) ??
+        _parseNum(json['due_collection']) ??
+        _parseNum(json['total_due']) ??
+        _parseNum(json['balance']);
+    totalRecords = _parseInt(json['total_records']) ??
+        _parseInt(json['totalRecords']);
     if (json['records'] != null) {
       records = <ServiceCollectionRecord>[];
       json['records'].forEach((v) {
         records!.add(ServiceCollectionRecord.fromJson(v));
       });
     }
+    totalRecords ??= records?.length;
   }
 
   Map<String, dynamic> toJson() {
@@ -79,6 +84,8 @@ class ServiceCollectionData {
 class ServiceCollectionRecord {
   String? invoiceId;
   String? invoiceNumber;
+  String? recieptNumber;
+  String? amount;
   String? invoiceDate;
   String? clientId;
   String? customerName;
@@ -93,6 +100,8 @@ class ServiceCollectionRecord {
   ServiceCollectionRecord({
     this.invoiceId,
     this.invoiceNumber,
+    this.recieptNumber,
+    this.amount,
     this.invoiceDate,
     this.clientId,
     this.customerName,
@@ -106,24 +115,47 @@ class ServiceCollectionRecord {
   });
 
   ServiceCollectionRecord.fromJson(Map<String, dynamic> json) {
-    invoiceId = json['invoice_id']?.toString();
-    invoiceNumber = json['invoice_number']?.toString();
-    invoiceDate = json['invoice_date']?.toString();
-    clientId = json['client_id']?.toString();
-    customerName = json['customer_name']?.toString();
-    customerPhone = json['customer_phone']?.toString();
-    totalAmount = _parseNum(json['total_amount']);
-    paidAmount = _parseNum(json['paid_amount']);
-    dueAmount = _parseNum(json['due_amount']);
-    paymentStatus = json['payment_status']?.toString();
-    createdByName = json['created_by_name']?.toString();
-    createdAt = json['created_at']?.toString();
+    invoiceId = json['invoice_id']?.toString() ?? json['invoiceId']?.toString();
+    invoiceNumber = json['invoice_number']?.toString() ?? json['invoiceNumber']?.toString();
+    recieptNumber = json['receipt_number']?.toString() ??
+        json['reciept_number']?.toString() ??
+        json['receipt_no']?.toString() ??
+        json['receiptNumber']?.toString();
+    amount = json['amount']?.toString();
+    invoiceDate = json['invoice_date']?.toString() ?? json['invoiceDate']?.toString();
+    clientId = json['client_id']?.toString() ?? json['clientId']?.toString();
+    customerName = json['customer_name']?.toString() ?? json['customerName']?.toString();
+    customerPhone = json['customer_phone']?.toString() ?? json['customerPhone']?.toString();
+    totalAmount = _parseNum(json['total_amount']) ??
+        _parseNum(json['totalAmount']) ??
+        _parseNum(json['grand_total']);
+    paidAmount = _parseNum(json['paid_amount']) ??
+        _parseNum(json['paidAmount']) ??
+        _parseNum(json['total_paid_amount']) ??
+        _parseNum(json['amount_paid']) ??
+        _parseNum(json['amount']);
+    dueAmount = _parseNum(json['due_amount']) ??
+        _parseNum(json['dueAmount']) ??
+        _parseNum(json['balance_amount']) ??
+        _parseNum(json['balance']);
+    if (dueAmount == null && totalAmount != null && paidAmount != null) {
+      dueAmount = (totalAmount! - paidAmount!).clamp(0, double.infinity);
+    }
+    if (totalAmount == null && paidAmount != null && dueAmount != null) {
+      totalAmount = paidAmount! + dueAmount!;
+    }
+    paymentStatus = json['payment_status']?.toString() ?? json['paymentStatus']?.toString();
+    createdByName = json['created_by_name']?.toString() ?? json['createdByName']?.toString();
+    createdAt = json['created_at']?.toString() ?? json['createdAt']?.toString();
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['invoice_id'] = invoiceId;
     data['invoice_number'] = invoiceNumber;
+    data['receipt_number'] = recieptNumber;
+    data['recieptNumber'] = recieptNumber;
+    data['amount'] = amount;
     data['invoice_date'] = invoiceDate;
     data['client_id'] = clientId;
     data['customer_name'] = customerName;

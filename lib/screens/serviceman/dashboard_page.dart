@@ -805,8 +805,8 @@ class _DashboardPageState extends State<DashboardPage> {
               )
             else
               ...ongoingWorkOrders.take(5).map((order) {
-                final workId = (order.workOrderID?.isNotEmpty == true)
-                    ? order.workOrderID!
+                final workId = (order.workOrderId?.isNotEmpty == true)
+                    ? order.workOrderId!
                     : ((order.workOrderId?.isNotEmpty == true)
                         ? order.workOrderId!
                         : "WK-${order.custId ?? '0'}");
@@ -909,20 +909,20 @@ class _DashboardPageState extends State<DashboardPage> {
                 final String invNo = (record.invoiceNumber?.isNotEmpty == true)
                     ? "Inv #${record.invoiceNumber}"
                     : ((record.invoiceId?.isNotEmpty == true)
-                        ? "Inv #${record.invoiceId}"
+                        ? "Inv :${record.invoiceId}"
                         : "Invoice");
                 final String clientName = record.customerName?.isNotEmpty == true
                     ? record.customerName!
                     : "Customer";
-                final String serviceTitle = (record.createdByName?.isNotEmpty == true)
-                    ? "Created by: ${record.createdByName}"
-                    : "Service Invoice";
+                // final String serviceTitle = (record.createdByName?.isNotEmpty == true)
+                //     ? "Created by: ${record.createdByName}"
+                //     : "Service Invoice";
                 final String date = (record.invoiceDate?.isNotEmpty == true)
                     ? record.invoiceDate!
                     : (record.createdAt ?? "N/A");
-                final String status = record.paymentStatus?.isNotEmpty == true
-                    ? record.paymentStatus!.toUpperCase()
-                    : "RECEIVED";
+                // final String status = record.paymentStatus?.isNotEmpty == true
+                //     ? record.paymentStatus!.toUpperCase()
+                //     : "RECEIVED";
                 final num displayAmount = record.totalAmount ?? record.paidAmount ?? 0;
                 final String amount = "+ ₹${_formatAmount(displayAmount)}";
                 final String paymentMode = (record.paidAmount != null && record.paidAmount! > 0)
@@ -932,11 +932,11 @@ class _DashboardPageState extends State<DashboardPage> {
                 return _buildPaymentReportCard(
                   invoiceNo: invNo,
                   clientName: clientName,
-                  serviceTitle: serviceTitle,
+                  // serviceTitle: serviceTitle,
                   date: date,
                   paymentMode: paymentMode,
                   amount: amount,
-                  status: status,
+                  // status: status,
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -1562,11 +1562,11 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _buildPaymentReportCard({
     required String invoiceNo,
     required String clientName,
-    required String serviceTitle,
+    // required String serviceTitle,
     required String date,
     required String paymentMode,
     required String amount,
-    required String status,
+    // required String status,
     required VoidCallback onTap,
   }) {
     return Container(
@@ -1636,34 +1636,34 @@ class _DashboardPageState extends State<DashboardPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
-                            child: Text(
-                              serviceTitle,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFD1FAE5), // Emerald 100
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              status,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF047857), // Emerald 700
-                              ),
-                            ),
-                          ),
+                          // Expanded(
+                          //   child: Text(
+                          //     serviceTitle,
+                          //     overflow: TextOverflow.ellipsis,
+                          //     style: const TextStyle(
+                          //       fontSize: 12,
+                          //       color: Color(0xFF64748B),
+                          //     ),
+                          //   ),
+                          // ),
+                          // Container(
+                          //   padding: const EdgeInsets.symmetric(
+                          //     horizontal: 6,
+                          //     vertical: 2,
+                          //   ),
+                          //   decoration: BoxDecoration(
+                          //     color: const Color(0xFFD1FAE5), // Emerald 100
+                          //     borderRadius: BorderRadius.circular(4),
+                          //   ),
+                            // child: Text(
+                            //   status,
+                            //   style: const TextStyle(
+                            //     fontSize: 10,
+                            //     fontWeight: FontWeight.bold,
+                            //     color: Color(0xFF047857), // Emerald 700
+                            //   ),
+                            // ),
+                          // ),
                         ],
                       ),
                       const SizedBox(height: 6),

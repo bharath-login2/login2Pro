@@ -27,6 +27,9 @@ class _ServiceCollectionListPageState extends State<ServiceCollectionListPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
 
+  bool get _isBalanceToReceive =>
+      widget.type == 3 || widget.title.toLowerCase().contains("balance");
+
   @override
   void initState() {
     super.initState();
@@ -65,12 +68,14 @@ class _ServiceCollectionListPageState extends State<ServiceCollectionListPage> {
       final phone = (item.customerPhone ?? "").toLowerCase();
       final invNum = (item.invoiceNumber ?? "").toLowerCase();
       final invId = (item.invoiceId ?? "").toLowerCase();
+      final recNum = (item.recieptNumber ?? "").toLowerCase();
       final status = (item.paymentStatus ?? "").toLowerCase();
       final createdBy = (item.createdByName ?? "").toLowerCase();
       return name.contains(query) ||
           phone.contains(query) ||
           invNum.contains(query) ||
           invId.contains(query) ||
+          recNum.contains(query) ||
           status.contains(query) ||
           createdBy.contains(query);
     }).toList();
@@ -171,7 +176,9 @@ class _ServiceCollectionListPageState extends State<ServiceCollectionListPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "TOTAL COLLECTION",
+                      _isBalanceToReceive
+                          ? "TOTAL BALANCE TO RECEIVE"
+                          : "TOTAL COLLECTION",
                       style: TextStyle(
                         color: Colors.grey.shade400,
                         fontSize: 11,
@@ -240,7 +247,7 @@ class _ServiceCollectionListPageState extends State<ServiceCollectionListPage> {
                 });
               },
               decoration: InputDecoration(
-                hintText: "Search customer, phone, invoice #...",
+                hintText: "Search customer, phone, invoice, receipt #...",
                 hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
                 border: InputBorder.none,
                 icon: const Icon(Icons.search, color: Color(0xFF2a86c9)),
@@ -379,7 +386,7 @@ class _ServiceCollectionListPageState extends State<ServiceCollectionListPage> {
       ),
       child: Column(
         children: [
-          // Card Header: Invoice # and Status
+          // Card Header: Invoice # and Receipt #
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -392,51 +399,96 @@ class _ServiceCollectionListPageState extends State<ServiceCollectionListPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2A86C9).withOpacity(0.1),
-                        shape: BoxShape.circle,
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A86C9).withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.description_outlined,
+                          size: 16,
+                          color: Color(0xFF2A86C9),
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.description_outlined,
-                        size: 16,
-                        color: Color(0xFF2A86C9),
+                      const SizedBox(width: 10),
+                      Flexible(
+                        child: Text(
+                          "Inv: $invDisplay",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      "Inv #$invDisplay",
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                // Container(
-                //   padding:
-                //       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                //   decoration: BoxDecoration(
-                //     color: statusColor.withOpacity(0.12),
-                //     borderRadius: BorderRadius.circular(20),
-                //     border: Border.all(
-                //       color: statusColor.withOpacity(0.4),
-                //       width: 0.8,
-                //     ),
-                //   ),
-                  // child: Text(
-                  //   (record.paymentStatus ?? "UNKNOWN").toUpperCase(),
-                  //   style: TextStyle(
-                  //     fontSize: 10,
-                  //     fontWeight: FontWeight.bold,
-                  //     color: statusColor,
-                  //   ),
-                  // ),
-                // ),
+                if (record.recieptNumber != null &&
+                    record.recieptNumber!.trim().isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A86C9).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(0xFF2A86C9).withOpacity(0.3),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.receipt_long_outlined,
+                          size: 13,
+                          color: Color(0xFF2A86C9),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          record.recieptNumber!.trim().toLowerCase().startsWith("rec") ||
+                                  record.recieptNumber!.trim().startsWith("#")
+                              ? record.recieptNumber!.trim()
+                              : "Receipt #${record.recieptNumber!.trim()}",
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2A86C9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (record.paymentStatus?.isNotEmpty == true) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: statusColor.withOpacity(0.4),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Text(
+                      record.paymentStatus!.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: statusColor,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -510,41 +562,48 @@ class _ServiceCollectionListPageState extends State<ServiceCollectionListPage> {
 
                 // Amount Breakdown Row
                 Container(
+                  width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    mainAxisAlignment: _isBalanceToReceive
+                        ? MainAxisAlignment.spaceAround
+                        : MainAxisAlignment.center,
                     children: [
-                      _buildAmountCol(
-                        "Total Amount",
-                        "₹${_formatAmount(record.totalAmount)}",
-                        const Color(0xFF1E293B),
-                      ),
-                      Container(
-                        height: 25,
-                        width: 1,
-                        color: Colors.grey.shade300,
-                      ),
+                      if (_isBalanceToReceive) ...[
+                        _buildAmountCol(
+                          "Total Amount",
+                          "₹${_formatAmount(record.totalAmount)}",
+                          const Color(0xFF1E293B),
+                        ),
+                        Container(
+                          height: 25,
+                          width: 1,
+                          color: Colors.grey.shade300,
+                        ),
+                      ],
                       _buildAmountCol(
                         "Paid Amount",
                         "₹${_formatAmount(record.paidAmount)}",
                         const Color(0xFF10B981),
                       ),
-                      Container(
-                        height: 25,
-                        width: 1,
-                        color: Colors.grey.shade300,
-                      ),
-                      _buildAmountCol(
-                        "Due Amount",
-                        "₹${_formatAmount(record.dueAmount)}",
-                        (record.dueAmount ?? 0) > 0
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFF64748B),
-                      ),
+                      if (_isBalanceToReceive) ...[
+                        Container(
+                          height: 25,
+                          width: 1,
+                          color: Colors.grey.shade300,
+                        ),
+                        _buildAmountCol(
+                          "Due Amount",
+                          "₹${_formatAmount(record.dueAmount)}",
+                          (record.dueAmount ?? 0) > 0
+                              ? const Color(0xFFEF4444)
+                              : const Color(0xFF64748B),
+                        ),
+                      ],
                     ],
                   ),
                 ),
