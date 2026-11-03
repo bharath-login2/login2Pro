@@ -386,23 +386,30 @@ class _CustomerDashboardState extends State<CustomerDashboard>
     }
   }
 
-  String _formatCurrency(String amount) {
-    try {
-      final value = double.tryParse(amount) ?? 0.0;
-      if (value >= 10000000) {
-        return '₹${(value / 10000000).toStringAsFixed(2)}Cr';
-      } else if (value >= 100000) {
-        return '₹${(value / 100000).toStringAsFixed(2)}L';
-      } else if (value >= 1000) {
-        return '₹${(value / 1000).toStringAsFixed(2)}K';
-      } else {
-        return '₹${value.toStringAsFixed(2)}';
-      }
-    } catch (e) {
-      return '₹${amount}';
-    }
+  // String _formatCurrency(String amount) {
+  //   try {
+  //     final value = double.tryParse(amount) ?? 0.0;
+  //     if (value >= 10000000) {
+  //       return '₹${(value / 10000000).toStringAsFixed(2)}Cr';
+  //     } else if (value >= 100000) {
+  //       return '₹${(value / 100000).toStringAsFixed(2)}L';
+  //     } else if (value >= 1000) {
+  //       return '₹${(value / 1000).toStringAsFixed(2)}K';
+  //     } else {
+  //       return '₹${value.toStringAsFixed(2)}';
+  //     }
+  //   } catch (e) {
+  //     return '₹${amount}';
+  //   }
+  // }
+String _formatCurrency(String amount) {
+  try {
+    final value = double.tryParse(amount) ?? 0.0;
+    return '₹${value.toStringAsFixed(2)}';
+  } catch (e) {
+    return '₹$amount';
   }
-
+}
   String _getPaymentProgressPercentage() {
     if (dashboardData == null) return '0%';
     try {

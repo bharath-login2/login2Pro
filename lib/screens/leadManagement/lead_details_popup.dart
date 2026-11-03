@@ -5509,7 +5509,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                                   ),
                                 ),
                               ),
-                            if (createCustomerInvoice == true &&
+                            if (createCustomerInvoice == 'true' &&
                                 (leadDetailsFollowup
                                         ?.data?.followUpData?.isNotEmpty ??
                                     false) &&
