@@ -53,6 +53,10 @@ class Data {
   String postOffice;
   String branchId;
   List<AdditionalField> additionalFields;
+  List<IdProofDocument> idProofs;
+  String? idProof;
+  String? whatsappNumber;
+  String? whatsappCountryCode;
 
   Data({
     required this.id,
@@ -65,34 +69,57 @@ class Data {
     required this.address3,
     required this.stateId,
     required this.districtId,
-       required this.taxType,
+    required this.taxType,
     required this.pincode,
     required this.gstNum,
     required this.remarks,
     required this.postOffice,
     required this.branchId,
     required this.additionalFields,
+    this.idProofs = const [],
+    this.idProof,
+    this.whatsappNumber,
+    this.whatsappCountryCode,
   });
 
   factory Data.fromJson(Map<String, dynamic> json) => Data(
-        id: json["id"],
-        name: json["name"],
-        emailId: json["email_id"],
-        countryCode: json["country_code"],
-        contactNo: json["contact_no"],
-        address1: json["address1"],
-        address2: json["address2"],
-        address3: json["address3"],
-        stateId: json["stateId"],
-        districtId: json["districtId"],
-          taxType: json["taxType"],
-        pincode: json["pincode"],
-        gstNum: json["gst_num"],
-        remarks: json["remarks"],
-        postOffice: json["post_office"],
-        branchId: json["branch_id"],
-        additionalFields: List<AdditionalField>.from(
-            json["additional_fields"].map((x) => AdditionalField.fromJson(x))),
+        id: json["id"]?.toString() ?? "",
+        name: json["name"]?.toString() ?? "",
+        emailId: json["email_id"]?.toString() ?? "",
+        countryCode: json["country_code"]?.toString() ?? "",
+        contactNo: json["contact_no"]?.toString() ?? "",
+        address1: json["address1"]?.toString() ?? "",
+        address2: json["address2"]?.toString() ?? "",
+        address3: json["address3"]?.toString() ?? "",
+        stateId: json["stateId"]?.toString() ?? "",
+        districtId: json["districtId"]?.toString() ?? "",
+        taxType: json["taxType"]?.toString() ?? "",
+        pincode: json["pincode"]?.toString() ?? "",
+        gstNum: json["gst_num"]?.toString() ?? "",
+        remarks: json["remarks"]?.toString() ?? "",
+        postOffice: json["post_office"]?.toString() ?? "",
+        branchId: json["branch_id"]?.toString() ?? "",
+        additionalFields: json["additional_fields"] != null
+            ? List<AdditionalField>.from(
+                json["additional_fields"].map((x) => AdditionalField.fromJson(x)))
+            : [],
+        idProofs: json["id_proofs"] != null && json["id_proofs"] is List
+            ? List<IdProofDocument>.from(
+                json["id_proofs"].map((x) => IdProofDocument.fromJson(
+                    x is Map<String, dynamic>
+                        ? x
+                        : Map<String, dynamic>.from(x))))
+            : [],
+        idProof: json["id_proof"]?.toString() ??
+            json["idProof"]?.toString() ??
+            json["id_proof_url"]?.toString() ??
+            json["id_proof_file"]?.toString(),
+        whatsappNumber: json["whatsapp_no"]?.toString() ??
+            json["whatsapp_number"]?.toString() ??
+            json["whatsappNumber"]?.toString(),
+        whatsappCountryCode: json["whatsapp_country_code"]?.toString() ??
+            json["whatsapp_countrycode"]?.toString() ??
+            json["whatsappCountryCode"]?.toString(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -106,7 +133,7 @@ class Data {
         "address3": address3,
         "stateId": stateId,
         "districtId": districtId,
-         "taxType": taxType,
+        "taxType": taxType,
         "pincode": pincode,
         "gst_num": gstNum,
         "remarks": remarks,
@@ -114,6 +141,42 @@ class Data {
         "branch_id": branchId,
         "additional_fields":
             List<dynamic>.from(additionalFields.map((x) => x.toJson())),
+        "id_proofs": List<dynamic>.from(idProofs.map((x) => x.toJson())),
+        "id_proof": idProof,
+        "whatsapp_number": whatsappNumber,
+        "whatsapp_country_code": whatsappCountryCode,
+      };
+}
+
+class IdProofDocument {
+  String documentId;
+  String fileId;
+  String fileName;
+  String fileUrl;
+  String previewUrl;
+
+  IdProofDocument({
+    required this.documentId,
+    required this.fileId,
+    required this.fileName,
+    required this.fileUrl,
+    required this.previewUrl,
+  });
+
+  factory IdProofDocument.fromJson(Map<String, dynamic> json) => IdProofDocument(
+        documentId: json["document_id"]?.toString() ?? "",
+        fileId: json["file_id"]?.toString() ?? "",
+        fileName: json["file_name"]?.toString() ?? "",
+        fileUrl: json["file_url"]?.toString() ?? "",
+        previewUrl: json["preview_url"]?.toString() ?? "",
+      );
+
+  Map<String, dynamic> toJson() => {
+        "document_id": documentId,
+        "file_id": fileId,
+        "file_name": fileName,
+        "file_url": fileUrl,
+        "preview_url": previewUrl,
       };
 }
 
@@ -130,9 +193,9 @@ class AdditionalField {
 
   factory AdditionalField.fromJson(Map<String, dynamic> json) =>
       AdditionalField(
-        fieldId: json["field_id"],
-        fieldName: json["field_name"],
-        fieldValue: json["field_value"],
+        fieldId: json["field_id"]?.toString() ?? "",
+        fieldName: json["field_name"]?.toString() ?? "",
+        fieldValue: json["field_value"]?.toString() ?? "",
       );
 
   Map<String, dynamic> toJson() => {

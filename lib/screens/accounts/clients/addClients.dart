@@ -1,11 +1,13 @@
 // ignore_for_file: use_build_context_synchronously, deprecated_member_use
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:country_picker/country_picker.dart';
 import 'package:date_time_picker/date_time_picker.dart';
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -115,11 +117,215 @@ class _AddClientsState extends State<AddClients> {
   bool isLoadingDistrict = false;
   //String? selectedTaxType;
 
+  TextEditingController whatsappNumber = TextEditingController();
+  var whatsappCode = '91';
+  List<File> idProofFiles = [];
+  Set<int> mandatoryFields = {};
+  bool isLoadingMandatoryFields = true;
+
+  bool isMandatory(int id) => mandatoryFields.contains(id);
+
+  Widget _buildFieldLabel(String labelText, bool isRequired) {
+    if (!isRequired) {
+      return Text(
+        labelText,
+        style: const TextStyle(color: Colors.grey),
+      );
+    }
+    return Text.rich(
+      TextSpan(
+        text: labelText,
+        style: const TextStyle(color: Colors.grey),
+        children: const [
+          TextSpan(
+            text: ' *',
+            style: TextStyle(
+              color: Colors.red,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> fetchMandatoryFields() async {
+    try {
+      final fields = await HttpService.getMandatoryFields(widget.token);
+      if (mounted) {
+        setState(() {
+          mandatoryFields = fields.toSet();
+          isLoadingMandatoryFields = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          isLoadingMandatoryFields = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _pickIdProof() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
+        allowMultiple: true,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          for (var f in result.files) {
+            if (f.path != null) {
+              if (!idProofFiles.any((existing) => existing.path == f.path)) {
+                idProofFiles.add(File(f.path!));
+              }
+            }
+          }
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("File pick error: $e");
+      }
+    }
+  }
+
+  Widget _buildIdProofUpload() {
+    final totalCount = idProofFiles.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildFieldLabel('ID Proof', isMandatory(1)),
+            if (totalCount > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2a86c9).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$totalCount file${totalCount > 1 ? 's' : ''}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF2a86c9),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: _pickIdProof,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: totalCount > 0
+                    ? const Color(0xFF2a86c9)
+                    : Colors.grey.shade400,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.cloud_upload_outlined,
+                  color: totalCount > 0 ? const Color(0xFF2a86c9) : Colors.grey,
+                  size: 22,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  totalCount > 0
+                      ? 'Add More ID Proof Documents'
+                      : 'Upload ID Proof (PDF, JPG, PNG, DOC)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: totalCount > 0
+                        ? const Color(0xFF2a86c9)
+                        : Colors.grey.shade700,
+                    fontWeight:
+                        totalCount > 0 ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (idProofFiles.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          ...idProofFiles.asMap().entries.map((entry) {
+            final index = entry.key;
+            final file = entry.value;
+            final name = file.path.split(Platform.pathSeparator).last;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F9F0),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline,
+                      color: Colors.green, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const Text(
+                          'File selected',
+                          style: TextStyle(fontSize: 11, color: Colors.green),
+                        ),
+                      ],
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        idProofFiles.removeAt(index);
+                      });
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.all(4.0),
+                      child: Icon(Icons.close, color: Colors.red, size: 18),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ],
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     getData();
     getStates();
+    fetchMandatoryFields();
   }
 
   getData() async {
@@ -309,19 +515,19 @@ class _AddClientsState extends State<AddClients> {
                               : const SizedBox(),
                           TextFormField(
                             controller: clientName,
-                            decoration: const InputDecoration(
-                                contentPadding: EdgeInsets.only(
+                            decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.only(
                                     left: 10, top: 2, bottom: 2),
-                                labelText: 'Customer Name *',
+                                label: _buildFieldLabel('Customer Name', true),
                                 fillColor: Colors.white,
                                 filled: true,
                                 prefixIcon:
-                                    Icon(Icons.person, color: Colors.grey),
-                                border: OutlineInputBorder(),
-                                focusedBorder: OutlineInputBorder(
+                                    const Icon(Icons.person, color: Colors.grey),
+                                border: const OutlineInputBorder(),
+                                focusedBorder: const OutlineInputBorder(
                                   borderSide: BorderSide(color: Colors.grey),
                                 ),
-                                labelStyle: TextStyle(color: Colors.grey)),
+                                labelStyle: const TextStyle(color: Colors.grey)),
                           ),
                           const SizedBox(
                             height: 15,
@@ -337,7 +543,7 @@ class _AddClientsState extends State<AddClients> {
                             decoration: InputDecoration(
                                 contentPadding: const EdgeInsets.only(
                                     left: 10, top: 2, bottom: 2),
-                                labelText: 'Phone Number *',
+                                label: _buildFieldLabel('Phone Number', true),
                                 fillColor: Colors.white,
                                 filled: true,
                                 prefix: GestureDetector(
@@ -381,77 +587,120 @@ class _AddClientsState extends State<AddClients> {
                             height: 15,
                           ),
                           TextFormField(
-                            controller: email,
-                            decoration: const InputDecoration(
-                                contentPadding: EdgeInsets.only(
+                            controller: whatsappNumber,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.only(
                                     left: 10, top: 2, bottom: 2),
-                                labelText: 'Email',
+                                label: _buildFieldLabel('WhatsApp Number', isMandatory(2)),
+                                fillColor: Colors.white,
+                                filled: true,
+                                prefix: GestureDetector(
+                                  onTap: () {
+                                    showCountryPicker(
+                                      context: context,
+                                      searchAutofocus: false,
+                                      showPhoneCode: true,
+                                      onSelect: (Country country) {
+                                        setState(() {
+                                          whatsappCode = country.phoneCode;
+                                        });
+                                      },
+                                    );
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(left: 5),
+                                    child: SizedBox(
+                                      width: 70,
+                                      child: Row(children: [
+                                        Text("+$whatsappCode"),
+                                        const Icon(Icons.arrow_drop_down),
+                                      ]),
+                                    ),
+                                  ),
+                                ),
+                                border: const OutlineInputBorder(),
+                                focusedBorder: const OutlineInputBorder(
+                                  borderSide: BorderSide(color: Colors.grey),
+                                ),
+                                labelStyle:
+                                    const TextStyle(color: Colors.grey)),
+                          ),
+                          const SizedBox(
+                            height: 15,
+                          ),
+                          TextFormField(
+                            controller: email,
+                            decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.only(
+                                    left: 10, top: 2, bottom: 2),
+                                label: _buildFieldLabel('Email', isMandatory(3)),
                                 fillColor: Colors.white,
                                 filled: true,
                                 prefixIcon:
-                                    Icon(Icons.email, color: Colors.grey),
-                                border: OutlineInputBorder(),
-                                focusedBorder: OutlineInputBorder(
+                                    const Icon(Icons.email, color: Colors.grey),
+                                border: const OutlineInputBorder(),
+                                focusedBorder: const OutlineInputBorder(
                                   borderSide: BorderSide(color: Colors.grey),
                                 ),
-                                labelStyle: TextStyle(color: Colors.grey)),
+                                labelStyle: const TextStyle(color: Colors.grey)),
                           ),
                           const SizedBox(
                             height: 15,
                           ),
                           TextFormField(
                             controller: address1,
-                            decoration: const InputDecoration(
-                                contentPadding: EdgeInsets.only(
+                            decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.only(
                                     left: 10, top: 2, bottom: 2),
-                                labelText: 'Address 1 *',
+                                label: _buildFieldLabel('Address 1', true),
                                 fillColor: Colors.white,
                                 filled: true,
                                 prefixIcon:
-                                    Icon(Icons.location_on, color: Colors.grey),
-                                border: OutlineInputBorder(),
-                                focusedBorder: OutlineInputBorder(
+                                    const Icon(Icons.location_on, color: Colors.grey),
+                                border: const OutlineInputBorder(),
+                                focusedBorder: const OutlineInputBorder(
                                   borderSide: BorderSide(color: Colors.grey),
                                 ),
-                                labelStyle: TextStyle(color: Colors.grey)),
+                                labelStyle: const TextStyle(color: Colors.grey)),
                           ),
                           const SizedBox(
                             height: 15,
                           ),
                           TextFormField(
                             controller: address2,
-                            decoration: const InputDecoration(
-                                contentPadding: EdgeInsets.only(
+                            decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.only(
                                     left: 10, top: 2, bottom: 2),
-                                labelText: 'Address 2',
+                                label: _buildFieldLabel('Address 2', isMandatory(7)),
                                 fillColor: Colors.white,
                                 filled: true,
                                 prefixIcon:
-                                    Icon(Icons.location_on, color: Colors.grey),
-                                border: OutlineInputBorder(),
-                                focusedBorder: OutlineInputBorder(
+                                    const Icon(Icons.location_on, color: Colors.grey),
+                                border: const OutlineInputBorder(),
+                                focusedBorder: const OutlineInputBorder(
                                   borderSide: BorderSide(color: Colors.grey),
                                 ),
-                                labelStyle: TextStyle(color: Colors.grey)),
+                                labelStyle: const TextStyle(color: Colors.grey)),
                           ),
                           const SizedBox(
                             height: 15,
                           ),
                           TextFormField(
                             controller: address3,
-                            decoration: const InputDecoration(
-                                contentPadding: EdgeInsets.only(
+                            decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.only(
                                     left: 10, top: 2, bottom: 2),
-                                labelText: 'Address 3',
+                                label: _buildFieldLabel('Address 3', false),
                                 fillColor: Colors.white,
                                 filled: true,
                                 prefixIcon:
-                                    Icon(Icons.location_on, color: Colors.grey),
-                                border: OutlineInputBorder(),
-                                focusedBorder: OutlineInputBorder(
+                                    const Icon(Icons.location_on, color: Colors.grey),
+                                border: const OutlineInputBorder(),
+                                focusedBorder: const OutlineInputBorder(
                                   borderSide: BorderSide(color: Colors.grey),
                                 ),
-                                labelStyle: TextStyle(color: Colors.grey)),
+                                labelStyle: const TextStyle(color: Colors.grey)),
                           ),
                           const SizedBox(
                             height: 15,
@@ -469,19 +718,19 @@ class _AddClientsState extends State<AddClients> {
                                 setState(() {});
                               }
                             },
-                            decoration: const InputDecoration(
-                                contentPadding: EdgeInsets.only(
+                            decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.only(
                                     left: 10, top: 2, bottom: 2),
-                                labelText: 'Pin Code',
+                                label: _buildFieldLabel('Pin Code', isMandatory(8)),
                                 fillColor: Colors.white,
                                 filled: true,
                                 prefixIcon:
-                                    Icon(Icons.pin_drop, color: Colors.grey),
-                                border: OutlineInputBorder(),
-                                focusedBorder: OutlineInputBorder(
+                                    const Icon(Icons.pin_drop, color: Colors.grey),
+                                border: const OutlineInputBorder(),
+                                focusedBorder: const OutlineInputBorder(
                                   borderSide: BorderSide(color: Colors.grey),
                                 ),
-                                labelStyle: TextStyle(color: Colors.grey)),
+                                labelStyle: const TextStyle(color: Colors.grey)),
                           ),
                            SizedBox(
                             height: 10,
@@ -583,8 +832,9 @@ class _AddClientsState extends State<AddClients> {
                                       child: CircularProgressIndicator())
                                   : DropdownButtonFormField<String>(
                                       value: selectedStateId,
-                                      hint: const Text("Select State"),
+                                      hint: _buildFieldLabel("Select State", isMandatory(4)),
                                       decoration: InputDecoration(
+                                        label: _buildFieldLabel("State", isMandatory(4)),
                                         border: OutlineInputBorder(
                                           borderRadius:
                                               BorderRadius.circular(10),
@@ -609,17 +859,18 @@ class _AddClientsState extends State<AddClients> {
                               if (isLoadingDistrict)
                                 const Center(child: CircularProgressIndicator())
                               else if (districtList.isEmpty)
-                                SizedBox(
+                                const SizedBox(
                                   height: 10,
                                 )
                               else
-                                SizedBox(
+                                const SizedBox(
                                   height: 10,
                                 ),
                               DropdownButtonFormField<String>(
                                 value: selectedDistrictId,
-                                hint: const Text("Choose District"),
+                                hint: _buildFieldLabel("Choose District", isMandatory(4)),
                                 decoration: InputDecoration(
+                                  label: _buildFieldLabel("District", isMandatory(4)),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
                                   ),
@@ -726,6 +977,10 @@ class _AddClientsState extends State<AddClients> {
                           ),
 
                          
+                          const SizedBox(
+                            height: 15,
+                          ),
+                          _buildIdProofUpload(),
                           const SizedBox(
                             height: 15,
                           ),
@@ -2974,9 +3229,50 @@ class _AddClientsState extends State<AddClients> {
                                 Common.toastMessaage(
                                     'PhoneNumber Name cannot be empty',
                                     Colors.red);
+                              } else if (isMandatory(2) &&
+                                  whatsappNumber.text.trim().isEmpty) {
+                                Common.toastMessaage(
+                                    'WhatsApp Number cannot be empty',
+                                    Colors.red);
+                              } else if (isMandatory(3) &&
+                                  email.text.trim().isEmpty) {
+                                Common.toastMessaage(
+                                    'Email cannot be empty',
+                                    Colors.red);
+                              } else if (email.text.trim().isNotEmpty &&
+                                  !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                                      .hasMatch(email.text.trim())) {
+                                Common.toastMessaage(
+                                    'Please enter a valid Email ID',
+                                    Colors.red);
                               } else if (address1.text.isEmpty) {
                                 Common.toastMessaage(
                                     'Address1 cannot be empty', Colors.red);
+                              } else if (isMandatory(7) &&
+                                  address2.text.trim().isEmpty) {
+                                Common.toastMessaage(
+                                    'Address 2 cannot be empty',
+                                    Colors.red);
+                              } else if (isMandatory(8) &&
+                                  pinCode.text.trim().isEmpty) {
+                                Common.toastMessaage(
+                                    'Pin Code cannot be empty',
+                                    Colors.red);
+                              } else if (isMandatory(4) &&
+                                  (selectedStateId == null ||
+                                      selectedStateId!.isEmpty)) {
+                                Common.toastMessaage(
+                                    'Please select a State', Colors.red);
+                              } else if (isMandatory(4) &&
+                                  (selectedDistrictId == null ||
+                                      selectedDistrictId!.isEmpty)) {
+                                Common.toastMessaage(
+                                    'Please select a District', Colors.red);
+                              } else if (isMandatory(1) &&
+                                  idProofFiles.isEmpty) {
+                                Common.toastMessaage(
+                                    'Please upload ID Proof',
+                                    Colors.red);
                               } else if (selectedTaxType == null ||
                                   selectedTaxType!.isEmpty) {
                                 Common.toastMessaage(
@@ -3057,6 +3353,9 @@ class _AddClientsState extends State<AddClients> {
                                   'name': clientName.text,
                                   "country_code": code,
                                   'contact_no': phoneNumber.text,
+                                  'whatsapp_no': whatsappNumber.text.trim(),
+                                  'whatsapp_number': whatsappNumber.text.trim(),
+                                  'whatsapp_country_code': whatsappCode,
                                   'email_id': email.text,
                                   'address': address1.text,
                                   'address2': address2.text,
@@ -3094,6 +3393,19 @@ class _AddClientsState extends State<AddClients> {
                                       jsonEncode(renProducts),
                                   'target_group': jsonEncode(targetGroups),
                                 });
+                                for (var file in idProofFiles) {
+                                  final fileName = file
+                                      .path
+                                      .split(Platform.pathSeparator)
+                                      .last;
+                                  body.files.add(MapEntry(
+                                    'id_proof[]',
+                                    await MultipartFile.fromFile(
+                                      file.path,
+                                      filename: fileName,
+                                    ),
+                                  ));
+                                }
                                 AddClientsModel object =
                                     await HttpService.addClients(body);
                                 if (object.status == true) {

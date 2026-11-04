@@ -4196,6 +4196,57 @@ class HttpService {
     }
   }
 
+  static Future<List<int>> getMandatoryFields(String token) async {
+    try {
+      var result = await _dio.get(
+        "${await Config.getUrl()}get_mandatory_fields",
+        queryParameters: {"token": token},
+      );
+      return _parseMandatoryFields(result.data);
+    } catch (e) {
+      log("get_mandatory_fields GET error: $e, trying POST...");
+      try {
+        var result = await _dio.post(
+          "${await Config.getUrl()}get_mandatory_fields",
+          data: FormData.fromMap({"token": token}),
+        );
+        return _parseMandatoryFields(result.data);
+      } catch (e2) {
+        log("get_mandatory_fields POST error: $e2");
+        return [];
+      }
+    }
+  }
+
+  static List<int> _parseMandatoryFields(dynamic data) {
+    try {
+      dynamic parsed = data;
+      if (parsed is String) {
+        parsed = jsonDecode(parsed);
+      }
+      if (parsed is Map &&
+          (parsed['status'] == true ||
+              parsed['status'] == 'true' ||
+              parsed['status'] == 200)) {
+        final dataMap = parsed['data'];
+        if (dataMap != null &&
+            dataMap is Map &&
+            dataMap['mandatory_fields'] != null) {
+          final list = dataMap['mandatory_fields'];
+          if (list is List) {
+            return list
+                .map((e) => int.tryParse(e.toString()) ?? 0)
+                .where((id) => id > 0)
+                .toList();
+          }
+        }
+      }
+    } catch (e) {
+      log("Error parsing mandatory fields: $e");
+    }
+    return [];
+  }
+
   // static Future fetchPostOffice(postalCode) async {
   //   try {
   //     var result =

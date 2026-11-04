@@ -1,16 +1,19 @@
 // ignore_for_file: file_names, must_be_immutable
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:country_picker/country_picker.dart';
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:login2/models/clients/is_customer_exist.dart';
 import 'package:login2/models/lead_management/districtModel.dart';
 import 'package:login2/models/lead_management/stateModel.dart';
 import 'package:lottie/lottie.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/common.dart';
 import '../../../models/clients/branchListModel.dart';
 import '../../../models/clients/editClientDetailsModel.dart';
@@ -32,6 +35,7 @@ class _EditClientsState extends State<EditClients> {
   bool result = true;
   TextEditingController clientName = TextEditingController();
   TextEditingController phoneNumber = TextEditingController();
+  TextEditingController whatsappNumber = TextEditingController();
   TextEditingController email = TextEditingController();
   TextEditingController address1 = TextEditingController();
   TextEditingController address2 = TextEditingController();
@@ -54,6 +58,31 @@ class _EditClientsState extends State<EditClients> {
   bool isExists = false;
   IsCustomerExistModel? isExist;
   var code = '91';
+  var whatsappCode = '91';
+
+  List<File> idProofFiles = [];
+  List<IdProofDocument> existingIdProofs = [];
+  List<String> existingIdProofFiles = [];
+  Set<int> mandatoryFields = {};
+  bool isLoadingMandatoryFields = true;
+
+  Future<void> _openDocument(String url) async {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return;
+    try {
+      final uri = Uri.parse(trimmed);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("Could not open URL: $trimmed ($e)");
+      }
+      Common.toastMessaage("Could not open document", Colors.red);
+    }
+  }
 
   StateModel? stateModel;
   List<StateList> stateList = [];
@@ -65,25 +94,369 @@ class _EditClientsState extends State<EditClients> {
   bool isLoadingState = true;
   bool isLoadingDistrict = false;
   String? selectedTaxType;
+
+  bool isMandatory(int id) => mandatoryFields.contains(id);
+
+  Widget _buildFieldLabel(String labelText, bool isRequired) {
+    if (!isRequired) {
+      return Text(
+        labelText,
+        style: const TextStyle(color: Colors.grey),
+      );
+    }
+    return Text.rich(
+      TextSpan(
+        text: labelText,
+        style: const TextStyle(color: Colors.grey),
+        children: const [
+          TextSpan(
+            text: ' *',
+            style: TextStyle(
+              color: Colors.red,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<String> _parseExistingIdProof(dynamic val) {
+    if (val == null) return [];
+    if (val is List) {
+      return val
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty && e != 'null')
+          .toList();
+    }
+    String str = val.toString().trim();
+    if (str.isEmpty || str == 'null') return [];
+    if (str.startsWith('[') && str.endsWith(']')) {
+      try {
+        final decoded = jsonDecode(str);
+        if (decoded is List) {
+          return decoded
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty && e != 'null')
+              .toList();
+        }
+      } catch (_) {}
+    }
+    if (str.contains(',')) {
+      return str
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty && e != 'null')
+          .toList();
+    }
+    return [str];
+  }
+
+  Future<void> fetchMandatoryFields() async {
+    try {
+      final fields = await HttpService.getMandatoryFields(widget.token);
+      if (mounted) {
+        setState(() {
+          mandatoryFields = fields.toSet();
+          isLoadingMandatoryFields = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          isLoadingMandatoryFields = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _pickIdProof() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
+        allowMultiple: true,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          for (var f in result.files) {
+            if (f.path != null) {
+              if (!idProofFiles.any((existing) => existing.path == f.path)) {
+                idProofFiles.add(File(f.path!));
+              }
+            }
+          }
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print("File pick error: $e");
+      }
+    }
+  }
+
+  Widget _buildIdProofUpload() {
+    final totalCount = idProofFiles.length + existingIdProofs.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildFieldLabel('ID Proof', isMandatory(1)),
+            if (totalCount > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2a86c9).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$totalCount file${totalCount > 1 ? 's' : ''}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF2a86c9),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: _pickIdProof,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: totalCount > 0
+                    ? const Color(0xFF2a86c9)
+                    : Colors.grey.shade400,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.cloud_upload_outlined,
+                  color: totalCount > 0 ? const Color(0xFF2a86c9) : Colors.grey,
+                  size: 22,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  totalCount > 0
+                      ? 'Add More ID Proof Documents'
+                      : 'Upload ID Proof (PDF, JPG, PNG, DOC)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: totalCount > 0
+                        ? const Color(0xFF2a86c9)
+                        : Colors.grey.shade700,
+                    fontWeight:
+                        totalCount > 0 ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (existingIdProofs.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          ...existingIdProofs.asMap().entries.map((entry) {
+            final index = entry.key;
+            final doc = entry.value;
+            final name = doc.fileName.isNotEmpty
+                ? doc.fileName
+                : (doc.fileUrl.isNotEmpty
+                    ? doc.fileUrl.split('/').last.split('\\').last
+                    : 'Document ${index + 1}');
+            final lower =
+                (name + doc.fileUrl + doc.previewUrl).toLowerCase();
+            final isPdf = lower.contains('.pdf');
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F7FA),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isPdf ? Icons.picture_as_pdf : Icons.image_outlined,
+                    color:
+                        isPdf ? Colors.red.shade700 : const Color(0xFF2a86c9),
+                    size: 22,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const Text(
+                          'Existing document',
+                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (doc.previewUrl.isNotEmpty) ...[
+                    InkWell(
+                      onTap: () => _openDocument(doc.previewUrl),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2a86c9).withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.remove_red_eye_outlined,
+                                color: Color(0xFF2a86c9), size: 16),
+                            SizedBox(width: 4),
+                            Text(
+                              'Preview',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF2a86c9),
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ] else if (doc.fileUrl.isNotEmpty) ...[
+                    InkWell(
+                      onTap: () => _openDocument(doc.fileUrl),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2a86c9).withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.remove_red_eye_outlined,
+                                color: Color(0xFF2a86c9), size: 16),
+                            SizedBox(width: 4),
+                            Text(
+                              'Preview',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF2a86c9),
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  if (doc.fileUrl.isNotEmpty &&
+                      doc.previewUrl.isNotEmpty &&
+                      doc.fileUrl != doc.previewUrl)
+                    InkWell(
+                      onTap: () => _openDocument(doc.fileUrl),
+                      borderRadius: BorderRadius.circular(6),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4.0),
+                        child: Icon(Icons.open_in_new,
+                            color: Colors.grey, size: 18),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          }),
+        ],
+        if (idProofFiles.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          ...idProofFiles.asMap().entries.map((entry) {
+            final index = entry.key;
+            final file = entry.value;
+            final name = file.path.split(Platform.pathSeparator).last;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F9F0),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline,
+                      color: Colors.green, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w500),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const Text(
+                          'New file selected',
+                          style: TextStyle(fontSize: 11, color: Colors.green),
+                        ),
+                      ],
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        idProofFiles.removeAt(index);
+                      });
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.all(4.0),
+                      child: Icon(Icons.close, color: Colors.red, size: 18),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ],
+    );
+  }
+
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     getData();
+    fetchMandatoryFields();
   }
 
   getData() async {
     final connectivityResult = await (Connectivity().checkConnectivity());
-    // if (connectivityResult == ConnectivityResult.mobile ||
-    //     connectivityResult == ConnectivityResult.wifi) {
-    //   setState(() {
-    //     result = true;
-    //   });
-    // } else {
-    //   setState(() {
-    //     result = false;
-    //   });
-    // }
     if (connectivityResult is List<ConnectivityResult>) {
       if (connectivityResult.contains(ConnectivityResult.mobile) ||
           connectivityResult.contains(ConnectivityResult.wifi)) {
@@ -107,25 +480,86 @@ class _EditClientsState extends State<EditClients> {
     if (mainClientDetail != null) {
       clientName.text = mainClientDetail!.data.name.toString();
       phoneNumber.text = mainClientDetail!.data.contactNo.toString();
+      if (mainClientDetail!.data.whatsappNumber != null &&
+          mainClientDetail!.data.whatsappNumber!.isNotEmpty) {
+        whatsappNumber.text = mainClientDetail!.data.whatsappNumber!;
+      }
+      if (mainClientDetail!.data.whatsappCountryCode != null &&
+          mainClientDetail!.data.whatsappCountryCode!.isNotEmpty) {
+        whatsappCode = mainClientDetail!.data.whatsappCountryCode!;
+      } else if (mainClientDetail!.data.countryCode.toString().isNotEmpty) {
+        whatsappCode = mainClientDetail!.data.countryCode.toString();
+      }
+      existingIdProofs =
+          List<IdProofDocument>.from(mainClientDetail!.data.idProofs);
+      if (existingIdProofs.isEmpty &&
+          mainClientDetail!.data.idProof != null &&
+          mainClientDetail!.data.idProof!.isNotEmpty &&
+          mainClientDetail!.data.idProof != 'null') {
+        final legacyFiles =
+            _parseExistingIdProof(mainClientDetail!.data.idProof);
+        for (var f in legacyFiles) {
+          existingIdProofs.add(IdProofDocument(
+            documentId: '',
+            fileId: '',
+            fileName: f.split('/').last.split('\\').last,
+            fileUrl: f,
+            previewUrl: f,
+          ));
+        }
+      }
+      existingIdProofFiles = existingIdProofs
+          .map((e) => e.fileUrl.isNotEmpty ? e.fileUrl : e.previewUrl)
+          .where((e) => e.isNotEmpty)
+          .toList();
+
       email.text = mainClientDetail!.data.emailId.toString();
       address1.text = mainClientDetail!.data.address1.toString();
       address2.text = mainClientDetail!.data.address2.toString();
       address3.text = mainClientDetail!.data.address3.toString();
-      stateId.text = mainClientDetail!.data.stateId.toString();
-      districtId.text = mainClientDetail!.data.districtId.toString();
+
+      final rawStateId = mainClientDetail!.data.stateId.toString().trim();
+      final isValidStateId = rawStateId.isNotEmpty &&
+          rawStateId != '0' &&
+          rawStateId != 'null';
+      stateId.text = isValidStateId ? rawStateId : '';
+      selectedStateId = isValidStateId ? rawStateId : null;
+
+      final rawDistrictId =
+          mainClientDetail!.data.districtId.toString().trim();
+      final isValidDistrictId = rawDistrictId.isNotEmpty &&
+          rawDistrictId != '0' &&
+          rawDistrictId != 'null';
+      districtId.text = isValidDistrictId ? rawDistrictId : '';
+      selectedDistrictId = isValidDistrictId ? rawDistrictId : null;
+
       await getStates();
-      setState(() {
-        selectedStateId = stateId.text.isNotEmpty ? stateId.text : null;
-      });
-      if (selectedStateId != null) {
-        await getDistricts(selectedStateId!);
+
+      // Verify that selectedStateId exists in fetched stateList
+      if (selectedStateId != null &&
+          !stateList.any((s) => s.id.trim() == selectedStateId!.trim())) {
+        selectedStateId = null;
+        stateId.text = '';
       }
 
-      setState(() {
-        selectedDistrictId =
-            districtId.text.isNotEmpty ? districtId.text : null;
-      });
+      if (selectedStateId != null) {
+        await getDistricts(selectedStateId!);
+        // Verify that selectedDistrictId exists in fetched districtList
+        if (selectedDistrictId != null &&
+            !districtList
+                .any((d) => d.id.trim() == selectedDistrictId!.trim())) {
+          selectedDistrictId = null;
+          districtId.text = '';
+        }
+      } else {
+        selectedDistrictId = null;
+        districtId.text = '';
+      }
+
       taxType.text = mainClientDetail!.data.taxType.toString();
+      selectedTaxType = mainClientDetail!.data.taxType.toString().isNotEmpty
+          ? mainClientDetail!.data.taxType.toString()
+          : "Intrastate";
       pinCode.text = mainClientDetail!.data.pincode.toString();
       gstNumber.text = mainClientDetail!.data.gstNum.toString();
       remarks.text = mainClientDetail!.data.remarks.toString();
@@ -137,15 +571,22 @@ class _EditClientsState extends State<EditClients> {
       if (pinCode.text != '') {
         postal = await HttpService.fetchPostOffice(pinCode.text);
       }
-      if (mainClientDetail!.data.branchId.toString() != '') {
-        branch = mainClientDetail!.data.branchId.toString();
+
+      final rawBranchId = mainClientDetail!.data.branchId.toString().trim();
+      final isValidBranchId = rawBranchId.isNotEmpty &&
+          rawBranchId != '0' &&
+          rawBranchId != 'null';
+      if (isValidBranchId) {
+        branch = rawBranchId;
+      } else {
+        branch = null;
       }
+
       if (mainClientDetail!.data.additionalFields.isNotEmpty) {
         for (int i = 0;
             i < mainClientDetail!.data.additionalFields.length;
             i++) {
           additionalFields.add({
-            // "product_name":productName.text,
             "field_name": mainClientDetail!.data.additionalFields[i].fieldName,
             "field_value":
                 mainClientDetail!.data.additionalFields[i].fieldValue,
@@ -160,27 +601,67 @@ class _EditClientsState extends State<EditClients> {
     setState(() => isLoadingState = true);
     final response = await HttpService.getState();
     if (response != null && response.status == true) {
+      final seenStateIds = <String>{};
+      final uniqueStates = (response.data as List<StateList>)
+          .where((s) =>
+              s.id.trim().isNotEmpty &&
+              s.id.trim() != '0' &&
+              seenStateIds.add(s.id.trim()))
+          .toList();
       setState(() {
-        stateList = response.data;
+        stateList = uniqueStates;
         isLoadingState = false;
+        if (selectedStateId != null &&
+            !stateList.any((s) => s.id.trim() == selectedStateId!.trim())) {
+          selectedStateId = null;
+          stateId.text = '';
+        }
       });
     } else {
       setState(() => isLoadingState = false);
     }
   }
 
-  Future<void> getDistricts(String stateId) async {
+  Future<void> getDistricts(String sId) async {
+    final cleanStateId = sId.trim();
+    if (cleanStateId.isEmpty ||
+        cleanStateId == '0' ||
+        cleanStateId == 'null') {
+      setState(() {
+        districtList = [];
+        selectedDistrictId = null;
+        districtId.text = '';
+        isLoadingDistrict = false;
+      });
+      return;
+    }
+
     setState(() {
       isLoadingDistrict = true;
       districtList = [];
       selectedDistrictId = null;
     });
 
-    final response = await HttpService.getDistrict(stateId);
+    final response = await HttpService.getDistrict(cleanStateId);
     if (response != null && response.status == true) {
+      final seenDistrictIds = <String>{};
+      final uniqueDistricts = (response.data as List<DistrictList>)
+          .where((d) =>
+              d.id.trim().isNotEmpty &&
+              d.id.trim() != '0' &&
+              seenDistrictIds.add(d.id.trim()))
+          .toList();
       setState(() {
-        districtList = response.data;
+        districtList = uniqueDistricts;
         isLoadingDistrict = false;
+        if (districtId.text.isNotEmpty &&
+            districtId.text != '0' &&
+            districtList
+                .any((d) => d.id.trim() == districtId.text.trim())) {
+          selectedDistrictId = districtId.text.trim();
+        } else {
+          selectedDistrictId = null;
+        }
       });
     } else {
       setState(() => isLoadingDistrict = false);
@@ -262,55 +743,75 @@ class _EditClientsState extends State<EditClients> {
                           multiBranch == 'true' && roleId == '2'
                               ? Padding(
                                   padding: const EdgeInsets.only(bottom: 15),
-                                  child: DropdownButtonFormField(
-                                    value: branch,
-                                    onChanged: (value) async {
-                                      setState(() {
-                                        branch = value.toString();
-                                      });
-                                    },
-                                    items: branchList!.data!.map((data) {
-                                      return DropdownMenuItem<String>(
-                                        value: data.branchId.toString(),
-                                        child: Text(
-                                          data.branchName.toString(),
+                                  child: Builder(
+                                    builder: (context) {
+                                      final branches = branchList?.data ?? [];
+                                      final seenBranchIds = <String>{};
+                                      final branchDropdownItems = branches
+                                          .where((data) =>
+                                              data.branchId != null &&
+                                              data.branchId.toString().trim().isNotEmpty &&
+                                              data.branchId.toString().trim() != '0' &&
+                                              seenBranchIds.add(data.branchId.toString().trim()))
+                                          .map((data) {
+                                        final bId = data.branchId.toString().trim();
+                                        return DropdownMenuItem<String>(
+                                          value: bId,
+                                          child: Text(
+                                            data.branchName?.toString() ?? '',
+                                          ),
+                                        );
+                                      }).toList();
+
+                                      final currentSelectedBranch = (branch != null &&
+                                              branch != '0' &&
+                                              branchDropdownItems.any((item) => item.value == branch!.trim()))
+                                          ? branch!.trim()
+                                          : null;
+
+                                      return DropdownButtonFormField<String>(
+                                        value: currentSelectedBranch,
+                                        onChanged: (value) async {
+                                          setState(() {
+                                            branch = value;
+                                          });
+                                        },
+                                        items: branchDropdownItems,
+                                        decoration: InputDecoration(
+                                          fillColor: Colors.white,
+                                          filled: true,
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(5),
+                                          ),
+                                          labelText: 'Select Branch',
+                                          prefixIcon: const Icon(
+                                              Icons.arrow_drop_down_circle_outlined,
+                                              color: Colors.grey),
+                                          labelStyle:
+                                              const TextStyle(color: Colors.grey),
+                                          contentPadding: const EdgeInsets.only(
+                                              left: 10, top: 2, bottom: 2),
                                         ),
                                       );
-                                    }).toList(),
-                                    decoration: InputDecoration(
-                                      fillColor: Colors.white,
-                                      filled: true,
-                                      border: OutlineInputBorder(
-                                        // Custom border
-                                        borderRadius: BorderRadius.circular(5),
-                                      ),
-                                      labelText: 'Select Branch',
-                                      prefixIcon: const Icon(
-                                          Icons.arrow_drop_down_circle_outlined,
-                                          color: Colors.grey),
-                                      labelStyle:
-                                          const TextStyle(color: Colors.grey),
-                                      contentPadding: const EdgeInsets.only(
-                                          left: 10, top: 2, bottom: 2),
-                                    ),
+                                    },
                                   ),
                                 )
                               : const SizedBox(),
                           TextFormField(
                             controller: clientName,
-                            decoration: const InputDecoration(
-                                contentPadding: EdgeInsets.only(
+                            decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.only(
                                     left: 10, top: 2, bottom: 2),
-                                labelText: 'Customer Name *',
+                                label: _buildFieldLabel('Customer Name', true),
                                 fillColor: Colors.white,
                                 filled: true,
                                 prefixIcon:
-                                    Icon(Icons.person, color: Colors.grey),
-                                border: OutlineInputBorder(),
-                                focusedBorder: OutlineInputBorder(
+                                    const Icon(Icons.person, color: Colors.grey),
+                                border: const OutlineInputBorder(),
+                                focusedBorder: const OutlineInputBorder(
                                   borderSide: BorderSide(color: Colors.grey),
                                 ),
-                                labelStyle: TextStyle(color: Colors.grey)),
+                                labelStyle: const TextStyle(color: Colors.grey)),
                           ),
                           const SizedBox(
                             height: 15,
@@ -326,7 +827,7 @@ class _EditClientsState extends State<EditClients> {
                             decoration: InputDecoration(
                                 contentPadding: const EdgeInsets.only(
                                     left: 10, top: 2, bottom: 2),
-                                labelText: 'Phone Number *',
+                                label: _buildFieldLabel('Phone Number', true),
                                 fillColor: Colors.white,
                                 filled: true,
                                 prefix: GestureDetector(
@@ -335,22 +836,15 @@ class _EditClientsState extends State<EditClients> {
                                       context: context,
                                       searchAutofocus: false,
                                       showPhoneCode: true,
-                                      // optional. Shows phone code before the country name.
                                       onSelect: (Country country) {
                                         setState(() {
                                           code = country.phoneCode;
                                         });
-
-                                        // flag = country.flagEmoji;
-                                        // print(countryPickerController.code.value);
-                                        // print(flag);
                                       },
                                     );
                                   },
                                   child: SizedBox(
-                                    // color: Colors.blue,
                                     width: 70,
-                                    // width: MediaQuery.of(context).size.width/3.5,
                                     child: Row(children: [
                                       Text("+$code"),
                                       const Icon(Icons.arrow_drop_down),
@@ -368,77 +862,117 @@ class _EditClientsState extends State<EditClients> {
                             height: 15,
                           ),
                           TextFormField(
-                            controller: email,
-                            decoration: const InputDecoration(
-                                contentPadding: EdgeInsets.only(
+                            controller: whatsappNumber,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.only(
                                     left: 10, top: 2, bottom: 2),
-                                labelText: 'Email',
+                                label: _buildFieldLabel('WhatsApp Number', isMandatory(2)),
+                                fillColor: Colors.white,
+                                filled: true,
+                                prefix: GestureDetector(
+                                  onTap: () {
+                                    showCountryPicker(
+                                      context: context,
+                                      searchAutofocus: false,
+                                      showPhoneCode: true,
+                                      onSelect: (Country country) {
+                                        setState(() {
+                                          whatsappCode = country.phoneCode;
+                                        });
+                                      },
+                                    );
+                                  },
+                                  child: SizedBox(
+                                    width: 70,
+                                    child: Row(children: [
+                                      Text("+$whatsappCode"),
+                                      const Icon(Icons.arrow_drop_down),
+                                    ]),
+                                  ),
+                                ),
+                                border: const OutlineInputBorder(),
+                                focusedBorder: const OutlineInputBorder(
+                                  borderSide: BorderSide(color: Colors.grey),
+                                ),
+                                labelStyle:
+                                    const TextStyle(color: Colors.grey)),
+                          ),
+                          const SizedBox(
+                            height: 15,
+                          ),
+                          TextFormField(
+                            controller: email,
+                            decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.only(
+                                    left: 10, top: 2, bottom: 2),
+                                label: _buildFieldLabel('Email', isMandatory(3)),
                                 fillColor: Colors.white,
                                 filled: true,
                                 prefixIcon:
-                                    Icon(Icons.email, color: Colors.grey),
-                                border: OutlineInputBorder(),
-                                focusedBorder: OutlineInputBorder(
+                                    const Icon(Icons.email, color: Colors.grey),
+                                border: const OutlineInputBorder(),
+                                focusedBorder: const OutlineInputBorder(
                                   borderSide: BorderSide(color: Colors.grey),
                                 ),
-                                labelStyle: TextStyle(color: Colors.grey)),
+                                labelStyle: const TextStyle(color: Colors.grey)),
                           ),
                           const SizedBox(
                             height: 15,
                           ),
                           TextFormField(
                             controller: address1,
-                            decoration: const InputDecoration(
-                                contentPadding: EdgeInsets.only(
+                            decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.only(
                                     left: 10, top: 2, bottom: 2),
-                                labelText: 'Address 1 *',
+                                label: _buildFieldLabel('Address 1', true),
                                 fillColor: Colors.white,
                                 filled: true,
                                 prefixIcon:
-                                    Icon(Icons.location_on, color: Colors.grey),
-                                border: OutlineInputBorder(),
-                                focusedBorder: OutlineInputBorder(
+                                    const Icon(Icons.location_on, color: Colors.grey),
+                                border: const OutlineInputBorder(),
+                                focusedBorder: const OutlineInputBorder(
                                   borderSide: BorderSide(color: Colors.grey),
                                 ),
-                                labelStyle: TextStyle(color: Colors.grey)),
+                                labelStyle: const TextStyle(color: Colors.grey)),
                           ),
                           const SizedBox(
                             height: 15,
                           ),
                           TextFormField(
                             controller: address2,
-                            decoration: const InputDecoration(
-                                contentPadding: EdgeInsets.only(
+                            decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.only(
                                     left: 10, top: 2, bottom: 2),
-                                labelText: 'Address 2',
+                                label: _buildFieldLabel('Address 2', isMandatory(7)),
                                 fillColor: Colors.white,
                                 filled: true,
                                 prefixIcon:
-                                    Icon(Icons.location_on, color: Colors.grey),
-                                border: OutlineInputBorder(),
-                                focusedBorder: OutlineInputBorder(
+                                    const Icon(Icons.location_on, color: Colors.grey),
+                                border: const OutlineInputBorder(),
+                                focusedBorder: const OutlineInputBorder(
                                   borderSide: BorderSide(color: Colors.grey),
                                 ),
-                                labelStyle: TextStyle(color: Colors.grey)),
+                                labelStyle: const TextStyle(color: Colors.grey)),
                           ),
                           const SizedBox(
                             height: 15,
                           ),
                           TextFormField(
                             controller: address3,
-                            decoration: const InputDecoration(
-                                contentPadding: EdgeInsets.only(
+                            decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.only(
                                     left: 10, top: 2, bottom: 2),
-                                labelText: 'Address 3',
+                                label: _buildFieldLabel('Address 3', false),
                                 fillColor: Colors.white,
                                 filled: true,
                                 prefixIcon:
-                                    Icon(Icons.location_on, color: Colors.grey),
-                                border: OutlineInputBorder(),
-                                focusedBorder: OutlineInputBorder(
+                                    const Icon(Icons.location_on, color: Colors.grey),
+                                border: const OutlineInputBorder(),
+                                focusedBorder: const OutlineInputBorder(
                                   borderSide: BorderSide(color: Colors.grey),
                                 ),
-                                labelStyle: TextStyle(color: Colors.grey)),
+                                labelStyle: const TextStyle(color: Colors.grey)),
                           ),
                           const SizedBox(height: 15),
                           Column(
@@ -447,35 +981,64 @@ class _EditClientsState extends State<EditClients> {
                               isLoadingState
                                   ? const Center(
                                       child: CircularProgressIndicator())
-                                  : DropdownButtonFormField<String>(
-                                      value: selectedStateId != null
-                                          ? selectedStateId
-                                          : stateId.text.isNotEmpty
-                                              ? stateId.text
-                                              : null,
-                                      hint: const Text("Select State"),
-                                      decoration: InputDecoration(
-                                        border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                        ),
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                                horizontal: 12, vertical: 8),
-                                      ),
-                                      items: stateList.map((state) {
-                                        return DropdownMenuItem<String>(
-                                          value: state.id,
-                                          child: Text(state.name),
+                                  : Builder(
+                                      builder: (context) {
+                                        final seenStateIds = <String>{};
+                                        final stateDropdownItems = stateList
+                                            .where((s) =>
+                                                s.id.trim().isNotEmpty &&
+                                                s.id.trim() != '0' &&
+                                                seenStateIds.add(s.id.trim()))
+                                            .map((state) {
+                                          return DropdownMenuItem<String>(
+                                            value: state.id.trim(),
+                                            child: Text(state.name),
+                                          );
+                                        }).toList();
+
+                                        final currentSelectedState =
+                                            (selectedStateId != null &&
+                                                    selectedStateId != '0' &&
+                                                    stateDropdownItems.any(
+                                                        (item) =>
+                                                            item.value ==
+                                                            selectedStateId!
+                                                                .trim()))
+                                                ? selectedStateId!.trim()
+                                                : null;
+
+                                        return DropdownButtonFormField<String>(
+                                          value: currentSelectedState,
+                                          hint: _buildFieldLabel(
+                                              "Select State", isMandatory(4)),
+                                          decoration: InputDecoration(
+                                            label: _buildFieldLabel(
+                                                "State", isMandatory(4)),
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 8),
+                                          ),
+                                          items: stateDropdownItems,
+                                          onChanged: (value) {
+                                            setState(() {
+                                              selectedStateId = value;
+                                              stateId.text = value ?? '';
+                                              selectedDistrictId = null;
+                                              districtId.text = '';
+                                              districtList.clear();
+                                            });
+                                            if (value != null &&
+                                                value.isNotEmpty &&
+                                                value != '0') {
+                                              getDistricts(value);
+                                            }
+                                          },
                                         );
-                                      }).toList(),
-                                      onChanged: (value) {
-                                        setState(() {
-                                          selectedStateId = value;
-                                          selectedDistrictId = null;
-                                          districtList.clear();
-                                        });
-                                        if (value != null) getDistricts(value);
                                       },
                                     ),
                             ],
@@ -487,30 +1050,55 @@ class _EditClientsState extends State<EditClients> {
                               if (isLoadingDistrict)
                                 const Center(child: CircularProgressIndicator())
                               else
-                                DropdownButtonFormField<String>(
-                                  value: selectedDistrictId != null
-                                      ? selectedDistrictId
-                                      : districtId.text.isNotEmpty
-                                          ? districtId.text
-                                          : null,
-                                  hint: const Text("Choose District"),
-                                  decoration: InputDecoration(
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 8),
-                                  ),
-                                  items: districtList.map((district) {
-                                    return DropdownMenuItem<String>(
-                                      value: district.id,
-                                      child: Text(district.name),
+                                Builder(
+                                  builder: (context) {
+                                    final seenDistrictIds = <String>{};
+                                    final districtDropdownItems = districtList
+                                        .where((d) =>
+                                            d.id.trim().isNotEmpty &&
+                                            d.id.trim() != '0' &&
+                                            seenDistrictIds.add(d.id.trim()))
+                                        .map((district) {
+                                      return DropdownMenuItem<String>(
+                                        value: district.id.trim(),
+                                        child: Text(district.name),
+                                      );
+                                    }).toList();
+
+                                    final currentSelectedDistrict =
+                                        (selectedDistrictId != null &&
+                                                selectedDistrictId != '0' &&
+                                                districtDropdownItems.any(
+                                                    (item) =>
+                                                        item.value ==
+                                                        selectedDistrictId!
+                                                            .trim()))
+                                            ? selectedDistrictId!.trim()
+                                            : null;
+
+                                    return DropdownButtonFormField<String>(
+                                      value: currentSelectedDistrict,
+                                      hint: _buildFieldLabel(
+                                          "Choose District", isMandatory(4)),
+                                      decoration: InputDecoration(
+                                        label: _buildFieldLabel(
+                                            "District", isMandatory(4)),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 8),
+                                      ),
+                                      items: districtDropdownItems,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          selectedDistrictId = value;
+                                          districtId.text = value ?? '';
+                                        });
+                                      },
                                     );
-                                  }).toList(),
-                                  onChanged: (value) {
-                                    setState(() {
-                                      selectedDistrictId = value;
-                                    });
                                   },
                                 ),
                             ],
@@ -572,9 +1160,6 @@ class _EditClientsState extends State<EditClients> {
                             ],
                           ),
                           const SizedBox(height: 15),
-                          const SizedBox(
-                            height: 15,
-                          ),
                           TextFormField(
                             onChanged: (value) async {
                               if (value.length >= 6) {
@@ -588,19 +1173,19 @@ class _EditClientsState extends State<EditClients> {
                               }
                             },
                             controller: pinCode,
-                            decoration: const InputDecoration(
-                                contentPadding: EdgeInsets.only(
+                            decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.only(
                                     left: 10, top: 2, bottom: 2),
-                                labelText: 'Pin Code',
+                                label: _buildFieldLabel('Pin Code', isMandatory(8)),
                                 fillColor: Colors.white,
                                 filled: true,
                                 prefixIcon:
-                                    Icon(Icons.pin_drop, color: Colors.grey),
-                                border: OutlineInputBorder(),
-                                focusedBorder: OutlineInputBorder(
+                                    const Icon(Icons.pin_drop, color: Colors.grey),
+                                border: const OutlineInputBorder(),
+                                focusedBorder: const OutlineInputBorder(
                                   borderSide: BorderSide(color: Colors.grey),
                                 ),
-                                labelStyle: TextStyle(color: Colors.grey)),
+                                labelStyle: const TextStyle(color: Colors.grey)),
                           ),
                           const SizedBox(
                             height: 15,
@@ -694,6 +1279,10 @@ class _EditClientsState extends State<EditClients> {
                           const SizedBox(
                             height: 15,
                           ),
+                          _buildIdProofUpload(),
+                          const SizedBox(
+                            height: 15,
+                          ),
                           TextFormField(
                             controller: gstNumber,
                             decoration: const InputDecoration(
@@ -741,13 +1330,13 @@ class _EditClientsState extends State<EditClients> {
                                       columnWidths: {
                                         0: FixedColumnWidth(
                                             MediaQuery.of(context).size.width *
-                                                0.4), // Using 10%
+                                                0.4),
                                         1: FixedColumnWidth(
                                             MediaQuery.of(context).size.width *
                                                 0.4),
                                         2: FixedColumnWidth(
                                             MediaQuery.of(context).size.width *
-                                                0.10), // Using 30%
+                                                0.10),
                                       },
                                       children: [
                                         TableRow(
@@ -810,13 +1399,13 @@ class _EditClientsState extends State<EditClients> {
                                       columnWidths: {
                                         0: FixedColumnWidth(
                                             MediaQuery.of(context).size.width *
-                                                0.4), // Using 10%
+                                                0.4),
                                         1: FixedColumnWidth(
                                             MediaQuery.of(context).size.width *
                                                 0.4),
                                         2: FixedColumnWidth(
                                             MediaQuery.of(context).size.width *
-                                                0.10), // Using 30%
+                                                0.10),
                                       },
                                       children: [
                                         TableRow(
@@ -1031,7 +1620,6 @@ class _EditClientsState extends State<EditClients> {
                                                               Colors.red);
                                                         } else {
                                                           additionalFields.add({
-                                                            // "product_name":productName.text,
                                                             "field_name":
                                                                 fieldName.text,
                                                             "field_value":
@@ -1117,17 +1705,51 @@ class _EditClientsState extends State<EditClients> {
                                 Common.toastMessaage(
                                     'PhoneNumber is already exists',
                                     Colors.red);
-                              }
-                              // else if (selectedStateId == null ||
-                              //     selectedStateId!.isEmpty) {
-                              //   Common.toastMessaage(
-                              //       'Please select a State', Colors.red);
-                              // } else if (selectedDistrictId == null ||
-                              //     selectedDistrictId!.isEmpty) {
-                              //   Common.toastMessaage(
-                              //       'Please select a District', Colors.red);
-                              // }
-                              else {
+                              } else if (isMandatory(2) &&
+                                  whatsappNumber.text.trim().isEmpty) {
+                                Common.toastMessaage(
+                                    'WhatsApp Number cannot be empty',
+                                    Colors.red);
+                              } else if (isMandatory(3) &&
+                                  email.text.trim().isEmpty) {
+                                Common.toastMessaage(
+                                    'Email cannot be empty',
+                                    Colors.red);
+                              } else if (email.text.trim().isNotEmpty &&
+                                  !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                                      .hasMatch(email.text.trim())) {
+                                Common.toastMessaage(
+                                    'Please enter a valid Email ID',
+                                    Colors.red);
+                              } else if (isMandatory(7) &&
+                                  address2.text.trim().isEmpty) {
+                                Common.toastMessaage(
+                                    'Address 2 cannot be empty',
+                                    Colors.red);
+                              } else if (isMandatory(4) &&
+                                  (selectedStateId == null ||
+                                      selectedStateId!.isEmpty ||
+                                      selectedStateId == '0')) {
+                                Common.toastMessaage(
+                                    'Please select a State', Colors.red);
+                              } else if (isMandatory(4) &&
+                                  (selectedDistrictId == null ||
+                                      selectedDistrictId!.isEmpty ||
+                                      selectedDistrictId == '0')) {
+                                Common.toastMessaage(
+                                    'Please select a District', Colors.red);
+                              } else if (isMandatory(8) &&
+                                  pinCode.text.trim().isEmpty) {
+                                Common.toastMessaage(
+                                    'Pin Code cannot be empty',
+                                    Colors.red);
+                              } else if (isMandatory(1) &&
+                                  idProofFiles.isEmpty &&
+                                  existingIdProofs.isEmpty) {
+                                Common.toastMessaage(
+                                    'Please upload ID Proof',
+                                    Colors.red);
+                              } else {
                                 if (context.mounted) {
                                   Common.showProgressDialog(
                                       context, "Loading..");
@@ -1138,21 +1760,71 @@ class _EditClientsState extends State<EditClients> {
                                   'name': clientName.text,
                                   'country_code': code,
                                   'contact_no': phoneNumber.text,
+                                  'whatsapp_no': whatsappNumber.text.trim(),
+                                  'whatsapp_number': whatsappNumber.text.trim(),
+                                  'whatsapp_country_code': whatsappCode,
                                   'email_id': email.text,
                                   'address': address1.text,
                                   'address2': address2.text,
                                   'address3': address3.text,
-                                  "state_id": selectedStateId,
-                                  "district_id": selectedDistrictId,
+                                  "state_id": (selectedStateId != null &&
+                                          selectedStateId != '0')
+                                      ? selectedStateId
+                                      : "",
+                                  "district_id":
+                                      (selectedDistrictId != null &&
+                                              selectedDistrictId != '0')
+                                          ? selectedDistrictId
+                                          : "",
                                   "tax_type": selectedTaxType ?? "",
                                   'pincode': pinCode.text,
                                   'post_office': postOffice.text,
                                   'gst_num': gstNumber.text,
                                   'remarks': remarks.text,
-                                  "branch_id": branch,
+                                  "branch_id": (branch != null && branch != '0')
+                                      ? branch
+                                      : "",
                                   'additional_fields':
                                       jsonEncode(additionalFields),
                                 });
+                                for (var file in idProofFiles) {
+                                  final fileName = file
+                                      .path
+                                      .split(Platform.pathSeparator)
+                                      .last;
+                                  body.files.add(MapEntry(
+                                    'id_proof[]',
+                                    await MultipartFile.fromFile(
+                                      file.path,
+                                      filename: fileName,
+                                    ),
+                                  ));
+                                }
+                                if (existingIdProofs.isNotEmpty) {
+                                  final urls = existingIdProofs
+                                      .map((e) => e.fileUrl.isNotEmpty
+                                          ? e.fileUrl
+                                          : e.previewUrl)
+                                      .where((u) => u.isNotEmpty)
+                                      .toList();
+                                  final docIds = existingIdProofs
+                                      .map((e) => e.documentId)
+                                      .where((id) => id.isNotEmpty)
+                                      .toList();
+
+                                  body.fields.add(MapEntry('existing_id_proof',
+                                      jsonEncode(urls)));
+                                  body.fields.add(MapEntry('existing_id_proofs',
+                                      urls.join(',')));
+                                  if (docIds.isNotEmpty) {
+                                    body.fields.add(MapEntry(
+                                        'existing_document_ids',
+                                        docIds.join(',')));
+                                    body.fields.add(MapEntry(
+                                        'existing_id_proof_ids',
+                                        jsonEncode(docIds)));
+                                  }
+                                }
                                 EditClientsModel object =
                                     await HttpService.editClients(body);
                                 if (object.status == true) {
