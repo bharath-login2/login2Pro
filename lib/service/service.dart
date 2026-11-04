@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http_parser/http_parser.dart';
@@ -3405,7 +3406,7 @@ class HttpService {
       "customer_id": clientId,
       "is_negative": "0",
     });
-    try {  
+    try {
       var result = await _dio.post(
         "${await Config.getUrl()}unmark_customer_negative",
         data: formData,
@@ -3526,7 +3527,8 @@ class HttpService {
     }
   }
 
-  static Future<Map<String, dynamic>?> postQuickCustomerType(dynamic body) async {
+  static Future<Map<String, dynamic>?> postQuickCustomerType(
+      dynamic body) async {
     try {
       var result = await _dio.post(
         "${await Config.getUrl()}post_quick_customer_type",
@@ -3548,7 +3550,8 @@ class HttpService {
     }
   }
 
-  static Future<Map<String, dynamic>?> postQuickWorkCategory(dynamic body) async {
+  static Future<Map<String, dynamic>?> postQuickWorkCategory(
+      dynamic body) async {
     try {
       var result = await _dio.post(
         "${await Config.getUrl()}post_quick_work_category",
@@ -3570,7 +3573,8 @@ class HttpService {
     }
   }
 
-  static Future<Map<String, dynamic>?> postQuickReceivedThrough(dynamic body) async {
+  static Future<Map<String, dynamic>?> postQuickReceivedThrough(
+      dynamic body) async {
     try {
       var result = await _dio.post(
         "${await Config.getUrl()}post_quick_received_tru",
@@ -12222,7 +12226,9 @@ class HttpService {
         }
       }
 
-      if (response != null && response.statusCode == 200 && response.data != null) {
+      if (response != null &&
+          response.statusCode == 200 &&
+          response.data != null) {
         final Map<String, dynamic> json;
         if (response.data is Map<String, dynamic>) {
           json = Map<String, dynamic>.from(response.data);
@@ -12293,7 +12299,9 @@ class HttpService {
         }
       }
 
-      if (response != null && response.statusCode == 200 && response.data != null) {
+      if (response != null &&
+          response.statusCode == 200 &&
+          response.data != null) {
         final Map<String, dynamic> json;
         if (response.data is Map<String, dynamic>) {
           json = Map<String, dynamic>.from(response.data);
@@ -18269,6 +18277,109 @@ class HttpService {
     } catch (e) {
       log("getCallReport error: $e");
     }
+    return null;
+  }
+
+//   static Future<Uint8List?> getWorkOrderCardPdf({
+//   required String workOrderId,
+// }) async {
+//   final token = await Common.getSharedPref("token");
+
+//   try {
+//     final formData = FormData.fromMap({
+//       'token': token,
+//       'work_order_id': workOrderId, // change key if your API expects another name
+//     });
+
+//     final response = await _dio.post(
+//       "${await Config.getUrl()}print_workorder_card",
+//       data: formData,
+//       options: Options(responseType: ResponseType.bytes),
+//     );
+
+//     if (response.statusCode == 200 && response.data != null) {
+//       final Uint8List bytes = Uint8List.fromList(
+//         List<int>.from(response.data as List),
+//       );
+
+//       // A real PDF starts with "%PDF"
+//       final bool isPdf = bytes.length > 4 &&
+//           bytes[0] == 0x25 &&
+//           bytes[1] == 0x50 &&
+//           bytes[2] == 0x44 &&
+//           bytes[3] == 0x46;
+
+//       if (isPdf) return bytes;
+
+//       log('print_workorder_card did not return a PDF: '
+//           '${String.fromCharCodes(bytes.take(300))}');
+//     }
+//   } catch (e) {
+//     log('getWorkOrderCardPdf error: $e');
+//   }
+
+//   return null;
+// }
+  static Future<Uint8List?> getWorkOrderCardPdf({
+    required String workOrderId,
+  }) async {
+    final token = await Common.getSharedPref("token");
+
+    try {
+      final formData = FormData.fromMap({
+        'token': token,
+        'workOrderId':
+            workOrderId, // change key if your API expects another name
+      });
+
+      final response = await _dio.post(
+        "${await Config.getUrl()}print_workorder_card",
+        data: formData,
+        options: Options(
+          responseType: ResponseType.bytes,
+          followRedirects: true,
+          validateStatus: (status) => status != null && status < 500,
+        ),
+      );
+
+      final dynamic raw = response.data;
+
+      // Make sure we always end up with bytes
+      final List<int> list = raw is List<int>
+          ? raw
+          : raw is List
+              ? List<int>.from(raw)
+              : raw is String
+                  ? raw.codeUnits
+                  : <int>[];
+
+      print('PDF status: ${response.statusCode}');
+      print('PDF content-type: ${response.headers.value("content-type")}');
+      print('PDF length: ${list.length}');
+      print('PDF head: ${String.fromCharCodes(list.take(120))}');
+
+      // Find "%PDF" (allows a few stray bytes/whitespace before it)
+      int start = -1;
+      final int limit = list.length < 1024 ? list.length - 4 : 1024;
+      for (int i = 0; i < limit; i++) {
+        if (list[i] == 0x25 &&
+            list[i + 1] == 0x50 &&
+            list[i + 2] == 0x44 &&
+            list[i + 3] == 0x46) {
+          start = i;
+          break;
+        }
+      }
+
+      if (start != -1) {
+        return Uint8List.fromList(list.sublist(start));
+      }
+
+      log('print_workorder_card did not return a PDF');
+    } catch (e) {
+      print('getWorkOrderCardPdf error: $e');
+    }
+
     return null;
   }
 }

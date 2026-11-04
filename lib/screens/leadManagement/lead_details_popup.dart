@@ -506,7 +506,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
     {'id': 'root', 'name': 'Drive'}
   ];
   bool isUploading = false;
-  bool get _showPhoneCallLogTab => Platform.isAndroid;
+  // bool get _showPhoneCallLogTab => Platform.isAndroid;
 
   static const Color appBarStart = Color(0xFF2a86c9);
   static const Color textPrimary = Color(0xFF2C3E50);
@@ -575,7 +575,8 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
   int _getTabCount() {
     int count = 4; // Followup, Activities, Details, Documents
     if (widget.leadDetails.data?.callHistoryPermission == true) count++;
-    if (_showPhoneCallLogTab) count++;
+    if (widget.leadDetails.data?.callHistoryPermission == true) count++;
+    // if (_showPhoneCallLogTab) count++;
     if (widget.mileStone?.data?.milestones?.isNotEmpty ?? false) count++;
     return count;
   }
@@ -587,9 +588,14 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
       labels.insert(insertAt, 'Cloud Call Logs');
       insertAt++;
     }
-    if (_showPhoneCallLogTab) {
-      labels.insert(insertAt, 'Phone Call Log'); // right after Call Logs
+    if (widget.leadDetails.data?.callHistoryPermission == true) {
+      labels.insert(insertAt, 'Phone Call Log');
+      insertAt++;
     }
+
+    // if (_showPhoneCallLogTab) {
+    //   labels.insert(insertAt, 'Phone Call Log'); // right after Call Logs
+    // }
     if (widget.mileStone?.data?.milestones?.isNotEmpty ?? false) {
       labels.add('Milestones');
     }
