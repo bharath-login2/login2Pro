@@ -66,6 +66,11 @@ class _AddProductsState extends State<AddProducts> {
   List filteredSubCategories = [];
   List<String> productTypeList = [];
   String? selectedProductType;
+
+  bool _isServiceProduct() {
+    final type = selectedProductType?.trim().toLowerCase();
+    return type == "service product" || type == "service";
+  }
   String? selectedServiceCycle;
   String? selectedWeekDay;
   String? selectedYearMonth;
@@ -687,7 +692,9 @@ void initState() {
         controller: sellingPrice,
         label: selectedProductType == "Rental"
             ? "Rental Price *"
-            : "Selling Price *",
+            : (_isServiceProduct()
+                ? "Service Amount *"
+                : "Selling Price *"),
         icon: Icons.currency_rupee_outlined,
         keyboardType: TextInputType.number,
         onChanged: (val) {
@@ -697,7 +704,9 @@ void initState() {
         validator: (val) => val!.isEmpty
             ? (selectedProductType == "Rental"
                 ? "Enter Rental Price"
-                : "Enter Selling Price")
+                : (_isServiceProduct()
+                    ? "Enter Service Amount"
+                    : "Enter Selling Price"))
             : null,
       ),
 
@@ -769,7 +778,7 @@ void initState() {
                         ],
                       ),
                       const SizedBox(height: 16),
-                    if (selectedProductType != "Rental") ...[
+                    if (selectedProductType != "Rental" && !_isServiceProduct()) ...[
   Row(
     children: [
       Expanded(
@@ -1090,7 +1099,7 @@ void initState() {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  if (selectedProductType == "Service") ...[
+                  if (_isServiceProduct()) ...[
                     _buildPipelineSection(),
                     const SizedBox(height: 16),
                   ],
@@ -1140,13 +1149,10 @@ void initState() {
                                     Expanded(
                                       child: _buildTextField(
                                         controller: openingStock,
-                                        label: "Opening Stock *",
+                                        label: "Opening Stock",
                                         icon: Icons.inventory_2_outlined,
                                         keyboardType: TextInputType.number,
-                                        validator: (val) =>
-                                            addStock && val!.isEmpty
-                                                ? "Enter Opening Stock"
-                                                : null,
+                                        validator: null,
                                       ),
                                     ),
                                   ],
@@ -1433,9 +1439,9 @@ void _updateTotalAmount() {
               padding: const EdgeInsets.only(bottom: 12.0),
               child: _buildTextField(
                 controller: pipelineControllers[index],
-                label: "Pipeline Name *",
+                label: "Pipeline Name",
                 icon: Icons.linear_scale,
-                validator: (val) => val!.isEmpty ? "Enter Pipeline Name" : null,
+                validator: null,
                 actionWidget: index == 0
                     ? _buildActionButton(Icons.add, const Color(0xFF26A69A),
                         () {

@@ -8887,6 +8887,24 @@ class _WorkListPageState extends State<WorkListPage>
                               Colors.blueGrey.shade600,
                             ),
 
+                          // Product Images
+                          if (work.productImages != null &&
+                              work.productImages!.isNotEmpty)
+                            _buildWorkImagesSection(
+                              title: "Product Images",
+                              icon: Icons.photo_library_outlined,
+                              images: work.productImages!,
+                            ),
+
+                          // Warranty Images
+                          if (work.warrantyImages != null &&
+                              work.warrantyImages!.isNotEmpty)
+                            _buildWorkImagesSection(
+                              title: "Warranty Images",
+                              icon: Icons.verified_outlined,
+                              images: work.warrantyImages!,
+                            ),
+
                           // Materials / Added Products
                           if (work.addProducts != null &&
                               work.addProducts!.isNotEmpty) ...[
@@ -9384,6 +9402,221 @@ class _WorkListPageState extends State<WorkListPage>
     if (lower == "onsite") return "On-site Service";
     if (lower == "workshop") return "In-office / Workshop Service";
     return t;
+  }
+
+  Future<void> _openWorkImageView(WorkImage img) async {
+    final targetUrl = img.viewUrl.isNotEmpty ? img.viewUrl : img.thumbnailUrl;
+    if (targetUrl.trim().isEmpty) return;
+    final uri = Uri.tryParse(targetUrl.trim());
+    if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
+      try {
+        final launched =
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (launched) return;
+      } catch (e) {
+        debugPrint('Error launching work image url: $e');
+      }
+    }
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(16),
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.topRight,
+            children: [
+              Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.75,
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: InteractiveViewer(
+                    child: Image.network(
+                      img.thumbnailUrl.isNotEmpty
+                          ? img.thumbnailUrl
+                          : img.viewUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Center(
+                        child: Icon(Icons.broken_image_outlined,
+                            color: Colors.white, size: 40),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: -12,
+                right: -12,
+                child: GestureDetector(
+                  onTap: () => Navigator.of(ctx).pop(),
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(color: Colors.black26, blurRadius: 4),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(6),
+                    child: const Icon(Icons.close,
+                        size: 20, color: Colors.black87),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildWorkImagesSection({
+    required String title,
+    required IconData icon,
+    required List<WorkImage> images,
+  }) {
+    if (images.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        const Divider(thickness: 1.2),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Icon(icon, size: 20, color: const Color(0xFF2a86c9)),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2a86c9),
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 3,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A86C9).withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                "${images.length} Image(s)",
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF2A86C9),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 88,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: images.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final img = images[index];
+              final thumb = img.thumbnailUrl.isNotEmpty
+                  ? img.thumbnailUrl
+                  : img.viewUrl;
+              return GestureDetector(
+                onTap: () => _openWorkImageView(img),
+                child: Container(
+                  width: 88,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF2a86c9).withOpacity(0.3),
+                      width: 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (thumb.isNotEmpty)
+                        Image.network(
+                          thumb,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF2a86c9),
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (_, __, ___) => const Center(
+                            child: Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.grey,
+                              size: 28,
+                            ),
+                          ),
+                        )
+                      else
+                        const Center(
+                          child: Icon(
+                            Icons.image_outlined,
+                            color: Colors.grey,
+                            size: 28,
+                          ),
+                        ),
+                      Positioned(
+                        bottom: 4,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.55),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.zoom_in,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _detailTile(IconData icon, String label, String? value, Color color) {

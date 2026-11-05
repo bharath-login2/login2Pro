@@ -50,7 +50,7 @@ class _WorkCategoryCardState extends State<WorkCategoryCard> {
         final categories = graphData.data.take(5).toList(); // ✅ Only first 5
 
         return DashboardCard(
-          title: "Work Category",
+          title: "Issue Type",
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const WorkCategoryPage()),
@@ -80,7 +80,7 @@ class _WorkCategoryCardState extends State<WorkCategoryCard> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 title: const Text(
-                                  "Work Category Details",
+                                  "Issue Type Details",
                                   style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 content: Column(

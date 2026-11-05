@@ -7,7 +7,30 @@ import 'package:login2/models/serviceman/staffModel.dart';
 import 'package:login2/models/serviceman/workCategoryModel.dart';
 import 'package:login2/models/serviceman/workOrderIdModel.dart';
 import 'package:login2/models/serviceman/workTypeModel.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'package:dio/dio.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:login2/service/service.dart';
+import 'package:login2/core/common.dart';
+import 'package:login2/core/config.dart';
+
+class WorkImageItem {
+  final String? id;
+  final String? fileId;
+  final String viewUrl;
+  final String thumbnailUrl;
+  final String name;
+
+  WorkImageItem({
+    this.id,
+    this.fileId,
+    required this.viewUrl,
+    required this.thumbnailUrl,
+    required this.name,
+  });
+}
 
 class EditWorkPage extends StatefulWidget {
   final String workOrderId;
@@ -22,7 +45,7 @@ class EditWorkPage extends StatefulWidget {
 }
 
 class _EditWorkPageState extends State<EditWorkPage> {
-  // ───────────────────────── Theme constants ─────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Theme constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   static const Color _primary = Color(0xFF2a86c9);
   static const Color _bg = Color(0xFFF4F6FA);
   static const Color _card = Colors.white;
@@ -65,6 +88,11 @@ class _EditWorkPageState extends State<EditWorkPage> {
   String? _selectedStatus;
   DateTime? _preferredDate;
   DateTime? _estimatedDate;
+  List<WorkImageItem> _existingProductImages = [];
+  List<WorkImageItem> _existingWarrantyImages = [];
+  final List<File> _productImages = [];
+  final List<File> _warrantyImages = [];
+  final ImagePicker _picker = ImagePicker();
 
   // Models
   CustomerModelService? customerModel;
@@ -73,6 +101,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
   WorkTypeModel? workType;
   WorkCategory? workCategory;
   ReceivedThroughModel? receivedOne;
+  WorkOrderDetailsModel? _workDetails;
   WorkOrderData? _workData;
 
   bool _whatsappNotify = true;
@@ -80,7 +109,26 @@ class _EditWorkPageState extends State<EditWorkPage> {
   bool _isLoading = true;
   bool _isMoreDetailsExpanded = false;
   bool _customerError = false;
+  bool _isDeletingImage = false;
   String? _errorMessage;
+  Set<String> _mandatoryFieldKeys = {};
+
+  bool _isMandatory(String key) => _mandatoryFieldKeys.contains(key);
+
+  Future<void> _fetchMandatoryFields() async {
+    try {
+      final keys = await HttpService.getServiceMandatoryFields();
+      if (mounted) {
+        setState(() {
+          _mandatoryFieldKeys = keys;
+        });
+      } else {
+        _mandatoryFieldKeys = keys;
+      }
+    } catch (e) {
+      debugPrint("Error fetching service mandatory fields: $e");
+    }
+  }
 
   String? _normalizeServiceType(String? val) {
     if (val == null || val.trim().isEmpty) return null;
@@ -125,17 +173,19 @@ class _EditWorkPageState extends State<EditWorkPage> {
     super.dispose();
   }
 
-  // ───────────────────────── Data loading ─────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Data loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<void> _loadAllData() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
     try {
+      final mandatoryFuture = _fetchMandatoryFields();
       final workDetails = await HttpService().getWorkEditDetails(
         widget.workOrderId,
       );
       if (workDetails != null && workDetails.status) {
+        _workDetails = workDetails;
         _workData = workDetails.data;
       } else {
         throw Exception('Failed to load work details');
@@ -147,6 +197,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
       workCategory = await HttpService().getWorkCategory();
       receivedOne = await HttpService().getReceivedThrough();
       _fillExistingData();
+      await mandatoryFuture;
     } catch (e) {
       _errorMessage = 'Failed to load data: $e';
     }
@@ -198,6 +249,22 @@ class _EditWorkPageState extends State<EditWorkPage> {
       _estimatedDate = DateTime.tryParse(data.estimatedDatetime);
     }
 
+    final rawProd = _workDetails?.productImages ??
+        _workDetails?.rawJson?["product_images"] ??
+        _workDetails?.rawJson?["product_image"] ??
+        data.productImages ??
+        data.rawJson?["product_images"] ??
+        data.rawJson?["product_image"];
+    _existingProductImages = _parseWorkImages(rawProd);
+
+    final rawWarr = _workDetails?.warrantyImages ??
+        _workDetails?.rawJson?["warranty_images"] ??
+        _workDetails?.rawJson?["warranty_image"] ??
+        data.warrantyImages ??
+        data.rawJson?["warranty_images"] ??
+        data.rawJson?["warranty_image"];
+    _existingWarrantyImages = _parseWorkImages(rawWarr);
+
     // Open "Show more" initially only if it already has data inside.
     _isMoreDetailsExpanded = _hasMoreDetailsData();
   }
@@ -224,7 +291,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
         _hasText(_selectedAccessory);
   }
 
-  // ───────────────────────── Helpers ─────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<void> _pickDateTime(BuildContext context, bool isPreferred) async {
     final DateTime? pickedDate = await showDatePicker(
       context: context,
@@ -284,7 +351,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
     return int.tryParse(v) == null ? v : null;
   }
 
-  // ───────────────────────── Customer picker ─────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Customer picker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<void> _showCustomerPicker() async {
     final CustomerDetails? selected = await showDialog<CustomerDetails>(
       context: context,
@@ -368,7 +435,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
     }
   }
 
-  // ───────────────────────── Accessories picker ─────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Accessories picker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   List<String> _parseAccessories() {
     if (_selectedAccessory == null || _selectedAccessory!.isEmpty) return [];
     final cleaned = _selectedAccessory!.replaceAll('"', '').replaceAll("'", '');
@@ -518,13 +585,154 @@ class _EditWorkPageState extends State<EditWorkPage> {
     }
   }
 
-  // ───────────────────────── Update ─────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Update â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<void> _updateWork() async {
-    final bool formOk = _formKey.currentState!.validate();
+    // 1. Check if any mandatory field is missing/invalid
+    bool showMoreHasError = false;
+    String? firstErrorMessage;
+
+    if (_isMandatory("1") &&
+        (_selectedProduct == null || _selectedProduct!.trim().isEmpty)) {
+      firstErrorMessage ??= 'Please select Product';
+    }
+    if (_isMandatory("2") && _locationController.text.trim().isEmpty) {
+      firstErrorMessage ??= 'Please enter Location';
+    }
+    if (_isMandatory("3") && _serialController.text.trim().isEmpty) {
+      firstErrorMessage ??= 'Please enter Serial No / Model No';
+    }
+    if (_isMandatory("4") && _brandController.text.trim().isEmpty) {
+      firstErrorMessage ??= 'Please enter Brand';
+    }
+    if (_isMandatory("5") &&
+        (_selectedCategory == null || _selectedCategory!.trim().isEmpty)) {
+      firstErrorMessage ??= 'Please select Issue Type';
+    }
+    if (_isMandatory("6") && _problemDescController.text.trim().isEmpty) {
+      firstErrorMessage ??= 'Please enter Problem Description';
+    }
+
+    // Check collapsible (Show more) mandatory fields
+    if (_isMandatory("7") &&
+        (_selectedCustomerType == null ||
+            _selectedCustomerType!.trim().isEmpty)) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please select Customer Type';
+    }
+    if (_isMandatory("8") && _emailController.text.trim().isEmpty) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please enter Email';
+    }
+    if (_isMandatory("9") && _addressController.text.trim().isEmpty) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please enter Address';
+    }
+    if (_isMandatory("10") &&
+        _remarksCustomerController.text.trim().isEmpty) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please enter Remarks About Customer';
+    }
+    if (_isMandatory("11") && _preferredDate == null) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please select Preferred Date';
+    }
+    if (_isMandatory("12") && _estimatedDate == null) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please select Estimated Date';
+    }
+    if (_isMandatory("13") &&
+        (_selectedServiceMan == null || _selectedServiceMan!.trim().isEmpty)) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please select Assigned Staff';
+    }
+    if (_isMandatory("14") &&
+        (_selectedStatus == null || _selectedStatus!.trim().isEmpty)) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please select Status';
+    }
+    if (_isMandatory("15") &&
+        (_selectedServiceType == null ||
+            _selectedServiceType!.trim().isEmpty)) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please select Service Type';
+    }
+    if (_isMandatory("16") &&
+        (_selectedJobType == null || _selectedJobType!.trim().isEmpty)) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please select Job Type';
+    }
+    if (_isMandatory("17") && _dealerCustomerController.text.trim().isEmpty) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please enter Dealer / Customer';
+    }
+    if (_isMandatory("18") && _userPasswordController.text.trim().isEmpty) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please enter User Password';
+    }
+    if (_isMandatory("19") &&
+        (_selectedReceivedThrough == null ||
+            _selectedReceivedThrough!.trim().isEmpty)) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please select Received Through';
+    }
+    if (_isMandatory("20") && _remarksController.text.trim().isEmpty) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please enter Remarks From Customer';
+    }
+    if (_isMandatory("21") &&
+        (_selectedAccessory == null ||
+            _selectedAccessory!.trim().isEmpty ||
+            _parseAccessories().isEmpty)) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please select Other Accessories';
+    }
+    final bool hasProductImages =
+        _existingProductImages.isNotEmpty || _productImages.isNotEmpty;
+    if (_isMandatory("22") && !hasProductImages) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please upload Product Images';
+    }
+    final bool hasWarrantyImages =
+        _existingWarrantyImages.isNotEmpty || _warrantyImages.isNotEmpty;
+    if (_isMandatory("23") && !hasWarrantyImages) {
+      showMoreHasError = true;
+      firstErrorMessage ??= 'Please upload Warranty Images';
+    }
+
+    if (showMoreHasError && !_isMoreDetailsExpanded) {
+      setState(() {
+        _isMoreDetailsExpanded = true;
+      });
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+
+    final bool formOk = _formKey.currentState?.validate() ?? false;
     final bool customerMissing =
         _selectedCustomerId == null || _selectedCustomerId!.isEmpty;
     setState(() => _customerError = customerMissing);
-    if (!formOk || customerMissing) return;
+
+    bool nonFormOk = true;
+    if (_isMandatory("11") && _preferredDate == null) nonFormOk = false;
+    if (_isMandatory("12") && _estimatedDate == null) nonFormOk = false;
+    if (_isMandatory("21") &&
+        (_selectedAccessory == null ||
+            _selectedAccessory!.trim().isEmpty ||
+            _parseAccessories().isEmpty)) {
+      nonFormOk = false;
+    }
+    if (_isMandatory("22") && !hasProductImages) nonFormOk = false;
+    if (_isMandatory("23") && !hasWarrantyImages) nonFormOk = false;
+
+    if (!formOk || customerMissing || !nonFormOk) {
+      if (customerMissing) {
+        _showError('Please select a customer');
+      } else if (firstErrorMessage != null) {
+        _showError(firstErrorMessage);
+      } else {
+        _showError('Please fill all mandatory fields');
+      }
+      return;
+    }
 
     showDialog(
       context: context,
@@ -574,7 +782,73 @@ class _EditWorkPageState extends State<EditWorkPage> {
 
       body.removeWhere((key, value) => value == null || value == '');
 
-      final result = await HttpService().updateWorkService(body);
+      final FormData formData = FormData.fromMap(body);
+
+      // Preserve existing product images
+      final existingProdUrls =
+          _existingProductImages.map((e) => e.viewUrl).toList();
+      formData.fields.add(
+          MapEntry('existing_product_images', jsonEncode(existingProdUrls)));
+      formData.fields.add(
+          MapEntry('existing_product_images_list', existingProdUrls.join(',')));
+      final existingProdIds = _existingProductImages
+          .map((e) => e.id)
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toList();
+      if (existingProdIds.isNotEmpty) {
+        formData.fields.add(
+            MapEntry('existing_product_image_ids', jsonEncode(existingProdIds)));
+      }
+      for (var id in existingProdIds) {
+        formData.fields.add(MapEntry('existing_product_image_ids[]', id));
+      }
+      for (var url in existingProdUrls) {
+        formData.fields.add(MapEntry('existing_product_images[]', url));
+      }
+
+      // Preserve existing warranty images
+      final existingWarrUrls =
+          _existingWarrantyImages.map((e) => e.viewUrl).toList();
+      formData.fields.add(
+          MapEntry('existing_warranty_images', jsonEncode(existingWarrUrls)));
+      formData.fields.add(MapEntry(
+          'existing_warranty_images_list', existingWarrUrls.join(',')));
+      final existingWarrIds = _existingWarrantyImages
+          .map((e) => e.id)
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toList();
+      if (existingWarrIds.isNotEmpty) {
+        formData.fields.add(
+            MapEntry('existing_warranty_image_ids', jsonEncode(existingWarrIds)));
+      }
+      for (var id in existingWarrIds) {
+        formData.fields.add(MapEntry('existing_warranty_image_ids[]', id));
+      }
+      for (var url in existingWarrUrls) {
+        formData.fields.add(MapEntry('existing_warranty_images[]', url));
+      }
+
+      // New product images
+      for (var file in _productImages) {
+        final fileName = file.path.split(Platform.pathSeparator).last;
+        formData.files.add(MapEntry(
+          'product_images[]',
+          await MultipartFile.fromFile(file.path, filename: fileName),
+        ));
+      }
+
+      // New warranty images
+      for (var file in _warrantyImages) {
+        final fileName = file.path.split(Platform.pathSeparator).last;
+        formData.files.add(MapEntry(
+          'warranty_images[]',
+          await MultipartFile.fromFile(file.path, filename: fileName),
+        ));
+      }
+
+      final result = await HttpService().updateWorkService(formData);
 
       if (!mounted) return;
       Navigator.of(context).pop(); // close progress dialog
@@ -599,11 +873,11 @@ class _EditWorkPageState extends State<EditWorkPage> {
     } catch (e) {
       if (!mounted) return;
       Navigator.of(context).pop();
-      _showError('⚠️ Error: $e');
+      _showError('âš ï¸ Error: $e');
     }
   }
 
-  // ───────────────────────── Build ─────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Build â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -721,14 +995,15 @@ class _EditWorkPageState extends State<EditWorkPage> {
     );
   }
 
-  // ───────────────────────── Sections ─────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Sections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildMainSection() {
     return _sectionCard(
       title: 'Job Details',
       icon: Icons.assignment_outlined,
       children: [
         _buildSelectField(
-          label: 'Customer Name *',
+          label: 'Customer Name',
+          isRequired: true,
           icon: Icons.person_outline_rounded,
           valueText: _selectedCustomerName,
           placeholder: 'Tap to select customer',
@@ -738,7 +1013,8 @@ class _EditWorkPageState extends State<EditWorkPage> {
         const SizedBox(height: 14),
         _buildTextField(
           _phoneController,
-          "Mobile Number *",
+          "Mobile Number",
+          isRequired: true,
           icon: Icons.phone_outlined,
           keyboardType: TextInputType.phone,
           validator: (value) {
@@ -748,30 +1024,68 @@ class _EditWorkPageState extends State<EditWorkPage> {
             return null;
           },
         ),
-        _buildTextField(_locationController, "Location",
-            icon: Icons.location_on_outlined),
-        _buildTextField(_serialController, "Serial No / Model No",
-            icon: Icons.qr_code_2_rounded),
-        _buildTextField(_brandController, "Brand", icon: Icons.sell_outlined),
+        _buildTextField(
+          _locationController,
+          "Location",
+          icon: Icons.location_on_outlined,
+          isRequired: _isMandatory("2"),
+          validator: _isMandatory("2")
+              ? (v) => (v == null || v.trim().isEmpty)
+                  ? 'Please enter Location'
+                  : null
+              : null,
+        ),
+        _buildTextField(
+          _serialController,
+          "Serial No / Model No",
+          icon: Icons.qr_code_2_rounded,
+          isRequired: _isMandatory("3"),
+          validator: _isMandatory("3")
+              ? (v) => (v == null || v.trim().isEmpty)
+                  ? 'Please enter Serial No / Model No'
+                  : null
+              : null,
+        ),
+        _buildTextField(
+          _brandController,
+          "Brand",
+          icon: Icons.sell_outlined,
+          isRequired: _isMandatory("4"),
+          validator: _isMandatory("4")
+              ? (v) => (v == null || v.trim().isEmpty)
+                  ? 'Please enter Brand'
+                  : null
+              : null,
+        ),
         _buildDropdown(
-          "Product (Work Type) *",
+          "Product",
           _selectedProduct,
           workType!.data
               .map((e) => {"id": e.id, "name": e.productName})
               .toList(),
           (val) => setState(() => _selectedProduct = val),
           icon: Icons.devices_other_outlined,
-          validator: (v) =>
-              (v == null || v.isEmpty) ? 'Please select a product' : null,
+          isRequired: _isMandatory("1"),
+          validator: _isMandatory("1")
+              ? (v) => (v == null || v.trim().isEmpty)
+                  ? 'Please select Product'
+                  : null
+              : null,
         ),
         _buildDropdown(
-          "Work Category",
+          "Issue Type",
           _selectedCategory,
           workCategory!.data
               .map((e) => {"id": e.workCategory, "name": e.workCategory})
               .toList(),
           (val) => setState(() => _selectedCategory = val),
           icon: Icons.category_outlined,
+          isRequired: _isMandatory("5"),
+          validator: _isMandatory("5")
+              ? (v) => (v == null || v.trim().isEmpty)
+                  ? 'Please select Issue Type'
+                  : null
+              : null,
         ),
         _buildTextField(
           _problemDescController,
@@ -779,6 +1093,12 @@ class _EditWorkPageState extends State<EditWorkPage> {
           icon: Icons.report_problem_outlined,
           maxLines: 3,
           isLast: true,
+          isRequired: _isMandatory("6"),
+          validator: _isMandatory("6")
+              ? (v) => (v == null || v.trim().isEmpty)
+                  ? 'Please enter Problem Description'
+                  : null
+              : null,
         ),
       ],
     );
@@ -842,12 +1162,37 @@ class _EditWorkPageState extends State<EditWorkPage> {
                   .toList(),
               (val) => setState(() => _selectedCustomerType = val),
               icon: Icons.groups_outlined,
+              isRequired: _isMandatory("7"),
+              validator: _isMandatory("7")
+                  ? (v) => (v == null || v.trim().isEmpty)
+                      ? 'Please select Customer Type'
+                      : null
+                  : null,
             ),
-            _buildTextField(_emailController, "Email",
-                icon: Icons.email_outlined,
-                keyboardType: TextInputType.emailAddress),
-            _buildTextField(_addressController, "Address",
-                icon: Icons.home_outlined, maxLines: 2),
+            _buildTextField(
+              _emailController,
+              "Email",
+              icon: Icons.email_outlined,
+              keyboardType: TextInputType.emailAddress,
+              isRequired: _isMandatory("8"),
+              validator: _isMandatory("8")
+                  ? (v) => (v == null || v.trim().isEmpty)
+                      ? 'Please enter Email'
+                      : null
+                  : null,
+            ),
+            _buildTextField(
+              _addressController,
+              "Address",
+              icon: Icons.home_outlined,
+              maxLines: 2,
+              isRequired: _isMandatory("9"),
+              validator: _isMandatory("9")
+                  ? (v) => (v == null || v.trim().isEmpty)
+                      ? 'Please enter Address'
+                      : null
+                  : null,
+            ),
             _buildDropdown(
               "Priority",
               _selectedPriority,
@@ -865,13 +1210,21 @@ class _EditWorkPageState extends State<EditWorkPage> {
           title: 'Work Details',
           icon: Icons.build_circle_outlined,
           children: [
-            _buildDateField("Preferred Date", _preferredDate,
-                () => _pickDateTime(context, true),
-                onClear: () => setState(() => _preferredDate = null)),
-            _buildDateField("Estimated Date", _estimatedDate,
-                () => _pickDateTime(context, false),
-                onClear: () => setState(() => _estimatedDate = null)),
-            _buildServiceManDropdown(),
+            _buildDateField(
+              "Preferred Date",
+              _preferredDate,
+              () => _pickDateTime(context, true),
+              onClear: () => setState(() => _preferredDate = null),
+              isRequired: _isMandatory("11"),
+            ),
+            _buildDateField(
+              "Estimated Date",
+              _estimatedDate,
+              () => _pickDateTime(context, false),
+              onClear: () => setState(() => _estimatedDate = null),
+              isRequired: _isMandatory("12"),
+            ),
+            _buildServiceManDropdown(isRequired: _isMandatory("13")),
             _buildDropdown(
               "Status",
               _selectedStatus,
@@ -880,6 +1233,12 @@ class _EditWorkPageState extends State<EditWorkPage> {
                   .toList(),
               (val) => setState(() => _selectedStatus = val),
               icon: Icons.timelapse_rounded,
+              isRequired: _isMandatory("14"),
+              validator: _isMandatory("14")
+                  ? (v) => (v == null || v.trim().isEmpty)
+                      ? 'Please select Status'
+                      : null
+                  : null,
             ),
             _buildDropdown(
               "Service Type",
@@ -890,6 +1249,12 @@ class _EditWorkPageState extends State<EditWorkPage> {
               ],
               (val) => setState(() => _selectedServiceType = val),
               icon: Icons.home_repair_service_outlined,
+              isRequired: _isMandatory("15"),
+              validator: _isMandatory("15")
+                  ? (v) => (v == null || v.trim().isEmpty)
+                      ? 'Please select Service Type'
+                      : null
+                  : null,
             ),
             _buildDropdown(
               "Job Type",
@@ -898,6 +1263,12 @@ class _EditWorkPageState extends State<EditWorkPage> {
               (val) => setState(() => _selectedJobType = val),
               icon: Icons.repeat_rounded,
               isLast: true,
+              isRequired: _isMandatory("16"),
+              validator: _isMandatory("16")
+                  ? (v) => (v == null || v.trim().isEmpty)
+                      ? 'Please select Job Type'
+                      : null
+                  : null,
             ),
           ],
         ),
@@ -907,14 +1278,51 @@ class _EditWorkPageState extends State<EditWorkPage> {
           icon: Icons.notes_rounded,
           children: [
             _buildTextField(
-                _remarksCustomerController, "Remarks About Customer",
-                icon: Icons.comment_outlined),
-            _buildTextField(_remarksController, "Description",
-                icon: Icons.description_outlined, maxLines: 2),
-            _buildTextField(_dealerCustomerController, "Dealer / Customer",
-                icon: Icons.storefront_outlined),
-            _buildTextField(_userPasswordController, "User Password",
-                icon: Icons.lock_outline_rounded, obscureText: true),
+              _remarksCustomerController,
+              "Remarks About Customer",
+              icon: Icons.comment_outlined,
+              isRequired: _isMandatory("10"),
+              validator: _isMandatory("10")
+                  ? (v) => (v == null || v.trim().isEmpty)
+                      ? 'Please enter Remarks About Customer'
+                      : null
+                  : null,
+            ),
+            _buildTextField(
+              _remarksController,
+              "Remarks From Customer",
+              icon: Icons.description_outlined,
+              maxLines: 2,
+              isRequired: _isMandatory("20"),
+              validator: _isMandatory("20")
+                  ? (v) => (v == null || v.trim().isEmpty)
+                      ? 'Please enter Remarks From Customer'
+                      : null
+                  : null,
+            ),
+            _buildTextField(
+              _dealerCustomerController,
+              "Dealer / Customer",
+              icon: Icons.storefront_outlined,
+              isRequired: _isMandatory("17"),
+              validator: _isMandatory("17")
+                  ? (v) => (v == null || v.trim().isEmpty)
+                      ? 'Please enter Dealer / Customer'
+                      : null
+                  : null,
+            ),
+            _buildTextField(
+              _userPasswordController,
+              "User Password",
+              icon: Icons.lock_outline_rounded,
+              obscureText: true,
+              isRequired: _isMandatory("18"),
+              validator: _isMandatory("18")
+                  ? (v) => (v == null || v.trim().isEmpty)
+                      ? 'Please enter User Password'
+                      : null
+                  : null,
+            ),
             _buildDropdown(
               "Received Through",
               _selectedReceivedThrough,
@@ -924,21 +1332,87 @@ class _EditWorkPageState extends State<EditWorkPage> {
                   .toList(),
               (val) => setState(() => _selectedReceivedThrough = val),
               icon: Icons.input_rounded,
+              isRequired: _isMandatory("19"),
+              validator: _isMandatory("19")
+                  ? (v) => (v == null || v.trim().isEmpty)
+                      ? 'Please select Received Through'
+                      : null
+                  : null,
             ),
-            _buildAccessoriesField(),
+            _buildAccessoriesField(
+              isRequired: _isMandatory("21"),
+            ),
+            const SizedBox(height: 14),
+            _buildEditImageUploadSection(
+              title: "Product Images",
+              icon: Icons.photo_library_outlined,
+              existingImages: _existingProductImages,
+              newFiles: _productImages,
+              onPick: () => _pickImages(isProduct: true),
+              onRemoveExisting: (index) => _handleDeleteExistingImage(
+                isProduct: true,
+                index: index,
+              ),
+              onRemoveNew: (index) => _handleDeleteNewImage(
+                isProduct: true,
+                index: index,
+              ),
+              isRequired: _isMandatory("22"),
+            ),
+            const SizedBox(height: 14),
+            _buildEditImageUploadSection(
+              title: "Warranty Images",
+              icon: Icons.verified_outlined,
+              existingImages: _existingWarrantyImages,
+              newFiles: _warrantyImages,
+              onPick: () => _pickImages(isProduct: false),
+              onRemoveExisting: (index) => _handleDeleteExistingImage(
+                isProduct: false,
+                index: index,
+              ),
+              onRemoveNew: (index) => _handleDeleteNewImage(
+                isProduct: false,
+                index: index,
+              ),
+              isRequired: _isMandatory("23"),
+            ),
           ],
         ),
       ],
     );
   }
 
-  // ───────────────────────── Reusable widgets ─────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Reusable widgets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  Widget _buildFieldLabel(String labelText, bool isRequired) {
+    final cleanLabel = labelText.endsWith(' *')
+        ? labelText.substring(0, labelText.length - 2)
+        : labelText;
+    if (!isRequired) {
+      return Text(cleanLabel);
+    }
+    return Text.rich(
+      TextSpan(
+        text: cleanLabel,
+        children: const [
+          TextSpan(
+            text: ' *',
+            style: TextStyle(
+              color: Colors.red,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   InputDecoration _decoration(
     String label, {
     IconData? icon,
     String? hint,
     String? errorText,
     bool alwaysFloat = false,
+    bool isRequired = false,
   }) {
     OutlineInputBorder border(Color color, [double width = 1]) =>
         OutlineInputBorder(
@@ -947,7 +1421,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
         );
 
     return InputDecoration(
-      labelText: label,
+      label: _buildFieldLabel(label, isRequired),
       hintText: hint,
       errorText: errorText,
       floatingLabelBehavior: alwaysFloat
@@ -1029,6 +1503,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
     int maxLines = 1,
     TextInputType? keyboardType,
     bool isLast = false,
+    bool isRequired = false,
     String? Function(String?)? validator,
   }) {
     return Padding(
@@ -1038,8 +1513,11 @@ class _EditWorkPageState extends State<EditWorkPage> {
         obscureText: obscureText,
         maxLines: maxLines,
         keyboardType: keyboardType,
-        decoration: _decoration(label, icon: icon),
+        decoration: _decoration(label, icon: icon, isRequired: isRequired),
         validator: validator,
+        autovalidateMode: validator != null
+            ? AutovalidateMode.onUserInteraction
+            : AutovalidateMode.disabled,
       ),
     );
   }
@@ -1051,6 +1529,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
     ValueChanged<String?> onChanged, {
     IconData? icon,
     bool isLast = false,
+    bool isRequired = false,
     String? Function(String?)? validator,
   }) {
     // De-duplicate by id and make sure the current value exists in the list.
@@ -1088,12 +1567,12 @@ class _EditWorkPageState extends State<EditWorkPage> {
         autovalidateMode: validator != null
             ? AutovalidateMode.onUserInteraction
             : AutovalidateMode.disabled,
-        decoration: _decoration(label, icon: icon),
+        decoration: _decoration(label, icon: icon, isRequired: isRequired),
       ),
     );
   }
 
-  Widget _buildServiceManDropdown() {
+  Widget _buildServiceManDropdown({bool isRequired = false}) {
     final staffMap = <String, String>{};
     final List<Map<String, dynamic>> uniqueStaffItems = [];
     for (final staff in staffModel!.data) {
@@ -1123,11 +1602,17 @@ class _EditWorkPageState extends State<EditWorkPage> {
     }
 
     return _buildDropdown(
-      "Assigned Service Man",
+      "Assigned Staff",
       resolvedValue?.isNotEmpty == true ? resolvedValue : null,
       uniqueStaffItems,
       (val) => setState(() => _selectedServiceMan = val),
       icon: Icons.engineering_outlined,
+      isRequired: isRequired,
+      validator: isRequired
+          ? (v) => (v == null || v.trim().isEmpty)
+              ? 'Please select Assigned Staff'
+              : null
+          : null,
     );
   }
 
@@ -1140,6 +1625,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
     required String placeholder,
     required VoidCallback onTap,
     String? errorText,
+    bool isRequired = false,
   }) {
     final bool hasValue = valueText != null && valueText.isNotEmpty;
     return InkWell(
@@ -1152,6 +1638,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
           hint: placeholder,
           errorText: errorText,
           alwaysFloat: true,
+          isRequired: isRequired,
         ).copyWith(
           suffixIcon:
               const Icon(Icons.keyboard_arrow_down_rounded, color: _textMuted),
@@ -1167,7 +1654,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
     );
   }
 
-  Widget _buildAccessoriesField() {
+  Widget _buildAccessoriesField({bool isRequired = false}) {
     final accessories = _parseAccessories();
     return InkWell(
       onTap: _openAccessoriesDialog,
@@ -1178,6 +1665,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
           icon: Icons.extension_outlined,
           hint: 'Tap to select accessories',
           alwaysFloat: true,
+          isRequired: isRequired,
         ).copyWith(
           suffixIcon:
               const Icon(Icons.keyboard_arrow_down_rounded, color: _textMuted),
@@ -1213,6 +1701,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
     DateTime? date,
     VoidCallback onTap, {
     VoidCallback? onClear,
+    bool isRequired = false,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -1225,6 +1714,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
             icon: Icons.event_outlined,
             hint: 'Select date and time',
             alwaysFloat: true,
+            isRequired: isRequired,
           ).copyWith(
             suffixIcon: date != null && onClear != null
                 ? IconButton(
@@ -1242,6 +1732,733 @@ class _EditWorkPageState extends State<EditWorkPage> {
           ),
         ),
       ),
+    );
+  }
+
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Image Upload & Preview Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  List<WorkImageItem> _parseWorkImages(dynamic raw) {
+    if (raw == null) return [];
+    List<WorkImageItem> items = [];
+    if (raw is List) {
+      for (var item in raw) {
+        if (item is Map) {
+          final id = (item['id'] ?? item['image_id'] ?? item['document_id'])
+              ?.toString();
+          final fileId = (item['file_id'] ?? item['fileId'])?.toString();
+          final viewUrl = (item['view_url'] ??
+                  item['file_url'] ??
+                  item['preview_url'] ??
+                  item['image_url'] ??
+                  item['image'] ??
+                  item['url'] ??
+                  item['path'])
+              ?.toString() ??
+              '';
+          final thumbnailUrl = (item['thumbnail_url'] ??
+                  item['thumb_url'] ??
+                  item['thumbnail'] ??
+                  item['preview_url'] ??
+                  viewUrl)
+              ?.toString() ??
+              '';
+          final name = (item['file_name'] ??
+                  item['image_name'] ??
+                  item['name'])
+              ?.toString() ??
+              (thumbnailUrl.isNotEmpty
+                  ? thumbnailUrl.split('/').last.split('\\').last
+                  : 'Image');
+          if (viewUrl.isNotEmpty || thumbnailUrl.isNotEmpty) {
+            items.add(WorkImageItem(
+              id: id,
+              fileId: fileId,
+              viewUrl: viewUrl.isNotEmpty ? viewUrl : thumbnailUrl,
+              thumbnailUrl: thumbnailUrl.isNotEmpty ? thumbnailUrl : viewUrl,
+              name: name.isNotEmpty ? name : 'Image',
+            ));
+          }
+        } else if (item is String && item.trim().isNotEmpty) {
+          final str = item.trim();
+          items.add(WorkImageItem(
+            viewUrl: str,
+            thumbnailUrl: str,
+            name: str.split('/').last.split('\\').last,
+          ));
+        }
+      }
+    } else if (raw is String && raw.trim().isNotEmpty) {
+      final str = raw.trim();
+      if (str.startsWith('[') && str.endsWith(']')) {
+        try {
+          final decoded = jsonDecode(str);
+          if (decoded is List) return _parseWorkImages(decoded);
+        } catch (_) {}
+      }
+      if (str.contains(',')) {
+        for (var part in str.split(',')) {
+          final trimmed = part.trim();
+          if (trimmed.isNotEmpty) {
+            items.add(WorkImageItem(
+              viewUrl: trimmed,
+              thumbnailUrl: trimmed,
+              name: trimmed.split('/').last.split('\\').last,
+            ));
+          }
+        }
+      } else {
+        items.add(WorkImageItem(
+          viewUrl: str,
+          thumbnailUrl: str,
+          name: str.split('/').last.split('\\').last,
+        ));
+      }
+    }
+    return items;
+  }
+
+  Future<void> _openImageView(String viewUrl, {String? thumbnailUrl}) async {
+    if (viewUrl.trim().isEmpty) return;
+    final uri = Uri.tryParse(viewUrl.trim());
+    if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
+      try {
+        final launched =
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (launched) return;
+      } catch (e) {
+        debugPrint('Failed to launch view_url: $e');
+      }
+    }
+    if (mounted) {
+      _previewImage(
+        url: (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
+            ? thumbnailUrl
+            : viewUrl,
+      );
+    }
+  }
+
+  Future<void> _pickImages({required bool isProduct}) async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Upload ${isProduct ? "Product" : "Warranty"} Images',
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading:
+                    const Icon(Icons.photo_library_outlined, color: _primary),
+                title: const Text('Choose Multiple from Gallery'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    final List<XFile> picked = await _picker.pickMultiImage();
+                    if (picked.isNotEmpty) {
+                      setState(() {
+                        final targetList =
+                            isProduct ? _productImages : _warrantyImages;
+                        for (var xFile in picked) {
+                          if (!targetList.any((f) => f.path == xFile.path)) {
+                            targetList.add(File(xFile.path));
+                          }
+                        }
+                      });
+                    }
+                  } catch (e) {
+                    debugPrint('Error picking images: $e');
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined, color: _primary),
+                title: const Text('Take Photo from Camera'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    final XFile? photo =
+                        await _picker.pickImage(source: ImageSource.camera);
+                    if (photo != null) {
+                      setState(() {
+                        final targetList =
+                            isProduct ? _productImages : _warrantyImages;
+                        if (!targetList.any((f) => f.path == photo.path)) {
+                          targetList.add(File(photo.path));
+                        }
+                      });
+                    }
+                  } catch (e) {
+                    debugPrint('Error taking photo: $e');
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _previewImage({File? file, String? url, String? title}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.topRight,
+          children: [
+            Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.75,
+                maxWidth: MediaQuery.of(context).size.width * 0.9,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: InteractiveViewer(
+                  child: file != null
+                      ? Image.file(file, fit: BoxFit.contain)
+                      : (url != null
+                          ? Image.network(url, fit: BoxFit.contain)
+                          : const SizedBox.shrink()),
+                ),
+              ),
+            ),
+            Positioned(
+              top: -12,
+              right: -12,
+              child: GestureDetector(
+                onTap: () => Navigator.of(ctx).pop(),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(color: Colors.black26, blurRadius: 4),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(6),
+                  child:
+                      const Icon(Icons.close, size: 20, color: Colors.black87),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ───────────────────────── Image Deletion & Confirmation ─────────────────────────
+  Future<bool> _showDeleteConfirmationDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text(
+          "Delete Image",
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: _textDark,
+          ),
+        ),
+        content: const Text(
+          "Do you want to delete this image?",
+          style: TextStyle(fontSize: 15, color: _textDark),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(
+              "Cancel",
+              style: TextStyle(color: _textMuted, fontWeight: FontWeight.w600),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 0,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text(
+              "OK",
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
+  Future<Map<String, dynamic>> _callDeleteWorkOrderImageApi(
+      String imageId) async {
+    try {
+      final token = await Common.getSharedPref("token");
+      final dio = Dio();
+      final formData = FormData.fromMap({
+        "token": token ?? "",
+        "image_id": imageId,
+      });
+
+      final response = await dio.post(
+        "${await Config.getUrl()}delete_workorder_image",
+        data: formData,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic raw = response.data;
+        final Map<String, dynamic> data = raw is Map<String, dynamic>
+            ? raw
+            : (raw is String
+                ? jsonDecode(raw)
+                : Map<String, dynamic>.from(raw));
+        final bool status = data["status"] == true ||
+            data["status"] == 1 ||
+            data["status"]?.toString().toLowerCase() == "true" ||
+            data["status"]?.toString().toLowerCase() == "success";
+        return {
+          "status": status,
+          "message": data["message"]?.toString() ??
+              (status
+                  ? "Image deleted successfully"
+                  : "Failed to delete image"),
+        };
+      }
+      return {
+        "status": false,
+        "message": "Server returned status code: ${response.statusCode}",
+      };
+    } catch (e) {
+      debugPrint("delete_workorder_image error: $e");
+      return {
+        "status": false,
+        "message": "Error deleting image: $e",
+      };
+    }
+  }
+
+  Future<void> _handleDeleteExistingImage({
+    required bool isProduct,
+    required int index,
+  }) async {
+    if (_isDeletingImage) return;
+
+    final targetList =
+        isProduct ? _existingProductImages : _existingWarrantyImages;
+    if (index < 0 || index >= targetList.length) return;
+
+    final WorkImageItem imageItem = targetList[index];
+
+    final bool confirmed = await _showDeleteConfirmationDialog();
+    if (!confirmed) return;
+    if (!mounted) return;
+
+    final String? imageId = imageItem.id;
+    if (imageId == null || imageId.trim().isEmpty) {
+      setState(() {
+        targetList.removeAt(index);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            "Image removed successfully",
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isDeletingImage = true;
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      final result = await _callDeleteWorkOrderImageApi(imageId.trim());
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // dismiss progress dialog
+
+      if (result["status"] == true) {
+        setState(() {
+          targetList.removeAt(index);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result["message"] ?? "Image deleted successfully",
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result["message"] ?? "Failed to delete image",
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Error deleting image: $e",
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeletingImage = false;
+        });
+      } else {
+        _isDeletingImage = false;
+      }
+    }
+  }
+
+  Future<void> _handleDeleteNewImage({
+    required bool isProduct,
+    required int index,
+  }) async {
+    final targetList = isProduct ? _productImages : _warrantyImages;
+    if (index < 0 || index >= targetList.length) return;
+
+    final bool confirmed = await _showDeleteConfirmationDialog();
+    if (!confirmed) return;
+    if (!mounted) return;
+
+    setState(() {
+      targetList.removeAt(index);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          "Image removed successfully",
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  Widget _buildEditImageUploadSection({
+    required String title,
+    required IconData icon,
+    required List<WorkImageItem> existingImages,
+    required List<File> newFiles,
+    required VoidCallback onPick,
+    required ValueChanged<int> onRemoveExisting,
+    required ValueChanged<int> onRemoveNew,
+    bool isRequired = false,
+  }) {
+    final int totalCount = existingImages.length + newFiles.length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 18, color: _primary),
+            const SizedBox(width: 8),
+            Text.rich(
+              TextSpan(
+                text: title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: _textDark,
+                ),
+                children: isRequired
+                    ? const [
+                        TextSpan(
+                          text: ' *',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ]
+                    : [],
+              ),
+            ),
+            if (totalCount > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$totalCount',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: _primary,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: onPick,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: _fill,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _border),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.cloud_upload_outlined,
+                    color: _primary, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  totalCount > 0 ? "Add More $title" : "Upload $title",
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: _primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (totalCount > 0) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              // Existing Images
+              ...existingImages.asMap().entries.map((entry) {
+                final index = entry.key;
+                final img = entry.value;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () => _openImageView(img.viewUrl,
+                          thumbnailUrl: img.thumbnailUrl),
+                      child: Container(
+                        width: 76,
+                        height: 76,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: _primary.withOpacity(0.4)),
+                          color: Colors.white,
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.network(
+                              img.thumbnailUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Center(
+                                child: Icon(Icons.broken_image_outlined,
+                                    color: Colors.grey, size: 24),
+                              ),
+                              loadingBuilder: (context, child, progress) {
+                                if (progress == null) return child;
+                                return const Center(
+                                  child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  ),
+                                );
+                              },
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              child: Container(
+                                color: Colors.black.withOpacity(0.55),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 2),
+                                child: const Text(
+                                  'Saved',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: GestureDetector(
+                        onTap: () => onRemoveExisting(index),
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(color: Colors.black26, blurRadius: 3),
+                            ],
+                          ),
+                          child: const Icon(Icons.close,
+                              size: 14, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+              // New Files
+              ...newFiles.asMap().entries.map((entry) {
+                final index = entry.key;
+                final file = entry.value;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () => _previewImage(file: file, title: title),
+                      child: Container(
+                        width: 76,
+                        height: 76,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.green.shade400),
+                          color: Colors.white,
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.file(
+                              file,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Center(
+                                child: Icon(Icons.broken_image_outlined,
+                                    color: Colors.grey, size: 24),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              child: Container(
+                                color: Colors.green.shade700.withOpacity(0.75),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 2),
+                                child: const Text(
+                                  'New',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: GestureDetector(
+                        onTap: () => onRemoveNew(index),
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(color: Colors.black26, blurRadius: 3),
+                            ],
+                          ),
+                          child: const Icon(Icons.close,
+                              size: 14, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }

@@ -79,6 +79,8 @@ class WorkOrder {
   final List<History>? history;
   final List<AddProduct>? addProducts; // ✅ New field added
   final String? pipelineName; // ✅ Pipeline stages JSON or string from api_workorders
+  final List<WorkImage>? productImages;
+  final List<WorkImage>? warrantyImages;
 
   WorkOrder({
     this.workOrderID,
@@ -115,6 +117,8 @@ class WorkOrder {
     this.history,
     this.addProducts, // ✅ added here
     this.pipelineName,
+    this.productImages,
+    this.warrantyImages,
   });
 
   factory WorkOrder.fromJson(Map<String, dynamic> json) {
@@ -170,11 +174,19 @@ class WorkOrder {
           : (json['pipeline_name'] != null
               ? jsonEncode(json['pipeline_name'])
               : (json['pipelineName']?.toString() ?? "")),
+      productImages: WorkImage.parseList(
+        json['product_images'] ?? json['product_image'] ?? json['productImages'],
+      ),
+      warrantyImages: WorkImage.parseList(
+        json['warranty_images'] ?? json['warranty_image'] ?? json['warrantyImages'],
+      ),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      "product_images": productImages?.map((e) => e.toJson()).toList(),
+      "warranty_images": warrantyImages?.map((e) => e.toJson()).toList(),
       "WorkOrderID": workOrderID,
       "work_order_id": workOrderId,
       "customer_name": customerName,
@@ -519,4 +531,86 @@ class PipelineProgress {
   Map<String, dynamic> toJson() {
     return {"name": name, "status": status};
   }
+}
+
+class WorkImage {
+  final String? id;
+  final String? fileId;
+  final String viewUrl;
+  final String thumbnailUrl;
+
+  WorkImage({
+    this.id,
+    this.fileId,
+    required this.viewUrl,
+    required this.thumbnailUrl,
+  });
+
+  factory WorkImage.fromJson(Map<String, dynamic> json) {
+    final thumb = json['thumbnail_url']?.toString() ??
+        json['thumbnailUrl']?.toString() ??
+        json['preview_url']?.toString() ??
+        json['file_url']?.toString() ??
+        json['view_url']?.toString() ??
+        json['url']?.toString() ??
+        '';
+    final view = json['view_url']?.toString() ??
+        json['viewUrl']?.toString() ??
+        json['file_url']?.toString() ??
+        json['preview_url']?.toString() ??
+        json['url']?.toString() ??
+        thumb;
+
+    return WorkImage(
+      id: json['id']?.toString(),
+      fileId: json['file_id']?.toString() ?? json['fileId']?.toString(),
+      viewUrl: view.isNotEmpty ? view : thumb,
+      thumbnailUrl: thumb.isNotEmpty ? thumb : view,
+    );
+  }
+
+  static List<WorkImage>? parseList(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is List) {
+      final list = <WorkImage>[];
+      for (var e in raw) {
+        if (e == null) continue;
+        if (e is WorkImage) {
+          list.add(e);
+        } else if (e is Map) {
+          list.add(WorkImage.fromJson(Map<String, dynamic>.from(e)));
+        } else if (e is String && e.trim().isNotEmpty) {
+          final s = e.trim();
+          list.add(WorkImage(viewUrl: s, thumbnailUrl: s));
+        }
+      }
+      return list.isNotEmpty ? list : null;
+    } else if (raw is String && raw.trim().isNotEmpty) {
+      final s = raw.trim();
+      if (s.startsWith('[') && s.endsWith(']')) {
+        try {
+          final decoded = jsonDecode(s);
+          if (decoded is List) return parseList(decoded);
+        } catch (_) {}
+      }
+      if (s.contains(',')) {
+        final list = s
+            .split(',')
+            .map((u) => u.trim())
+            .where((u) => u.isNotEmpty)
+            .map((u) => WorkImage(viewUrl: u, thumbnailUrl: u))
+            .toList();
+        return list.isNotEmpty ? list : null;
+      }
+      return [WorkImage(viewUrl: s, thumbnailUrl: s)];
+    }
+    return null;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'file_id': fileId,
+    'view_url': viewUrl,
+    'thumbnail_url': thumbnailUrl,
+  };
 }

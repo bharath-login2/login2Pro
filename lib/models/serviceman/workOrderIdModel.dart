@@ -7,19 +7,43 @@ class WorkOrderDetailsModel {
   bool status;
   WorkOrderData data;
   String message;
+  Map<String, dynamic>? rawJson;
+  dynamic productImages;
+  dynamic warrantyImages;
 
   WorkOrderDetailsModel({
     required this.status,
     required this.data,
     required this.message,
+    this.rawJson,
+    this.productImages,
+    this.warrantyImages,
   });
 
-  factory WorkOrderDetailsModel.fromJson(Map<String, dynamic> json) =>
-      WorkOrderDetailsModel(
-        status: json["status"],
-        data: WorkOrderData.fromJson(json["data"]),
-        message: json["message"],
-      );
+  factory WorkOrderDetailsModel.fromJson(Map<String, dynamic> json) {
+    final rawData = json["data"] != null && json["data"] is Map
+        ? Map<String, dynamic>.from(json["data"])
+        : <String, dynamic>{};
+
+    final prodImgs = json["product_images"] ??
+        json["product_image"] ??
+        rawData["product_images"] ??
+        rawData["product_image"];
+
+    final warrImgs = json["warranty_images"] ??
+        json["warranty_image"] ??
+        rawData["warranty_images"] ??
+        rawData["warranty_image"];
+
+    return WorkOrderDetailsModel(
+      status: json["status"] ?? false,
+      data: WorkOrderData.fromJson(rawData),
+      message: json["message"] ?? '',
+      rawJson: json,
+      productImages: prodImgs,
+      warrantyImages: warrImgs,
+    );
+  }
 }
 
 class WorkOrderData {
@@ -64,6 +88,9 @@ class WorkOrderData {
   String serviceOption;
   String serviceCharge;
   String serviceType;
+  dynamic productImages;
+  dynamic warrantyImages;
+  Map<String, dynamic>? rawJson;
 
   WorkOrderData({
     required this.workOrderID,
@@ -107,6 +134,9 @@ class WorkOrderData {
     this.serviceOption = '',
     this.serviceCharge = '',
     this.serviceType = '',
+    this.productImages,
+    this.warrantyImages,
+    this.rawJson,
   });
 
   factory WorkOrderData.fromJson(Map<String, dynamic> json) => WorkOrderData(
@@ -161,6 +191,15 @@ class WorkOrderData {
         serviceType: json["service_type"]?.toString() ??
             json["editservice_type"]?.toString() ??
             '',
+        productImages: json["product_images"] ??
+            json["product_image"] ??
+            json["productImages"] ??
+            json["productImage"],
+        warrantyImages: json["warranty_images"] ??
+            json["warranty_image"] ??
+            json["warrantyImages"] ??
+            json["warrantyImage"],
+        rawJson: json,
       );
 }
 

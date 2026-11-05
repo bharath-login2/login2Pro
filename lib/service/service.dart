@@ -580,24 +580,24 @@ class HttpService {
     try {
       final baseUrl = await Config.getUrl();
       if (baseUrl.isEmpty) {
-        log("❌ Base URL is empty. Check SharedPreferences or configuration.");
+        log("âŒ Base URL is empty. Check SharedPreferences or configuration.");
         return null;
       }
-      log("🔗 Calling: ${baseUrl}if_token_expired");
-      log("📦 Params: $params");
+      log("ðŸ”— Calling: ${baseUrl}if_token_expired");
+      log("ðŸ“¦ Params: $params");
       var result =
           await _dio.get("${baseUrl}if_token_expired", queryParameters: params);
 
       if (result.data != null) {
-        log("✅ API Response: ${result.data}");
+        log("âœ… API Response: ${result.data}");
         return LoginCheckModel.fromJson(result.data);
       } else {
-        log("❌ No data received from API");
+        log("âŒ No data received from API");
         return null;
       }
     } catch (e, stackTrace) {
-      log("❌ Dio error: $e");
-      log("🧵 Stack trace: $stackTrace");
+      log("âŒ Dio error: $e");
+      log("ðŸ§µ Stack trace: $stackTrace");
       return null;
     }
   }
@@ -870,7 +870,7 @@ class HttpService {
   }
 
   static Future leadReport(body) async {
-    print(body);
+    // print(body);
     try {
       var result = await _dio.post("${await Config.getUrl()}leadReport",
           options: Options(receiveTimeout: const Duration(seconds: 30)),
@@ -4247,6 +4247,73 @@ class HttpService {
     return [];
   }
 
+  static Future<Set<String>> getServiceMandatoryFields([String? customToken]) async {
+    try {
+      final token = customToken ?? await Common.getSharedPref("token");
+      final formData = FormData.fromMap({"token": token ?? ""});
+
+      final response = await _dio.post(
+        "${await Config.getUrl()}get_service_mandatory_fields",
+        data: formData,
+      );
+
+      return _parseServiceMandatoryFields(response.data);
+    } catch (e) {
+      log("get_service_mandatory_fields POST error: $e, trying GET...");
+      try {
+        final token = customToken ?? await Common.getSharedPref("token");
+        final response = await _dio.get(
+          "${await Config.getUrl()}get_service_mandatory_fields",
+          queryParameters: {"token": token ?? ""},
+        );
+        return _parseServiceMandatoryFields(response.data);
+      } catch (e2) {
+        log("get_service_mandatory_fields GET error: $e2");
+        return <String>{};
+      }
+    }
+  }
+
+  static Set<String> _parseServiceMandatoryFields(dynamic data) {
+    final Set<String> keys = <String>{};
+    try {
+      dynamic parsed = data;
+      if (parsed is String) {
+        parsed = jsonDecode(parsed);
+      }
+      if (parsed is Map &&
+          (parsed['status'] == true ||
+              parsed['status'] == 'true' ||
+              parsed['status'] == 1 ||
+              parsed['status'] == 200)) {
+        final dynamic rawData = parsed['data'];
+        if (rawData is List) {
+          for (var item in rawData) {
+            if (item is Map && item['field_key'] != null) {
+              keys.add(item['field_key'].toString().trim());
+            } else if (item != null) {
+              keys.add(item.toString().trim());
+            }
+          }
+        } else if (rawData is Map) {
+          final list = rawData['mandatory_fields'] ?? rawData['fields'];
+          if (list is List) {
+            for (var item in list) {
+              if (item is Map && item['field_key'] != null) {
+                keys.add(item['field_key'].toString().trim());
+              } else if (item != null) {
+                keys.add(item.toString().trim());
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      log("Error parsing service mandatory fields: $e");
+    }
+    return keys;
+  }
+
   // static Future fetchPostOffice(postalCode) async {
   //   try {
   //     var result =
@@ -4548,7 +4615,7 @@ class HttpService {
 
       return file.path;
     } catch (e) {
-      log("❌ Error in printInvoice: $e");
+      log("âŒ Error in printInvoice: $e");
       return null;
     }
   }
@@ -4572,7 +4639,7 @@ class HttpService {
 
       return file.path;
     } catch (e) {
-      log("❌ Error in printInvoice: $e");
+      log("âŒ Error in printInvoice: $e");
       return null;
     }
   }
@@ -4596,7 +4663,7 @@ class HttpService {
 
       return file.path;
     } catch (e) {
-      log("❌ Error in printInvoice: $e");
+      log("âŒ Error in printInvoice: $e");
       return null;
     }
   }
@@ -8753,11 +8820,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return true;
       } else {
-        print("❌ Failed: ${response.data}");
+        print("âŒ Failed: ${response.data}");
         return false;
       }
     } catch (e) {
-      print("🔥 Error adding project: $e");
+      print("ðŸ”¥ Error adding project: $e");
       return false;
     }
   }
@@ -8793,11 +8860,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return true;
       } else {
-        log("❌ Update failed: ${response.data}");
+        log("âŒ Update failed: ${response.data}");
         return false;
       }
     } catch (e) {
-      log("🔥 Error updating project: $e");
+      log("ðŸ”¥ Error updating project: $e");
       return false;
     }
   }
@@ -8817,11 +8884,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return true;
       } else {
-        log("❌ Delete failed: ${response.data}");
+        log("âŒ Delete failed: ${response.data}");
         return false;
       }
     } catch (e) {
-      log("🔥 Error deleting project: $e");
+      log("ðŸ”¥ Error deleting project: $e");
       return false;
     }
   }
@@ -8847,11 +8914,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return true;
       } else {
-        log("❌ Mark holiday failed: ${response.data}");
+        log("âŒ Mark holiday failed: ${response.data}");
         return false;
       }
     } catch (e) {
-      log("🔥 Error in markHoliday: $e");
+      log("ðŸ”¥ Error in markHoliday: $e");
       return false;
     }
   }
@@ -8879,11 +8946,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return true;
       } else {
-        log("❌ Mark leave failed: ${response.data}");
+        log("âŒ Mark leave failed: ${response.data}");
         return false;
       }
     } catch (e) {
-      log("🔥 Error in markLeave: $e");
+      log("ðŸ”¥ Error in markLeave: $e");
       return false;
     }
   }
@@ -8906,7 +8973,7 @@ class HttpService {
       );
       return response.statusCode == 200 && response.data['status'] == true;
     } catch (e) {
-      log("🔥 Error in markAttendance: $e");
+      log("ðŸ”¥ Error in markAttendance: $e");
       return false;
     }
   }
@@ -8925,11 +8992,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return AttendanceDataAllModel.fromJson(response.data);
       } else {
-        log("❌ Invalid response: ${response.data}");
+        log("âŒ Invalid response: ${response.data}");
         return null;
       }
     } catch (e) {
-      log("🔥 Error fetching attendance data: $e");
+      log("ðŸ”¥ Error fetching attendance data: $e");
       return null;
     }
   }
@@ -8948,11 +9015,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return CalendarDataAllModel.fromJson(response.data);
       } else {
-        log("❌ Invalid response: ${response.data}");
+        log("âŒ Invalid response: ${response.data}");
         return null;
       }
     } catch (e) {
-      log("🔥 Error fetching attendance data: $e");
+      log("ðŸ”¥ Error fetching attendance data: $e");
       return null;
     }
   }
@@ -8971,7 +9038,7 @@ class HttpService {
       );
       return response.statusCode == 200 && response.data['status'] == true;
     } catch (e) {
-      log("🔥 Error in markAttendance: $e");
+      log("ðŸ”¥ Error in markAttendance: $e");
       return false;
     }
   }
@@ -8989,11 +9056,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return DailyDataModel.fromJson(response.data);
       } else {
-        log("❌ Invalid response: ${response.data}");
+        log("âŒ Invalid response: ${response.data}");
         return null;
       }
     } catch (e) {
-      log("🔥 Error fetching attendance data: $e");
+      log("ðŸ”¥ Error fetching attendance data: $e");
       return null;
     }
   }
@@ -9011,11 +9078,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return SalaryList.fromJson(response.data);
       } else {
-        log("❌ Invalid response: ${response.data}");
+        log("âŒ Invalid response: ${response.data}");
         return null;
       }
     } catch (e) {
-      log("🔥 Error fetching salary list: $e");
+      log("ðŸ”¥ Error fetching salary list: $e");
       return null;
     }
   }
@@ -9033,11 +9100,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return SalaryDetailsModel.fromJson(response.data);
       } else {
-        debugPrint("❌ Failed response: ${response.data}");
+        debugPrint("âŒ Failed response: ${response.data}");
         return null;
       }
     } catch (e) {
-      debugPrint("🔥 Error fetching salary details: $e");
+      debugPrint("ðŸ”¥ Error fetching salary details: $e");
       return null;
     }
   }
@@ -9074,7 +9141,7 @@ class HttpService {
       );
       return response.statusCode == 200 && response.data['status'] == true;
     } catch (e) {
-      debugPrint("🔥 Error adding salary details: $e");
+      debugPrint("ðŸ”¥ Error adding salary details: $e");
       return false;
     }
   }
@@ -9082,7 +9149,7 @@ class HttpService {
   // static Future<StaffSummaryReport?> pendingStaffWorks(
   //     {Map<String, dynamic>? filters}) async {
   //   final token = await Common.getSharedPref('token');
-  //   debugPrint("📤 Sending token: $token, filters: $filters");
+  //   debugPrint("ðŸ“¤ Sending token: $token, filters: $filters");
 
   //   try {
   //     final formMap = {
@@ -9095,16 +9162,16 @@ class HttpService {
   //       data: FormData.fromMap(formMap),
   //     );
 
-  //     debugPrint("📥 Raw response: ${response.data}");
+  //     debugPrint("ðŸ“¥ Raw response: ${response.data}");
 
   //     if (response.statusCode == 200 && response.data['status'] == true) {
   //       return StaffSummaryReport.fromJson(response.data);
   //     } else {
-  //       debugPrint("❌ API error or status false: ${response.data}");
+  //       debugPrint("âŒ API error or status false: ${response.data}");
   //       return null;
   //     }
   //   } catch (e) {
-  //     debugPrint("🔥 Exception in pendingStaffWorks: $e");
+  //     debugPrint("ðŸ”¥ Exception in pendingStaffWorks: $e");
   //     return null;
   //   }
   // }
@@ -9132,15 +9199,15 @@ class HttpService {
         '${await Config.getUrl()}staffwise_pending_works',
         data: formData,
       );
-      debugPrint("📥 Raw response: ${response.data}");
+      debugPrint("ðŸ“¥ Raw response: ${response.data}");
       if (response.statusCode == 200 && response.data['status'] == true) {
         return StaffSummaryReport.fromJson(response.data);
       } else {
-        debugPrint("❌ API error or status false: ${response.data}");
+        debugPrint("âŒ API error or status false: ${response.data}");
         return null;
       }
     } catch (e) {
-      debugPrint("🔥 Exception in pendingStaffWorks: $e");
+      debugPrint("ðŸ”¥ Exception in pendingStaffWorks: $e");
       return null;
     }
   }
@@ -9159,11 +9226,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return ProjectPendingReport.fromJson(response.data);
       } else {
-        debugPrint("❌ Project Pending Error: ${response.data}");
+        debugPrint("âŒ Project Pending Error: ${response.data}");
         return null;
       }
     } catch (e) {
-      debugPrint("🔥 Exception in pendingProjectWorks: $e");
+      debugPrint("ðŸ”¥ Exception in pendingProjectWorks: $e");
       return null;
     }
   }
@@ -9344,11 +9411,11 @@ class HttpService {
       );
 
       final responseData = jsonDecode(response.data);
-      print("🔍 Decoded Response data: $responseData");
+      print("ðŸ” Decoded Response data: $responseData");
 
       return response.statusCode == 200 && responseData['status'] == true;
     } catch (e) {
-      log("🔥 Error in alertWorkNotification: $e");
+      log("ðŸ”¥ Error in alertWorkNotification: $e");
       return false;
     }
   }
@@ -9370,11 +9437,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return GetWorkMessageModel.fromJson(response.data);
       } else {
-        print("❌ Error response: ${response.data}");
+        print("âŒ Error response: ${response.data}");
         return null;
       }
     } catch (e) {
-      print("🔥 Exception: $e");
+      print("ðŸ”¥ Exception: $e");
       return null;
     }
   }
@@ -9395,11 +9462,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return GetWorkMessageModel.fromJson(response.data);
       } else {
-        print("❌ Error response: ${response.data}");
+        print("âŒ Error response: ${response.data}");
         return null;
       }
     } catch (e) {
-      print("🔥 Exception: $e");
+      print("ðŸ”¥ Exception: $e");
       return null;
     }
   }
@@ -9425,7 +9492,7 @@ class HttpService {
       );
       return response.statusCode == 200 && response.data['status'] == true;
     } catch (e) {
-      print("🔥 Error sending message: $e");
+      print("ðŸ”¥ Error sending message: $e");
       return false;
     }
   }
@@ -9444,11 +9511,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return CompanyLocationModel.fromJson(response.data);
       } else {
-        print("❌ Error response: ${response.data}");
+        print("âŒ Error response: ${response.data}");
         return null;
       }
     } catch (e) {
-      print("🔥 Exception while fetching company location: $e");
+      print("ðŸ”¥ Exception while fetching company location: $e");
       return null;
     }
   }
@@ -9472,7 +9539,7 @@ class HttpService {
 
       return response.statusCode == 200 && response.data['status'] == true;
     } catch (e) {
-      print("🔥 Exception while submitting company location: $e");
+      print("ðŸ”¥ Exception while submitting company location: $e");
       return false;
     }
   }
@@ -9490,7 +9557,7 @@ class HttpService {
       );
       return response.statusCode == 200 && response.data['status'] == true;
     } catch (e) {
-      print("🔥 Exception while submitting target: $e");
+      print("ðŸ”¥ Exception while submitting target: $e");
       return false;
     }
   }
@@ -9508,11 +9575,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return IndividualTargetModel.fromJson(response.data);
       } else {
-        print("❌ Error response: ${response.data}");
+        print("âŒ Error response: ${response.data}");
         return null;
       }
     } catch (e) {
-      print("🔥 Exception while fetching company location: $e");
+      print("ðŸ”¥ Exception while fetching company location: $e");
       return null;
     }
   }
@@ -9530,11 +9597,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return GroupTargetModel.fromJson(response.data);
       } else {
-        print("❌ Error response: ${response.data}");
+        print("âŒ Error response: ${response.data}");
         return null;
       }
     } catch (e) {
-      print("🔥 Exception while fetching company location: $e");
+      print("ðŸ”¥ Exception while fetching company location: $e");
       return null;
     }
   }
@@ -9552,11 +9619,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return CompanyTargetModel.fromJson(response.data);
       } else {
-        print("❌ Error response: ${response.data}");
+        print("âŒ Error response: ${response.data}");
         return null;
       }
     } catch (e) {
-      print("🔥 Exception while fetching company location: $e");
+      print("ðŸ”¥ Exception while fetching company location: $e");
       return null;
     }
   }
@@ -9580,10 +9647,10 @@ class HttpService {
         }),
       );
       final responseData = jsonDecode(response.data);
-      print("🔍 Decoded Response data: $responseData");
+      print("ðŸ” Decoded Response data: $responseData");
       return response.statusCode == 200 && responseData['status'] == true;
     } catch (e) {
-      log("🔥 Error in removeLocation: $e");
+      log("ðŸ”¥ Error in removeLocation: $e");
       return false;
     }
   }
@@ -9600,16 +9667,16 @@ class HttpService {
 
       final responseData = response.data;
 
-      print("🔍 Decoded Response data: $responseData");
+      print("ðŸ” Decoded Response data: $responseData");
 
       if (responseData['status'] == true) {
         return ProjectCountModel.fromJson(responseData);
       } else {
-        print("❌ Error response: $responseData");
+        print("âŒ Error response: $responseData");
         return null;
       }
     } catch (e) {
-      log("🔥 Error in dashboardCounts: $e");
+      log("ðŸ”¥ Error in dashboardCounts: $e");
       return null;
     }
   }
@@ -9624,14 +9691,14 @@ class HttpService {
         }),
       );
       final responseData = response.data as Map<String, dynamic>;
-      print("🔍 Decoded Response data: $responseData");
+      print("ðŸ” Decoded Response data: $responseData");
 
       if (responseData['status'] == true) {
         return responseData;
       }
       return null;
     } catch (e) {
-      log("🔥 Error in getDashboards: $e");
+      log("ðŸ”¥ Error in getDashboards: $e");
       return null;
     }
   }
@@ -9647,14 +9714,14 @@ class HttpService {
       );
 
       final responseData = response.data as Map<String, dynamic>;
-      print("🔍 Decoded Response data: $responseData");
+      print("ðŸ” Decoded Response data: $responseData");
 
       if (responseData['status'] == true) {
         return responseData;
       }
       return null;
     } catch (e) {
-      log("🔥 Error in getSelectedDashboard: $e");
+      log("ðŸ”¥ Error in getSelectedDashboard: $e");
       return null;
     }
   }
@@ -9672,11 +9739,11 @@ class HttpService {
         }),
       );
       final responseData = response.data;
-      print("🔍 Update dashboard response: $responseData");
+      print("ðŸ” Update dashboard response: $responseData");
 
       return responseData;
     } catch (e, stack) {
-      log("🔥 Error in updateSelectedDashboard: $e\n$stack");
+      log("ðŸ”¥ Error in updateSelectedDashboard: $e\n$stack");
       return null;
     }
   }
@@ -9702,15 +9769,15 @@ class HttpService {
         if (data['status'] == true) {
           return AttendanceHistoryModel.fromJson(data);
         } else {
-          print("❌ API returned false status: ${data['message']}");
+          print("âŒ API returned false status: ${data['message']}");
           return null;
         }
       } else {
-        print("❌ HTTP error: ${response.statusCode}");
+        print("âŒ HTTP error: ${response.statusCode}");
         return null;
       }
     } catch (e) {
-      print("🔥 Exception while fetching attendance history: $e");
+      print("ðŸ”¥ Exception while fetching attendance history: $e");
       return null;
     }
   }
@@ -9729,11 +9796,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return ExpenseTypePending.fromJson(response.data);
       } else {
-        print("❌ Error response: ${response.data}");
+        print("âŒ Error response: ${response.data}");
         return null;
       }
     } catch (e) {
-      print("🔥 Exception while fetching attendance history: $e");
+      print("ðŸ”¥ Exception while fetching attendance history: $e");
       return null;
     }
   }
@@ -9752,11 +9819,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return PendingList.fromJson(response.data);
       } else {
-        print("❌ Error response: ${response.data}");
+        print("âŒ Error response: ${response.data}");
         return null;
       }
     } catch (e) {
-      print("🔥 Exception while fetching attendance history: $e");
+      print("ðŸ”¥ Exception while fetching attendance history: $e");
       return null;
     }
   }
@@ -9776,7 +9843,7 @@ class HttpService {
         return UpdatePendingData.fromJson(result.data);
       }
     } catch (e) {
-      print("❌ editPendingHistory error: $e");
+      print("âŒ editPendingHistory error: $e");
     }
     return null;
   }
@@ -9797,7 +9864,7 @@ class HttpService {
         return CommonResponse.fromJson(result.data);
       }
     } catch (e) {
-      print("❌ delete_pending_expense error: $e");
+      print("âŒ delete_pending_expense error: $e");
     }
     return null;
   }
@@ -9834,11 +9901,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return StaffReportModel.fromJson(response.data);
       } else {
-        print("❌ Error response: ${response.data}");
+        print("âŒ Error response: ${response.data}");
         return null;
       }
     } catch (e) {
-      print("🔥 Exception while fetching attendance history: $e");
+      print("ðŸ”¥ Exception while fetching attendance history: $e");
       return null;
     }
   }
@@ -9860,8 +9927,8 @@ class HttpService {
         }),
         options: Options(contentType: 'multipart/form-data'),
       );
-      print("🟢 Raw response data type: ${response.data.runtimeType}");
-      print("🟢 Raw response data: ${response.data}");
+      print("ðŸŸ¢ Raw response data type: ${response.data.runtimeType}");
+      print("ðŸŸ¢ Raw response data: ${response.data}");
       dynamic responseData = response.data;
       if (responseData is String) {
         responseData = jsonDecode(responseData);
@@ -9869,11 +9936,11 @@ class HttpService {
       if (response.statusCode == 200 && responseData['status'] == true) {
         return TransferWorkResponse.fromJson(responseData);
       } else {
-        print("❌ Error response: $responseData");
+        print("âŒ Error response: $responseData");
         return null;
       }
     } catch (e) {
-      print("🔥 Exception while transferring work: $e");
+      print("ðŸ”¥ Exception while transferring work: $e");
       return null;
     }
   }
@@ -9909,11 +9976,11 @@ class HttpService {
       if (response.statusCode == 200 && response.data['status'] == true) {
         return TransferWorkResponse.fromJson(response.data);
       } else {
-        print("❌ Edit work failed: ${response.data}");
+        print("âŒ Edit work failed: ${response.data}");
         return null;
       }
     } catch (e) {
-      print("🔥 Exception while editing work: $e");
+      print("ðŸ”¥ Exception while editing work: $e");
       return null;
     }
   }
@@ -9978,15 +10045,15 @@ class HttpService {
         if (data['status'] == true) {
           return DocumentListModel.fromJson(data);
         } else {
-          print("⚠️ Server returned false status: ${data['message']}");
+          print("âš ï¸ Server returned false status: ${data['message']}");
           return null;
         }
       } else {
-        print("❌ HTTP Error: ${response.statusCode}");
+        print("âŒ HTTP Error: ${response.statusCode}");
         return null;
       }
     } catch (e, stackTrace) {
-      print("🔥 Exception while fetching document types: $e");
+      print("ðŸ”¥ Exception while fetching document types: $e");
       print(stackTrace);
       return null;
     }
@@ -10006,14 +10073,14 @@ class HttpService {
       );
 
       if (response.statusCode == 200 && response.data['status'] == true) {
-        print("✅ Proforma approved successfully: ${response.data}");
+        print("âœ… Proforma approved successfully: ${response.data}");
         return true;
       } else {
-        print("❌ Approve proforma failed: ${response.data}");
+        print("âŒ Approve proforma failed: ${response.data}");
         return false;
       }
     } catch (e) {
-      print("🔥 Exception while approving proforma: $e");
+      print("ðŸ”¥ Exception while approving proforma: $e");
       return false;
     }
   }
@@ -10031,7 +10098,7 @@ class HttpService {
         options: Options(contentType: 'multipart/form-data'),
       );
 
-      print("🟢 Reject proforma response: ${response.data}");
+      print("ðŸŸ¢ Reject proforma response: ${response.data}");
 
       if (response.statusCode == 200 && response.data['status'] == true) {
         return true;
@@ -10039,7 +10106,7 @@ class HttpService {
         return false;
       }
     } catch (e) {
-      print("🔥 Exception while rejecting proforma: $e");
+      print("ðŸ”¥ Exception while rejecting proforma: $e");
       return false;
     }
   }
@@ -10069,23 +10136,23 @@ class HttpService {
         options: Options(contentType: 'multipart/form-data'),
       );
 
-      print("🟢 Quotation list response: ${response.data}");
+      print("ðŸŸ¢ Quotation list response: ${response.data}");
 
       if (response.statusCode == 200 && response.data != null) {
         if (response.data is Map<String, dynamic>) {
           return QuotationListModel.fromJson(response.data);
         } else {
           print(
-            "⚠️ Invalid data format in getQuotationList response: Expected Map, got ${response.data.runtimeType}",
+            "âš ï¸ Invalid data format in getQuotationList response: Expected Map, got ${response.data.runtimeType}",
           );
         }
       } else {
         print(
-          "⚠️ Unexpected status code in getQuotationList: ${response.statusCode}",
+          "âš ï¸ Unexpected status code in getQuotationList: ${response.statusCode}",
         );
       }
     } catch (e, stackTrace) {
-      print("🔥 Exception in getQuotationList: $e");
+      print("ðŸ”¥ Exception in getQuotationList: $e");
       print("StackTrace: $stackTrace");
     }
 
@@ -10105,7 +10172,7 @@ class HttpService {
         options: Options(contentType: 'multipart/form-data'),
       );
 
-      print("🟢 Delete quotation response: ${response.data}");
+      print("ðŸŸ¢ Delete quotation response: ${response.data}");
 
       if (response.statusCode == 200) {
         if (response.data is Map && response.data['status'] == 'success') {
@@ -10117,7 +10184,7 @@ class HttpService {
         return 'failed';
       }
     } catch (e) {
-      print("🔥 Exception while deleting quotation: $e");
+      print("ðŸ”¥ Exception while deleting quotation: $e");
       return 'failed';
     }
   }
@@ -10130,12 +10197,12 @@ class HttpService {
         data: FormData.fromMap({"token": token}),
         options: Options(contentType: "multipart/form-data"),
       );
-      print("🟢 Materials Response: ${response.data}");
+      print("ðŸŸ¢ Materials Response: ${response.data}");
       if (response.statusCode == 200 && response.data != null) {
         return MaterialListModel.fromJson(response.data);
       }
     } catch (e, stackTrace) {
-      log("🔥 getMaterials error: $e");
+      log("ðŸ”¥ getMaterials error: $e");
       log("StackTrace: $stackTrace");
     }
     return null;
@@ -10149,12 +10216,12 @@ class HttpService {
         data: FormData.fromMap({"token": token}),
         options: Options(contentType: "multipart/form-data"),
       );
-      print("🟢 Materials Product Response: ${response.data}");
+      print("ðŸŸ¢ Materials Product Response: ${response.data}");
       if (response.statusCode == 200 && response.data != null) {
         return MaterialListModel.fromJson(response.data);
       }
     } catch (e, stackTrace) {
-      log("🔥 getMaterialsProduct error: $e");
+      log("ðŸ”¥ getMaterialsProduct error: $e");
       log("StackTrace: $stackTrace");
     }
     return null;
@@ -10175,22 +10242,22 @@ class HttpService {
         options: Options(contentType: 'multipart/form-data'),
       );
 
-      print("🟢 Customer List Response: ${response.data}");
+      print("ðŸŸ¢ Customer List Response: ${response.data}");
 
       if (response.statusCode == 200 && response.data != null) {
         return CustomerModel.fromJson(response.data);
       } else {
-        print("⚠️ Unexpected status: ${response.statusCode}");
+        print("âš ï¸ Unexpected status: ${response.statusCode}");
       }
     } catch (e) {
       if (e is DioException) {
-        print("🔥 DioException in getCustomerList:");
-        print("➡ Message: ${e.message}");
-        print("➡ Type: ${e.type}");
-        print("➡ Response: ${e.response?.data}");
-        print("➡ Status Code: ${e.response?.statusCode}");
+        print("ðŸ”¥ DioException in getCustomerList:");
+        print("âž¡ Message: ${e.message}");
+        print("âž¡ Type: ${e.type}");
+        print("âž¡ Response: ${e.response?.data}");
+        print("âž¡ Status Code: ${e.response?.statusCode}");
       } else {
-        print("🔥 Unknown Exception in getCustomerList: $e");
+        print("ðŸ”¥ Unknown Exception in getCustomerList: $e");
       }
     }
 
@@ -10206,14 +10273,14 @@ class HttpService {
         data: formData,
         options: Options(contentType: "multipart/form-data"),
       );
-      print("🟢 Submit Quotation Response: ${response.data}");
+      print("ðŸŸ¢ Submit Quotation Response: ${response.data}");
       if (response.statusCode == 200 && response.data != null) {
         return response.data;
       } else {
-        log("❌ Quotation submission failed: ${response.statusCode}");
+        log("âŒ Quotation submission failed: ${response.statusCode}");
       }
     } catch (e, stackTrace) {
-      log("🔥 Error in submitQuotation: $e");
+      log("ðŸ”¥ Error in submitQuotation: $e");
       log("StackTrace: $stackTrace");
     }
     return null;
@@ -10227,20 +10294,20 @@ class HttpService {
         data: FormData.fromMap({"token": token}),
         options: Options(contentType: "multipart/form-data"),
       );
-      print("🟢 Template Response: ${response.data}");
+      print("ðŸŸ¢ Template Response: ${response.data}");
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data;
 
         if (data['status'] == 'success') {
           return QuotationTemplateModel.fromJson(data);
         } else {
-          log("⚠️ API returned failure: ${data['message']}");
+          log("âš ï¸ API returned failure: ${data['message']}");
         }
       } else {
-        log("⚠️ Unexpected status code: ${response.statusCode}");
+        log("âš ï¸ Unexpected status code: ${response.statusCode}");
       }
     } catch (e, stack) {
-      log("🔥 getTemplateList error: $e");
+      log("ðŸ”¥ getTemplateList error: $e");
       log("Stack trace: $stack");
     }
     return null;
@@ -10256,7 +10323,7 @@ class HttpService {
         options: Options(contentType: "multipart/form-data"),
       );
 
-      print("🟢 Template Details Response: ${response.data}");
+      print("ðŸŸ¢ Template Details Response: ${response.data}");
 
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data;
@@ -10270,7 +10337,7 @@ class HttpService {
         log("Unexpected status: ${response.statusCode}");
       }
     } catch (e, stackTrace) {
-      log("🔥 getTemplateDetails error: $e");
+      log("ðŸ”¥ getTemplateDetails error: $e");
       log("StackTrace: $stackTrace");
     }
 
@@ -10353,7 +10420,7 @@ class HttpService {
         data: formData,
         options: Options(contentType: "multipart/form-data"),
       );
-      print("🟢 Quotation Edit Response: ${response.data}");
+      print("ðŸŸ¢ Quotation Edit Response: ${response.data}");
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data;
 
@@ -10370,7 +10437,7 @@ class HttpService {
         log("Unexpected status code in getQuotationEdit: ${response.statusCode}");
       }
     } catch (e, stackTrace) {
-      log("🔥 getQuotationEdit error: $e");
+      log("ðŸ”¥ getQuotationEdit error: $e");
       log("StackTrace: $stackTrace");
     }
     return null;
@@ -10386,7 +10453,7 @@ class HttpService {
         data: formData,
         options: Options(contentType: "multipart/form-data"),
       );
-      print("🟢 Update Quotation Response: ${response.data}");
+      print("ðŸŸ¢ Update Quotation Response: ${response.data}");
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data;
         if (data is Map<String, dynamic>) {
@@ -10398,7 +10465,7 @@ class HttpService {
         log("Unexpected status: ${response.statusCode}");
       }
     } catch (e, stackTrace) {
-      log("🔥 updateQuotation error: $e");
+      log("ðŸ”¥ updateQuotation error: $e");
       log("StackTrace: $stackTrace");
     }
     return null;
@@ -10415,7 +10482,7 @@ class HttpService {
         }),
       );
 
-      log("🟢 Quotation Dashboard Response: ${response.data}");
+      log("ðŸŸ¢ Quotation Dashboard Response: ${response.data}");
 
       if (response.statusCode == 200 && response.data != null) {
         final json = response.data;
@@ -10426,16 +10493,16 @@ class HttpService {
           if (dashboardResponse.status == "success") {
             return dashboardResponse;
           } else {
-            log("❌ API Error: ${dashboardResponse.message}");
+            log("âŒ API Error: ${dashboardResponse.message}");
           }
         } else {
-          log("❌ Invalid response format: ${json.runtimeType}");
+          log("âŒ Invalid response format: ${json.runtimeType}");
         }
       } else {
-        log("❌ HTTP Error: ${response.statusCode}");
+        log("âŒ HTTP Error: ${response.statusCode}");
       }
     } catch (e, stackTrace) {
-      log("🔥 getQuotationDashboard error: $e");
+      log("ðŸ”¥ getQuotationDashboard error: $e");
       log("StackTrace: $stackTrace");
     }
 
@@ -10454,7 +10521,7 @@ class HttpService {
         }),
       );
 
-      log("🟢 Quotation Dashboard Response: ${response.data}");
+      log("ðŸŸ¢ Quotation Dashboard Response: ${response.data}");
 
       if (response.statusCode == 200 && response.data != null) {
         final json = response.data;
@@ -10481,16 +10548,16 @@ class HttpService {
               data: filtered,
             );
           } else {
-            log("❌ API Error: ${dashboardResponse.message}");
+            log("âŒ API Error: ${dashboardResponse.message}");
           }
         } else {
-          log("❌ Invalid response format: ${json.runtimeType}");
+          log("âŒ Invalid response format: ${json.runtimeType}");
         }
       } else {
-        log("❌ HTTP Error: ${response.statusCode}");
+        log("âŒ HTTP Error: ${response.statusCode}");
       }
     } catch (e, stackTrace) {
-      log("🔥 getQuotationDashboard error: $e");
+      log("ðŸ”¥ getQuotationDashboard error: $e");
       log("StackTrace: $stackTrace");
     }
     return null;
@@ -10509,15 +10576,15 @@ class HttpService {
         options: Options(contentType: "multipart/form-data"),
       );
 
-      print("🟢 Create Quotation Request Response: ${response.data}");
+      print("ðŸŸ¢ Create Quotation Request Response: ${response.data}");
 
       if (response.statusCode == 200 && response.data != null) {
         return response.data;
       } else {
-        log("❌ Quotation request creation failed: ${response.statusCode}");
+        log("âŒ Quotation request creation failed: ${response.statusCode}");
       }
     } catch (e, stackTrace) {
-      log("🔥 Error in createQuotationRequest: $e");
+      log("ðŸ”¥ Error in createQuotationRequest: $e");
       log("StackTrace: $stackTrace");
     }
 
@@ -10538,7 +10605,7 @@ class HttpService {
         options: Options(contentType: 'multipart/form-data'),
       );
 
-      print("🟢 Delete Quotation Request Response: ${response.data}");
+      print("ðŸŸ¢ Delete Quotation Request Response: ${response.data}");
 
       if (response.statusCode == 200) {
         return DeleteQuotationRequestModel.fromJson(response.data);
@@ -10549,7 +10616,7 @@ class HttpService {
         );
       }
     } catch (e, stackTrace) {
-      print("🔥 Exception in deleteRequestQuotation: $e");
+      print("ðŸ”¥ Exception in deleteRequestQuotation: $e");
       print("StackTrace: $stackTrace");
 
       return DeleteQuotationRequestModel(
@@ -10570,15 +10637,15 @@ class HttpService {
         options: Options(contentType: "multipart/form-data"),
       );
 
-      print("🟢 Import Quotation Response: ${response.data}");
+      print("ðŸŸ¢ Import Quotation Response: ${response.data}");
 
       if (response.statusCode == 200 && response.data != null) {
         return response.data;
       } else {
-        log("❌ Import quotation failed: ${response.statusCode}");
+        log("âŒ Import quotation failed: ${response.statusCode}");
       }
     } catch (e, stackTrace) {
-      log("🔥 Error in importQuotation: $e");
+      log("ðŸ”¥ Error in importQuotation: $e");
       log("StackTrace: $stackTrace");
     }
 
@@ -10599,16 +10666,16 @@ class HttpService {
         options: Options(contentType: 'multipart/form-data'),
       );
 
-      print("🟢 Get Uploaded Quotation Details Response: ${response.data}");
+      print("ðŸŸ¢ Get Uploaded Quotation Details Response: ${response.data}");
 
       if (response.statusCode == 200 && response.data != null) {
         return UploadedQuotationModel.fromJson(response.data);
       } else {
-        print("⚠️ Unexpected status code: ${response.statusCode}");
+        print("âš ï¸ Unexpected status code: ${response.statusCode}");
         return null;
       }
     } catch (e, stackTrace) {
-      print("🔥 Exception in getUploadedQuotationDetails: $e");
+      print("ðŸ”¥ Exception in getUploadedQuotationDetails: $e");
       print("StackTrace: $stackTrace");
 
       // Return null on error
@@ -10628,16 +10695,16 @@ class HttpService {
         options: Options(contentType: "multipart/form-data"),
       );
 
-      print("🟢 Update Uploaded Quotation Response: ${response.data}");
+      print("ðŸŸ¢ Update Uploaded Quotation Response: ${response.data}");
 
       if (response.statusCode == 200 && response.data != null) {
         return response.data;
       } else {
-        print("⚠️ Update uploaded quotation failed: ${response.statusCode}");
+        print("âš ï¸ Update uploaded quotation failed: ${response.statusCode}");
         return null;
       }
     } catch (e, stackTrace) {
-      print("🔥 Exception in updateUploadedQuotation: $e");
+      print("ðŸ”¥ Exception in updateUploadedQuotation: $e");
       print("StackTrace: $stackTrace");
       return null;
     }
@@ -10657,7 +10724,7 @@ class HttpService {
         options: Options(contentType: 'multipart/form-data'),
       );
 
-      print("🟢 Get Request Quotation Details Response: ${response.data}");
+      print("ðŸŸ¢ Get Request Quotation Details Response: ${response.data}");
 
       if (response.statusCode == 200 && response.data != null) {
         final result = QuoRequestDetailsResponse.fromJson(response.data);
@@ -10665,13 +10732,13 @@ class HttpService {
         if (result.status.toLowerCase() == 'success') {
           return result;
         } else {
-          print("⚠️ API Failed: ${result.message}");
+          print("âš ï¸ API Failed: ${result.message}");
         }
       } else {
-        print("⚠️ Unexpected status code: ${response.statusCode}");
+        print("âš ï¸ Unexpected status code: ${response.statusCode}");
       }
     } catch (e, stackTrace) {
-      print("🔥 Exception in getRequestQuotationDetails: $e");
+      print("ðŸ”¥ Exception in getRequestQuotationDetails: $e");
       print("StackTrace: $stackTrace");
     }
 
@@ -10687,13 +10754,13 @@ class HttpService {
         options: Options(contentType: 'multipart/form-data'),
       );
 
-      print("🟢 Update Request Response: ${response.data}");
+      print("ðŸŸ¢ Update Request Response: ${response.data}");
 
       if (response.statusCode == 200 && response.data != null) {
         return response.data;
       }
     } catch (e, stackTrace) {
-      print("🔥 Exception in updateQuotationRequest: $e");
+      print("ðŸ”¥ Exception in updateQuotationRequest: $e");
       print("StackTrace: $stackTrace");
       rethrow;
     }
@@ -10719,13 +10786,13 @@ class HttpService {
         options: Options(contentType: 'multipart/form-data'),
       );
 
-      print("🟢 Update Status Response: ${response.data}");
+      print("ðŸŸ¢ Update Status Response: ${response.data}");
 
       if (response.statusCode == 200 && response.data != null) {
         return response.data;
       }
     } catch (e, stackTrace) {
-      print("🔥 Exception in updateRequestStatus: $e");
+      print("ðŸ”¥ Exception in updateRequestStatus: $e");
       print("StackTrace: $stackTrace");
       rethrow;
     }
@@ -10749,13 +10816,13 @@ class HttpService {
         data: formData,
         options: Options(contentType: 'multipart/form-data'),
       );
-      print("🟢 Update Status Response: ${response.data}");
+      print("ðŸŸ¢ Update Status Response: ${response.data}");
 
       if (response.statusCode == 200 && response.data != null) {
         return response.data;
       }
     } catch (e, stackTrace) {
-      print("🔥 Exception in updateRequestStatus: $e");
+      print("ðŸ”¥ Exception in updateRequestStatus: $e");
       print("StackTrace: $stackTrace");
       rethrow;
     }
@@ -10767,7 +10834,7 @@ class HttpService {
       final token = await Common.getSharedPref('token') ?? '';
 
       if (token.isEmpty) {
-        print("⚠️ Token is empty");
+        print("âš ï¸ Token is empty");
         return null;
       }
 
@@ -10783,7 +10850,7 @@ class HttpService {
           receiveTimeout: const Duration(seconds: 30),
         ),
       );
-      print("🟢 Get Request Quotation Details Response: ${response.data}");
+      print("ðŸŸ¢ Get Request Quotation Details Response: ${response.data}");
       if (response.statusCode == 200 && response.data != null) {
         try {
           final result = RequestResponseModel.fromJson(response.data);
@@ -10791,25 +10858,25 @@ class HttpService {
           if (result.status?.toLowerCase() == 'success') {
             return result;
           } else {
-            print("⚠️ API Failed: ${result.message}");
+            print("âš ï¸ API Failed: ${result.message}");
           }
         } catch (e) {
-          print("🔥 Error parsing response: $e");
+          print("ðŸ”¥ Error parsing response: $e");
           print("Response data: ${response.data}");
           return null;
         }
       } else {
-        print("⚠️ Unexpected status code: ${response.statusCode}");
+        print("âš ï¸ Unexpected status code: ${response.statusCode}");
         print("Response: ${response.data}");
       }
     } on DioException catch (e) {
-      print("🔥 DioException in getRequestQuotationDetails: $e");
+      print("ðŸ”¥ DioException in getRequestQuotationDetails: $e");
       if (e.response != null) {
         print("Response data: ${e.response?.data}");
         print("Response status: ${e.response?.statusCode}");
       }
     } catch (e, stackTrace) {
-      print("🔥 Exception in getRequestQuotationDetails: $e");
+      print("ðŸ”¥ Exception in getRequestQuotationDetails: $e");
       print("StackTrace: $stackTrace");
     }
 
@@ -10821,16 +10888,16 @@ class HttpService {
       final token = await Common.getSharedPref('token') ?? '';
 
       if (token.isEmpty) {
-        print("⚠️ Token is empty");
+        print("âš ï¸ Token is empty");
         return null;
       }
 
       if (id.isEmpty) {
-        print("⚠️ Request ID is empty");
+        print("âš ï¸ Request ID is empty");
         return null;
       }
 
-      print("🔍 Fetching request details for ID: $id");
+      print("ðŸ” Fetching request details for ID: $id");
 
       final response = await _dio.post(
         "${await Config.getUrl()}view_request_api",
@@ -10848,9 +10915,9 @@ class HttpService {
         ),
       );
 
-      print("🟢 Get Request Details Response Status: ${response.statusCode}");
+      print("ðŸŸ¢ Get Request Details Response Status: ${response.statusCode}");
       if (response.data == null) {
-        print("⚠️ Null response data received");
+        print("âš ï¸ Null response data received");
         return null;
       }
 
@@ -10859,46 +10926,46 @@ class HttpService {
           final result = RequestDetailsResponseModel.fromJson(response.data);
 
           if (result.status?.toLowerCase() == 'success') {
-            print("✅ Request details fetched successfully");
-            print("📊 Customer: ${result.data?.request?.customerName}");
+            print("âœ… Request details fetched successfully");
+            print("ðŸ“Š Customer: ${result.data?.request?.customerName}");
             print(
-                "📊 Products count: ${result.data?.request?.products?.length ?? 0}");
+                "ðŸ“Š Products count: ${result.data?.request?.products?.length ?? 0}");
             return result;
           } else {
-            print("⚠️ API Failed: ${result.message}");
+            print("âš ï¸ API Failed: ${result.message}");
             // You might want to show this to the user
             // Common.showToast(result.message ?? 'Request failed');
           }
         } catch (e, stack) {
-          print("🔥 Error parsing response: $e");
+          print("ðŸ”¥ Error parsing response: $e");
           print("Stack: $stack");
           print("Response data: ${response.data}");
           return null;
         }
       } else {
-        print("⚠️ Unexpected status code: ${response.statusCode}");
+        print("âš ï¸ Unexpected status code: ${response.statusCode}");
         print("Response: ${response.data}");
       }
     } on DioException catch (e) {
-      print("🔥 DioException in requestDetails: $e");
+      print("ðŸ”¥ DioException in requestDetails: $e");
       switch (e.type) {
         case DioExceptionType.connectionTimeout:
         case DioExceptionType.sendTimeout:
         case DioExceptionType.receiveTimeout:
-          print("⏰ Timeout error: ${e.message}");
+          print("â° Timeout error: ${e.message}");
           break;
         case DioExceptionType.badResponse:
-          print("🚫 Bad response: ${e.response?.statusCode}");
+          print("ðŸš« Bad response: ${e.response?.statusCode}");
           print("Response data: ${e.response?.data}");
           break;
         case DioExceptionType.cancel:
-          print("❌ Request cancelled");
+          print("âŒ Request cancelled");
           break;
         case DioExceptionType.unknown:
-          print("❓ Unknown error: ${e.message}");
+          print("â“ Unknown error: ${e.message}");
           break;
         default:
-          print("⚠️ Other Dio error: ${e.type}");
+          print("âš ï¸ Other Dio error: ${e.type}");
       }
 
       if (e.response != null) {
@@ -10906,7 +10973,7 @@ class HttpService {
         print("Response status: ${e.response?.statusCode}");
       }
     } catch (e, stackTrace) {
-      print("🔥 Exception in requestDetails: $e");
+      print("ðŸ”¥ Exception in requestDetails: $e");
       print("StackTrace: $stackTrace");
     }
 
@@ -10936,7 +11003,7 @@ class HttpService {
 
       return file.path;
     } catch (e) {
-      log("❌ Error in printReceipt: $e");
+      log("âŒ Error in printReceipt: $e");
       return null;
     }
   }
@@ -10953,7 +11020,7 @@ class HttpService {
         options: Options(contentType: 'multipart/form-data'),
       );
 
-      print("🟢 Get Room Dashboard Response: ${response.data}");
+      print("ðŸŸ¢ Get Room Dashboard Response: ${response.data}");
 
       if (response.statusCode == 200 && response.data != null) {
         final result = RoomDashboardResponse.fromJson(response.data);
@@ -10961,13 +11028,13 @@ class HttpService {
         if (result.status == true) {
           return result;
         } else {
-          print("⚠️ API Failed: ${result.message}");
+          print("âš ï¸ API Failed: ${result.message}");
         }
       } else {
-        print("⚠️ Unexpected status code: ${response.statusCode}");
+        print("âš ï¸ Unexpected status code: ${response.statusCode}");
       }
     } catch (e, stackTrace) {
-      print("🔥 Exception in getRoomDashboard: $e");
+      print("ðŸ”¥ Exception in getRoomDashboard: $e");
       print("StackTrace: $stackTrace");
     }
 
@@ -10985,24 +11052,24 @@ class HttpService {
         }),
         options: Options(contentType: 'multipart/form-data'),
       );
-      print("🟢 Get Room List Response: ${response.data}");
+      print("ðŸŸ¢ Get Room List Response: ${response.data}");
       if (response.statusCode == 200 && response.data != null) {
         final result = RoomListResponse.fromJson(response.data);
         if (result.status == true) {
           print(
-              "✅ Room list fetched successfully. Count: ${result.data.length}");
+              "âœ… Room list fetched successfully. Count: ${result.data.length}");
           return result;
         } else {
-          print("⚠️ API Failed: ${result.message}");
+          print("âš ï¸ API Failed: ${result.message}");
         }
       } else {
-        print("⚠️ Unexpected status code: ${response.statusCode}");
+        print("âš ï¸ Unexpected status code: ${response.statusCode}");
       }
     } on DioException catch (e) {
-      print("🔥 DioException in getRoomList: ${e.message}");
+      print("ðŸ”¥ DioException in getRoomList: ${e.message}");
       print("Response: ${e.response?.data}");
     } catch (e, stackTrace) {
-      print("🔥 Exception in getRoomList: $e");
+      print("ðŸ”¥ Exception in getRoomList: $e");
       print("StackTrace: $stackTrace");
     }
     return null;
@@ -11025,13 +11092,13 @@ class HttpService {
         options: Options(contentType: 'multipart/form-data'),
       );
 
-      print("🟢 Send Quotation Response: ${response.data}");
+      print("ðŸŸ¢ Send Quotation Response: ${response.data}");
 
       if (response.statusCode == 200 && response.data != null) {
         return response.data;
       }
     } catch (e, stackTrace) {
-      print("🔥 Exception in sendQuotation: $e");
+      print("ðŸ”¥ Exception in sendQuotation: $e");
       print("StackTrace: $stackTrace");
       rethrow;
     }
@@ -11048,28 +11115,28 @@ class HttpService {
         }),
         options: Options(contentType: 'multipart/form-data'),
       );
-      print("🟢 Get Room Type Response: ${response.data}");
+      print("ðŸŸ¢ Get Room Type Response: ${response.data}");
       if (response.statusCode == 200 && response.data != null) {
         final Map<String, dynamic>? responseData = response.data;
         if (responseData != null) {
           final result = RoomTypeResponse.fromJson(responseData);
           if (result.status == true) {
             print(
-                "✅ Room types fetched successfully. Count: ${result.data.length}");
+                "âœ… Room types fetched successfully. Count: ${result.data.length}");
             return result;
           } else {
-            print("⚠️ API Failed: ${result.message}");
+            print("âš ï¸ API Failed: ${result.message}");
             return result;
           }
         }
       } else {
-        print("⚠️ Unexpected status code: ${response.statusCode}");
+        print("âš ï¸ Unexpected status code: ${response.statusCode}");
       }
     } on DioException catch (e) {
-      print("🔥 DioException in getRoomTypes: ${e.message}");
+      print("ðŸ”¥ DioException in getRoomTypes: ${e.message}");
       print("Response: ${e.response?.data}");
     } catch (e, stackTrace) {
-      print("🔥 Exception in getRoomTypes: $e");
+      print("ðŸ”¥ Exception in getRoomTypes: $e");
       print("StackTrace: $stackTrace");
     }
     return null;
@@ -11087,28 +11154,28 @@ class HttpService {
         }),
         options: Options(contentType: 'multipart/form-data'),
       );
-      print("🟢 Get Room Numbers Response: ${response.data}");
+      print("ðŸŸ¢ Get Room Numbers Response: ${response.data}");
       if (response.statusCode == 200 && response.data != null) {
         final Map<String, dynamic>? responseData = response.data;
         if (responseData != null) {
           final result = RoomNumberListResponse.fromJson(responseData);
           if (result.status == true) {
             print(
-                "✅ Room numbers fetched successfully. Count: ${result.data.length}");
+                "âœ… Room numbers fetched successfully. Count: ${result.data.length}");
             return result;
           } else {
-            print("⚠️ API Failed: ${result.message}");
+            print("âš ï¸ API Failed: ${result.message}");
             return result;
           }
         }
       } else {
-        print("⚠️ Unexpected status code: ${response.statusCode}");
+        print("âš ï¸ Unexpected status code: ${response.statusCode}");
       }
     } on DioException catch (e) {
-      print("🔥 DioException in getRoomNumbers: ${e.message}");
+      print("ðŸ”¥ DioException in getRoomNumbers: ${e.message}");
       print("Response: ${e.response?.data}");
     } catch (e, stackTrace) {
-      print("🔥 Exception in getRoomNumbers: $e");
+      print("ðŸ”¥ Exception in getRoomNumbers: $e");
       print("StackTrace: $stackTrace");
     }
     return null;
@@ -11125,28 +11192,28 @@ class HttpService {
         }),
         options: Options(contentType: 'multipart/form-data'),
       );
-      print("🟢 Get Room Products Response: ${response.data}");
+      print("ðŸŸ¢ Get Room Products Response: ${response.data}");
       if (response.statusCode == 200 && response.data != null) {
         final Map<String, dynamic>? responseData = response.data;
         if (responseData != null) {
           final result = RoomProductListModel.fromJson(responseData);
           if (result.status == true) {
             print(
-                "✅ Room products fetched successfully. Count: ${result.data.length}");
+                "âœ… Room products fetched successfully. Count: ${result.data.length}");
             return result;
           } else {
-            print("⚠️ API Failed: ${result.message}");
+            print("âš ï¸ API Failed: ${result.message}");
             return result;
           }
         }
       } else {
-        print("⚠️ Unexpected status code: ${response.statusCode}");
+        print("âš ï¸ Unexpected status code: ${response.statusCode}");
       }
     } on DioException catch (e) {
-      print("🔥 DioException in getRoomProducts: ${e.message}");
+      print("ðŸ”¥ DioException in getRoomProducts: ${e.message}");
       print("Response: ${e.response?.data}");
     } catch (e, stackTrace) {
-      print("🔥 Exception in getRoomProducts: $e");
+      print("ðŸ”¥ Exception in getRoomProducts: $e");
       print("StackTrace: $stackTrace");
     }
     return null;
@@ -11161,19 +11228,19 @@ class HttpService {
       final token = await Common.getSharedPref('token') ?? '';
       final endpoint = isEdit ? 'updateBooking' : 'createBooking';
       final url = "${await Config.getUrl()}$endpoint";
-      print("🟢 ${isEdit ? 'Updating' : 'Submitting'} booking data to API...");
-      print("📦 Booking data payload: $bookingData");
+      print("ðŸŸ¢ ${isEdit ? 'Updating' : 'Submitting'} booking data to API...");
+      print("ðŸ“¦ Booking data payload: $bookingData");
       print(
-          "📁 ID Proof file: ${idProofFile != null ? idProofFile.path : 'No file'}");
-      print("🔗 API URL: $url");
-      print("📝 Mode: ${isEdit ? 'Edit' : 'Create'}");
+          "ðŸ“ ID Proof file: ${idProofFile != null ? idProofFile.path : 'No file'}");
+      print("ðŸ”— API URL: $url");
+      print("ðŸ“ Mode: ${isEdit ? 'Edit' : 'Create'}");
       final formData = FormData.fromMap({
         'token': token,
         'booking_data': jsonEncode(bookingData),
       });
       if (isEdit && bookingData['bookingId'] != null) {
         formData.fields.add(MapEntry('booking_id', bookingData['bookingId']));
-        print("📝 Edit Mode: Booking ID = ${bookingData['bookingId']}");
+        print("ðŸ“ Edit Mode: Booking ID = ${bookingData['bookingId']}");
       }
       if (idProofFile != null && idProofFile.existsSync()) {
         final fileName = idProofFile.path.split('/').last;
@@ -11186,11 +11253,11 @@ class HttpService {
             ),
           ),
         );
-        print("📎 Attached file: $fileName");
+        print("ðŸ“Ž Attached file: $fileName");
       } else if (idProofFile != null) {
-        print("⚠️ File does not exist at path: ${idProofFile.path}");
+        print("âš ï¸ File does not exist at path: ${idProofFile.path}");
       }
-      print("📤 Sending multipart request...");
+      print("ðŸ“¤ Sending multipart request...");
       final response = await _dio.post(
         url,
         data: formData,
@@ -11204,59 +11271,59 @@ class HttpService {
         ),
       );
       print(
-          "🟢 ${isEdit ? 'Update' : 'Submit'} Booking Response Status: ${response.statusCode}");
+          "ðŸŸ¢ ${isEdit ? 'Update' : 'Submit'} Booking Response Status: ${response.statusCode}");
       print(
-          "📄 ${isEdit ? 'Update' : 'Submit'} Booking Response Body: ${response.data}");
+          "ðŸ“„ ${isEdit ? 'Update' : 'Submit'} Booking Response Body: ${response.data}");
 
       if (response.statusCode == 200 && response.data != null) {
         final Map<String, dynamic>? responseData = response.data;
         if (responseData != null) {
           final result = BookingResponse.fromJson(responseData);
           if (result.status == true) {
-            print("✅ Booking ${isEdit ? 'updated' : 'created'} successfully!");
+            print("âœ… Booking ${isEdit ? 'updated' : 'created'} successfully!");
             if (!isEdit) {
-              print("📋 Booking ID: ${result.bookingId}");
+              print("ðŸ“‹ Booking ID: ${result.bookingId}");
             }
-            print("📋 Message: ${result.message}");
+            print("ðŸ“‹ Message: ${result.message}");
             return result;
           } else {
-            print("⚠️ API Failed: ${result.message}");
-            print("📋 Error details: ${result.errorDetails}");
+            print("âš ï¸ API Failed: ${result.message}");
+            print("ðŸ“‹ Error details: ${result.errorDetails}");
             return result;
           }
         }
       } else {
-        print("⚠️ Unexpected status code: ${response.statusCode}");
-        print("📋 Response body: ${response.data}");
+        print("âš ï¸ Unexpected status code: ${response.statusCode}");
+        print("ðŸ“‹ Response body: ${response.data}");
       }
     } on DioException catch (e) {
       print(
-          "🔥 DioException in ${isEdit ? 'update' : 'submit'}Booking: ${e.message}");
-      print("🔍 Error type: ${e.type}");
+          "ðŸ”¥ DioException in ${isEdit ? 'update' : 'submit'}Booking: ${e.message}");
+      print("ðŸ” Error type: ${e.type}");
       if (e.response != null) {
-        print("📋 Response status: ${e.response!.statusCode}");
-        print("📋 Response data: ${e.response!.data}");
-        print("📋 Response headers: ${e.response!.headers}");
+        print("ðŸ“‹ Response status: ${e.response!.statusCode}");
+        print("ðŸ“‹ Response data: ${e.response!.data}");
+        print("ðŸ“‹ Response headers: ${e.response!.headers}");
       }
       if (e.type == DioExceptionType.connectionTimeout) {
         print(
-            "⏱️ Connection timeout while ${isEdit ? 'updating' : 'submitting'} booking");
+            "â±ï¸ Connection timeout while ${isEdit ? 'updating' : 'submitting'} booking");
       } else if (e.type == DioExceptionType.receiveTimeout) {
         print(
-            "⏱️ Receive timeout while ${isEdit ? 'updating' : 'submitting'} booking");
+            "â±ï¸ Receive timeout while ${isEdit ? 'updating' : 'submitting'} booking");
       } else if (e.type == DioExceptionType.sendTimeout) {
         print(
-            "⏱️ Send timeout while ${isEdit ? 'updating' : 'submitting'} booking");
+            "â±ï¸ Send timeout while ${isEdit ? 'updating' : 'submitting'} booking");
       } else if (e.type == DioExceptionType.badResponse) {
-        print("❌ Bad response from server");
+        print("âŒ Bad response from server");
       } else if (e.type == DioExceptionType.cancel) {
-        print("❌ Request cancelled");
+        print("âŒ Request cancelled");
       } else if (e.type == DioExceptionType.unknown) {
-        print("❓ Unknown Dio error: ${e.error}");
+        print("â“ Unknown Dio error: ${e.error}");
       }
     } catch (e, stackTrace) {
-      print("🔥 Exception in ${isEdit ? 'update' : 'submit'}Booking: $e");
-      print("📋 StackTrace: $stackTrace");
+      print("ðŸ”¥ Exception in ${isEdit ? 'update' : 'submit'}Booking: $e");
+      print("ðŸ“‹ StackTrace: $stackTrace");
     }
 
     return null;
@@ -11267,7 +11334,7 @@ class HttpService {
     try {
       final token = await Common.getSharedPref('token') ?? '';
       if (token.isEmpty) {
-        print('❌ Token is empty');
+        print('âŒ Token is empty');
         return null;
       }
       final response = await _dio.post(
@@ -11282,61 +11349,61 @@ class HttpService {
           receiveTimeout: const Duration(seconds: 30),
         ),
       );
-      print("🟢 Get Booking Details Response Status: ${response.statusCode}");
-      print("🟢 Response Data: ${response.data}");
+      print("ðŸŸ¢ Get Booking Details Response Status: ${response.statusCode}");
+      print("ðŸŸ¢ Response Data: ${response.data}");
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = response.data;
         if (responseData.isEmpty) {
-          print("⚠️ Response data is empty");
+          print("âš ï¸ Response data is empty");
           return null;
         }
         try {
           final result = BookingDetailsResponse.fromJson(responseData);
           if (result.status == true) {
-            print("✅ Booking details fetched successfully");
+            print("âœ… Booking details fetched successfully");
             if (result.data != null) {
-              print("📋 Booking ID: ${result.data!.bookingDetails.id}");
-              print("📋 Invoice: ${result.data!.bookingDetails.invoiceNumber}");
+              print("ðŸ“‹ Booking ID: ${result.data!.bookingDetails.id}");
+              print("ðŸ“‹ Invoice: ${result.data!.bookingDetails.invoiceNumber}");
               print(
-                  "📋 Total Amount: ${result.data!.bookingDetails.totalAmount}");
-              print("📋 Rooms: ${result.data!.bookingRoomsList.length}");
+                  "ðŸ“‹ Total Amount: ${result.data!.bookingDetails.totalAmount}");
+              print("ðŸ“‹ Rooms: ${result.data!.bookingRoomsList.length}");
             }
 
             return result;
           } else {
-            print("⚠️ API returned false status: ${result.message}");
+            print("âš ï¸ API returned false status: ${result.message}");
             return null;
           }
         } catch (e) {
-          print("❌ Error parsing response to model: $e");
-          print("❌ Raw response: ${response.data}");
+          print("âŒ Error parsing response to model: $e");
+          print("âŒ Raw response: ${response.data}");
           return null;
         }
       } else {
-        print("❌ Unexpected status code: ${response.statusCode}");
-        print("❌ Response: ${response.data}");
+        print("âŒ Unexpected status code: ${response.statusCode}");
+        print("âŒ Response: ${response.data}");
         return null;
       }
     } on DioException catch (e) {
-      print("🔥 DioException in getListDataOnEdit: ${e.message}");
+      print("ðŸ”¥ DioException in getListDataOnEdit: ${e.message}");
 
       if (e.type == DioExceptionType.connectionTimeout) {
-        print("⏱️ Connection timeout");
+        print("â±ï¸ Connection timeout");
       } else if (e.type == DioExceptionType.receiveTimeout) {
-        print("⏱️ Receive timeout");
+        print("â±ï¸ Receive timeout");
       } else if (e.type == DioExceptionType.sendTimeout) {
-        print("⏱️ Send timeout");
+        print("â±ï¸ Send timeout");
       }
 
       if (e.response != null) {
-        print("📊 Response status: ${e.response?.statusCode}");
-        print("📊 Response data: ${e.response?.data}");
+        print("ðŸ“Š Response status: ${e.response?.statusCode}");
+        print("ðŸ“Š Response data: ${e.response?.data}");
       }
 
       return null;
     } catch (e, stackTrace) {
-      print("🔥 Unexpected error in getListDataOnEdit: $e");
-      print("📜 StackTrace: $stackTrace");
+      print("ðŸ”¥ Unexpected error in getListDataOnEdit: $e");
+      print("ðŸ“œ StackTrace: $stackTrace");
       return null;
     }
   }
@@ -11891,12 +11958,20 @@ class HttpService {
     return null;
   }
 
-  Future<bool> updateWorkService(Map<String, dynamic> body) async {
+  Future<bool> updateWorkService(dynamic body) async {
     try {
       final token = await Common.getSharedPref("token");
-      body["token"] = token;
-
-      final formData = FormData.fromMap(body);
+      final FormData formData;
+      if (body is FormData) {
+        formData = body;
+        if (!formData.fields.any((e) => e.key == "token")) {
+          formData.fields.add(MapEntry("token", token ?? ""));
+        }
+      } else {
+        final map = Map<String, dynamic>.from(body as Map);
+        map["token"] = token;
+        formData = FormData.fromMap(map);
+      }
 
       final response = await _dio.post(
         "${await Config.getUrl()}update_workorder",
@@ -11907,10 +11982,10 @@ class HttpService {
         final data = response.data;
         if (data is Map<String, dynamic>) {
           if (data["status"] == true) {
-            log("✅ Work order updated successfully");
+            log("âœ… Work order updated successfully");
             return true;
           } else {
-            log("⚠️ Update failed: ${data["message"]}");
+            log("âš ï¸ Update failed: ${data["message"]}");
             return false;
           }
         } else {
@@ -11924,6 +11999,49 @@ class HttpService {
       log("StackTrace: $stackTrace");
     }
     return false;
+  }
+
+  Future<Map<String, dynamic>> deleteWorkOrderImage({
+    required String imageId,
+  }) async {
+    try {
+      final token = await Common.getSharedPref("token");
+      final formData = FormData.fromMap({
+        "token": token ?? "",
+        "image_id": imageId,
+      });
+
+      final response = await _dio.post(
+        "${await Config.getUrl()}delete_workorder_image",
+        data: formData,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic raw = response.data;
+        final Map<String, dynamic> data = raw is Map<String, dynamic>
+            ? raw
+            : (raw is String ? jsonDecode(raw) : Map<String, dynamic>.from(raw));
+        final bool status = data["status"] == true ||
+            data["status"] == 1 ||
+            data["status"]?.toString().toLowerCase() == "true" ||
+            data["status"]?.toString().toLowerCase() == "success";
+        return {
+          "status": status,
+          "message": data["message"]?.toString() ??
+              (status ? "Image deleted successfully" : "Failed to delete image"),
+        };
+      }
+      return {
+        "status": false,
+        "message": "Server returned status code: ${response.statusCode}",
+      };
+    } catch (e) {
+      log("deleteWorkOrderImage error: $e");
+      return {
+        "status": false,
+        "message": "Error deleting image: $e",
+      };
+    }
   }
 
   Future<bool> deletePushNotification(String notificationId) async {
@@ -11981,10 +12099,18 @@ class HttpService {
   }
 
   Future<Map<String, dynamic>?> addWorkService(
-      Map<String, dynamic> body) async {
+      dynamic body) async {
     try {
       final token = await Common.getSharedPref("token");
-      final formData = FormData.fromMap({"token": token, ...body});
+      final FormData formData;
+      if (body is FormData) {
+        formData = body;
+        if (!formData.fields.any((e) => e.key == "token")) {
+          formData.fields.add(MapEntry("token", token ?? ""));
+        }
+      } else {
+        formData = FormData.fromMap({"token": token, ...Map<String, dynamic>.from(body as Map)});
+      }
       final result = await _dio.post(
         "${await Config.getUrl()}addWork",
         data: formData,
@@ -16259,7 +16385,7 @@ class HttpService {
         return PostProductModel.fromJson(response.data);
       }
     } catch (e) {
-      log("🔥 postStocks error: $e");
+      log("ðŸ”¥ postStocks error: $e");
     }
     return null;
   }
@@ -16300,7 +16426,7 @@ class HttpService {
   //       return PostProductModel.fromJson(response.data);
   //     }
   //   } catch (e) {
-  //     log("🔥 postStock error: $e");
+  //     log("ðŸ”¥ postStock error: $e");
   //   }
   //   return null;
   // }
@@ -16346,7 +16472,7 @@ class HttpService {
         return PostProductModel.fromJson(response.data);
       }
     } catch (e) {
-      log("🔥 postStock error: $e");
+      log("ðŸ”¥ postStock error: $e");
     }
 
     return null;
@@ -16836,7 +16962,7 @@ class HttpService {
         return PostProductModel.fromJson(response.data);
       }
     } catch (e) {
-      log("🔥 postOpeningStocks error: $e");
+      log("ðŸ”¥ postOpeningStocks error: $e");
     }
     return null;
   }
@@ -16963,7 +17089,7 @@ class HttpService {
         return PostProductModel.fromJson(response.data);
       }
     } catch (e) {
-      log("🔥 postOpeningStocks error: $e");
+      log("ðŸ”¥ postOpeningStocks error: $e");
     }
     return null;
   }

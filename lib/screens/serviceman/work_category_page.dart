@@ -37,7 +37,7 @@ class _WorkCategoryPageState extends State<WorkCategoryPage> {
           if (!snapshot.hasData || snapshot.data == null || snapshot.data!.data.isEmpty) {
             return const Center(
               child: Text(
-                "No work category data available",
+                "No Issue Type data available",
                 style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
             );
