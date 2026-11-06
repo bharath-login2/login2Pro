@@ -438,6 +438,7 @@ import '../models/lead_management/detailed_summery_report.dart';
 import '../models/userManagement/staffDetailsModel.dart';
 import '../models/Product_mannagement/checkBarcodeDuplicateModel.dart';
 import '../models/staffServiceModel.dart';
+import '../models/serviceman/serviceMandatoryFieldModel.dart';
 import '../models/userPermissionModel.dart';
 import '../models/verifyPhoneModel.dart';
 
@@ -4314,6 +4315,287 @@ class HttpService {
     return keys;
   }
 
+  static Future<List<ServiceMandatoryFieldItem>> getServiceMandatoryFieldItems([String? customToken]) async {
+    try {
+      final token = customToken ?? await Common.getSharedPref("token");
+      final formData = FormData.fromMap({"token": token ?? ""});
+
+      final response = await _dio.post(
+        "${await Config.getUrl()}get_service_mandatory_fields",
+        data: formData,
+      );
+
+      return _parseServiceMandatoryFieldItems(response.data);
+    } catch (e) {
+      log("get_service_mandatory_fields POST error: $e, trying GET...");
+      try {
+        final token = customToken ?? await Common.getSharedPref("token");
+        final response = await _dio.get(
+          "${await Config.getUrl()}get_service_mandatory_fields",
+          queryParameters: {"token": token ?? ""},
+        );
+        return _parseServiceMandatoryFieldItems(response.data);
+      } catch (e2) {
+        log("get_service_mandatory_fields GET error: $e2");
+        return [];
+      }
+    }
+  }
+
+  static List<ServiceMandatoryFieldItem> _parseServiceMandatoryFieldItems(dynamic data) {
+    final List<ServiceMandatoryFieldItem> items = [];
+    try {
+      dynamic parsed = data;
+      if (parsed is String) {
+        parsed = jsonDecode(parsed);
+      }
+      if (parsed is Map &&
+          (parsed['status'] == true ||
+              parsed['status'] == 'true' ||
+              parsed['status'] == 1 ||
+              parsed['status'] == 200)) {
+        final dynamic rawData = parsed['data'];
+        if (rawData is List) {
+          for (var item in rawData) {
+            if (item is Map<String, dynamic>) {
+              items.add(ServiceMandatoryFieldItem.fromJson(item));
+            } else if (item is Map) {
+              items.add(ServiceMandatoryFieldItem.fromJson(Map<String, dynamic>.from(item)));
+            }
+          }
+        }
+      }
+    } catch (e) {
+      log("Error parsing service mandatory field items: $e");
+    }
+    return items;
+  }
+
+  static Future<List<MandatoryFieldSelectItem>> getServiceMandatoryFieldsSelect([String? customToken]) async {
+    try {
+      final token = customToken ?? await Common.getSharedPref("token");
+      final formData = FormData.fromMap({"token": token ?? ""});
+
+      final response = await _dio.post(
+        "${await Config.getUrl()}get_service_mandatory_fields_select",
+        data: formData,
+      );
+
+      return _parseMandatoryFieldSelectItems(response.data);
+    } catch (e) {
+      log("get_service_mandatory_fields_select POST error: $e, trying GET...");
+      try {
+        final token = customToken ?? await Common.getSharedPref("token");
+        final response = await _dio.get(
+          "${await Config.getUrl()}get_service_mandatory_fields_select",
+          queryParameters: {"token": token ?? ""},
+        );
+        return _parseMandatoryFieldSelectItems(response.data);
+      } catch (e2) {
+        log("get_service_mandatory_fields_select GET error: $e2");
+        return [];
+      }
+    }
+  }
+
+  static List<MandatoryFieldSelectItem> _parseMandatoryFieldSelectItems(dynamic data) {
+    final List<MandatoryFieldSelectItem> items = [];
+    try {
+      dynamic parsed = data;
+      if (parsed is String) {
+        parsed = jsonDecode(parsed);
+      }
+      if (parsed is Map &&
+          (parsed['status'] == true ||
+              parsed['status'] == 'true' ||
+              parsed['status'] == 1 ||
+              parsed['status'] == 200)) {
+        final dynamic rawData = parsed['data'];
+        if (rawData is List) {
+          for (var item in rawData) {
+            if (item is Map<String, dynamic>) {
+              items.add(MandatoryFieldSelectItem.fromJson(item));
+            } else if (item is Map) {
+              items.add(MandatoryFieldSelectItem.fromJson(Map<String, dynamic>.from(item)));
+            }
+          }
+        }
+      }
+    } catch (e) {
+      log("Error parsing mandatory field select items: $e");
+    }
+    return items;
+  }
+
+  Future<Map<String, dynamic>> deleteServiceMandatoryField({
+    required String id,
+    String? fieldKey,
+  }) async {
+    try {
+      final token = await Common.getSharedPref("token");
+      final formData = FormData.fromMap({
+        "token": token ?? "",
+        "id": id,
+        "field_id": id,
+        if (fieldKey != null && fieldKey.isNotEmpty) "field_key": fieldKey,
+      });
+
+      final response = await _dio.post(
+        "${await Config.getUrl()}delete_service_mandatory_field",
+        data: formData,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic raw = response.data;
+        final Map<String, dynamic> data = raw is Map<String, dynamic>
+            ? raw
+            : (raw is String ? jsonDecode(raw) : Map<String, dynamic>.from(raw));
+        final bool status = data["status"] == true ||
+            data["status"] == 1 ||
+            data["status"]?.toString().toLowerCase() == "true" ||
+            data["status"]?.toString().toLowerCase() == "success";
+        return {
+          "status": status,
+          "message": data["message"]?.toString() ??
+              (status ? "Field deleted successfully" : "Failed to delete field"),
+        };
+      }
+      return {
+        "status": false,
+        "message": "Server returned status: ${response.statusCode}",
+      };
+    } catch (e) {
+      log("deleteServiceMandatoryField error: $e");
+      return {
+        "status": false,
+        "message": "Error deleting field: $e",
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> addServiceMandatoryField({
+    required String fieldKey,
+    required String fieldLabel,
+  }) async {
+    try {
+      final token = await Common.getSharedPref("token");
+      final formData = FormData.fromMap({
+        "token": token ?? "",
+        "field_key": fieldKey,
+        "field_label": fieldLabel,
+      });
+
+      final response = await _dio.post(
+        "${await Config.getUrl()}add_service_mandatory_field",
+        data: formData,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic raw = response.data;
+        final Map<String, dynamic> data = raw is Map<String, dynamic>
+            ? raw
+            : (raw is String ? jsonDecode(raw) : Map<String, dynamic>.from(raw));
+        final bool status = data["status"] == true ||
+            data["status"] == 1 ||
+            data["status"]?.toString().toLowerCase() == "true" ||
+            data["status"]?.toString().toLowerCase() == "success";
+        return {
+          "status": status,
+          "message": data["message"]?.toString() ??
+              (status ? "Field added successfully" : "Failed to add field"),
+        };
+      }
+      return {
+        "status": false,
+        "message": "Server returned status: ${response.statusCode}",
+      };
+    } catch (e) {
+      log("addServiceMandatoryField error: $e");
+      return {
+        "status": false,
+        "message": "Error adding field: $e",
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> addServiceMandatoryFields({
+    required List<String> fieldKeys,
+  }) async {
+    try {
+      final token = await Common.getSharedPref("token");
+      final formData = FormData();
+      formData.fields.add(MapEntry("token", token ?? ""));
+
+      // Standard array representation for PHP backend
+      for (final key in fieldKeys) {
+        formData.fields.add(MapEntry("field_key[]", key));
+      }
+
+      final response = await _dio.post(
+        "${await Config.getUrl()}add_service_mandatory_fields",
+        data: formData,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic raw = response.data;
+        final Map<String, dynamic> data = raw is Map<String, dynamic>
+            ? raw
+            : (raw is String ? jsonDecode(raw) : Map<String, dynamic>.from(raw));
+        final bool status = data["status"] == true ||
+            data["status"] == 1 ||
+            data["status"]?.toString().toLowerCase() == "true" ||
+            data["status"]?.toString().toLowerCase() == "success";
+
+        if (!status &&
+            (data["message"]?.toString().toLowerCase().contains("required") ?? false)) {
+          final fallbackFormData = FormData();
+          fallbackFormData.fields.add(MapEntry("token", token ?? ""));
+          fallbackFormData.fields.add(MapEntry("field_key", fieldKeys.join(",")));
+          for (final key in fieldKeys) {
+            fallbackFormData.fields.add(MapEntry("field_key", key));
+          }
+          final fallbackResponse = await _dio.post(
+            "${await Config.getUrl()}add_service_mandatory_fields",
+            data: fallbackFormData,
+          );
+          if (fallbackResponse.statusCode == 200 && fallbackResponse.data != null) {
+            final dynamic fbRaw = fallbackResponse.data;
+            final Map<String, dynamic> fbData = fbRaw is Map<String, dynamic>
+                ? fbRaw
+                : (fbRaw is String ? jsonDecode(fbRaw) : Map<String, dynamic>.from(fbRaw));
+            final bool fbStatus = fbData["status"] == true ||
+                fbData["status"] == 1 ||
+                fbData["status"]?.toString().toLowerCase() == "true" ||
+                fbData["status"]?.toString().toLowerCase() == "success";
+            if (fbStatus) {
+              return {
+                "status": true,
+                "message": fbData["message"]?.toString() ??
+                    "Mandatory fields added successfully",
+              };
+            }
+          }
+        }
+
+        return {
+          "status": status,
+          "message": data["message"]?.toString() ??
+              (status ? "Mandatory fields added successfully" : "Failed to add fields"),
+        };
+      }
+      return {
+        "status": false,
+        "message": "Server returned status: ${response.statusCode}",
+      };
+    } catch (e) {
+      log("addServiceMandatoryFields error: $e");
+      return {
+        "status": false,
+        "message": "Error adding fields: $e",
+      };
+    }
+  }
+
   // static Future fetchPostOffice(postalCode) async {
   //   try {
   //     var result =
@@ -8087,8 +8369,35 @@ class HttpService {
     required double longitude,
     required String? faceData,
     dynamic image,
+    String? userId,
+    String? roleId,
   }) async {
     final token = await Common.getSharedPref("token");
+    String? effectiveUserId = userId ?? await Common.getSharedPref("userId");
+    String? effectiveRoleId = roleId ?? await Common.getSharedPref("roleId");
+    String? effectiveRole = await Common.getSharedPref("role");
+    String? effectiveStaffType = await Common.getSharedPref("staffType");
+    String? effectiveName = await Common.getSharedPref("name");
+    String? effectiveBranchId = await Common.getSharedPref("branchId") ??
+        await Common.getSharedPref("branch_id");
+
+    // Fallback: extract userId / roleId from JWT token if missing from prefs
+    if (token != null && token.isNotEmpty) {
+      final jwt = Common.decodeJwt(token);
+      if (jwt != null && jwt['data'] is Map) {
+        final jwtData = jwt['data'] as Map;
+        effectiveUserId ??= (jwtData['userId'] ??
+                jwtData['user_id'] ??
+                jwtData['staff_id'] ??
+                jwtData['id'])
+            ?.toString();
+        effectiveRoleId ??=
+            (jwtData['roleId'] ?? jwtData['role_id'])?.toString();
+        effectiveRole ??= jwtData['role']?.toString();
+        effectiveBranchId ??=
+            (jwtData['branchId'] ?? jwtData['branch_id'])?.toString();
+      }
+    }
 
     String? imagePath;
     String? fileName;
@@ -8103,49 +8412,88 @@ class HttpService {
       fileName = image.split('/').last.split('\\').last;
     }
 
-    dynamic body;
+    // Always use FormData with multipart/form-data for CodeIgniter compatibility
+    final Map<String, dynamic> map = {
+      "token": token ?? '',
+      "start_time": startTime.toIso8601String(),
+      "date": DateFormat('yyyy-MM-dd').format(startTime),
+      "time": DateFormat('HH:mm:ss').format(startTime),
+      "latitude": latitude.toString(),
+      "longitude": longitude.toString(),
+      "face_data": faceData ?? '',
+    };
+
+    if (effectiveUserId != null && effectiveUserId.isNotEmpty) {
+      map["user_id"] = effectiveUserId;
+      map["staff_id"] = effectiveUserId;
+      map["userId"] = effectiveUserId;
+      map["staffId"] = effectiveUserId;
+    }
+    if (effectiveRoleId != null && effectiveRoleId.isNotEmpty) {
+      map["role_id"] = effectiveRoleId;
+      map["roleId"] = effectiveRoleId;
+    }
+    if (effectiveRole != null && effectiveRole.isNotEmpty) {
+      map["role"] = effectiveRole;
+    }
+    if (effectiveStaffType != null && effectiveStaffType.isNotEmpty) {
+      map["staff_type"] = effectiveStaffType;
+    }
+    if (effectiveName != null && effectiveName.isNotEmpty) {
+      map["name"] = effectiveName;
+      map["staff_name"] = effectiveName;
+    }
+    if (effectiveBranchId != null && effectiveBranchId.isNotEmpty) {
+      map["branch_id"] = effectiveBranchId;
+      map["branchId"] = effectiveBranchId;
+    }
+
+    final formData = FormData.fromMap(map);
     if (imagePath != null && imagePath.isNotEmpty) {
-      final formData = FormData.fromMap({
-        "token": token,
-        "start_time": startTime.toIso8601String(),
-        "latitude": latitude.toString(),
-        "longitude": longitude.toString(),
-        'face_data': faceData ?? '',
-      });
-      // formData.files.add(MapEntry(
-      //   'image',
-      //   await MultipartFile.fromFile(imagePath, filename: fileName),
-      // ));
-      // formData.files.add(MapEntry(
-      //   'file',
-      //   await MultipartFile.fromFile(imagePath, filename: fileName),
-      // ));
       formData.files.add(MapEntry(
         'start_work_image',
         await MultipartFile.fromFile(imagePath, filename: fileName),
       ));
-      body = formData;
-    } else {
-      body = {
-        "token": token,
-        "start_time": startTime.toIso8601String(),
-        "latitude": latitude.toString(),
-        "longitude": longitude.toString(),
-        'face_data': faceData ?? '',
-      };
+      formData.files.add(MapEntry(
+        'image',
+        await MultipartFile.fromFile(imagePath, filename: fileName),
+      ));
     }
 
     try {
-      var result = await _dio.post(
+      final result = await _dio.post(
         "${await Config.getUrl()}start_work",
-        data: body,
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
       );
-      CommonResponse model = CommonResponse.fromJson(result.data);
-      return model;
+
+      dynamic responseData = result.data;
+      if (responseData is String) {
+        try {
+          responseData = jsonDecode(responseData);
+        } catch (_) {}
+      }
+
+      if (responseData is Map<String, dynamic>) {
+        return CommonResponse.fromJson(responseData);
+      } else if (responseData is Map) {
+        return CommonResponse.fromJson(Map<String, dynamic>.from(responseData));
+      }
     } catch (e) {
       log("Error in startWork: $e");
-      return null;
+      if (e is DioException && e.response?.data != null) {
+        dynamic errData = e.response!.data;
+        if (errData is String) {
+          try {
+            errData = jsonDecode(errData);
+          } catch (_) {}
+        }
+        if (errData is Map) {
+          return CommonResponse.fromJson(Map<String, dynamic>.from(errData));
+        }
+      }
     }
+    return null;
   }
 
   static Future<CommonResponse?> stopWork(

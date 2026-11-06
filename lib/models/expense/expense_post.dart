@@ -19,11 +19,19 @@ class CommonResponse {
         required this.data,
     });
 
-    factory CommonResponse.fromJson(Map<String, dynamic> json) => CommonResponse(
-        status: json["status"],
-        message: json["message"],
+    factory CommonResponse.fromJson(Map<String, dynamic> json) {
+      final rawStatus = json["status"];
+      final bool parsedStatus = rawStatus == true ||
+          rawStatus == 'true' ||
+          rawStatus == 1 ||
+          rawStatus == '1' ||
+          rawStatus?.toString().toLowerCase() == 'success';
+      return CommonResponse(
+        status: parsedStatus,
+        message: (json["message"] ?? "").toString(),
         data: json["data"],
-    );
+      );
+    }
 
     Map<String, dynamic> toJson() => {
         "status": status,

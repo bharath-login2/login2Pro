@@ -182,6 +182,8 @@ class _SplashScreenState extends State<SplashScreen> {
               object1.data!.startWorkOrder?.toString() ?? "false");
           Common.saveSharedPref("start_work_order_camera",
               object1.data!.startWorkOrderCamera?.toString() ?? "false");
+          Common.saveSharedPref("mandatory_service_fields",
+              object1.data!.mandatoryServiceFields?.toString() ?? "false");
           if (object1.data!.ProjectDashboard == "true") {
             Navigator.pushAndRemoveUntil(
               context,

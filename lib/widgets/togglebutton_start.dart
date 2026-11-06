@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -39,7 +38,10 @@ class _StartStopToggleState extends State<StartStopToggle> {
   String faceDetection = "true";
   String companyLocation = "true";
   bool isStartWorkOrder = false;
-  // static  renewalPermission =  Common.getSharedPref("renewalPermission");
+  String roleId = '';
+  String userId = '';
+  String? token;
+
   @override
   void initState() {
     super.initState();
@@ -68,7 +70,30 @@ class _StartStopToggleState extends State<StartStopToggle> {
     final startWorkOrderCameraPref =
         await Common.getSharedPref("start_work_order_camera");
     final startWorkOrderPref = await Common.getSharedPref("start_work_order");
+    final storedRoleId = (await Common.getSharedPref("roleId"))?.toString() ?? "";
+    final storedUserId = (await Common.getSharedPref("userId"))?.toString() ?? "";
+    final storedToken = await Common.getSharedPref("token");
+
+    // Also extract from JWT token as fallback for any role
+    String effectiveUserId = storedUserId;
+    String effectiveRoleId = storedRoleId;
+    if (storedToken != null && storedToken.isNotEmpty) {
+      final jwt = Common.decodeJwt(storedToken);
+      if (jwt != null && jwt['data'] is Map) {
+        final data = jwt['data'] as Map;
+        if (effectiveUserId.isEmpty) {
+          effectiveUserId = (data['userId'] ?? data['user_id'] ?? data['staff_id'] ?? '')?.toString() ?? "";
+        }
+        if (effectiveRoleId.isEmpty) {
+          effectiveRoleId = (data['roleId'] ?? data['role_id'] ?? '')?.toString() ?? "";
+        }
+      }
+    }
+
     setState(() {
+      token = storedToken;
+      roleId = effectiveRoleId;
+      userId = effectiveUserId;
       faceDetection = facepermission ?? "false";
       companyLocation = companylocation ?? "false";
       if (widget.startWorkOrderCamera != null) {
@@ -324,24 +349,26 @@ class _StartStopToggleState extends State<StartStopToggle> {
               builder: (context) {
                 return AlertDialog(
                   title: const Text("No Location Found"),
-                  content: const Text(
-                      "Please add company location before you start to login"),
+                  content: Text(roleId == "2"
+                      ? "Please add company location before you start to login"
+                      : "Company location has not been configured. Please contact your administrator to set up the company location."),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
                       child: const Text("OK"),
                     ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) =>
-                                  const CompanyLocationPage()),
-                        );
-                      },
-                      child: const Text("Add Location"),
-                    ),
+                    if (roleId == "2")
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) =>
+                                    const CompanyLocationPage()),
+                          );
+                        },
+                        child: const Text("Add Location"),
+                      ),
                   ],
                 );
               },
@@ -397,14 +424,40 @@ class _StartStopToggleState extends State<StartStopToggle> {
           longitude: position.longitude,
           faceData: _faceBase64,
           image: capturedImage != null ? File(capturedImage.path) : null,
+          userId: userId.isNotEmpty ? userId : null,
+          roleId: roleId.isNotEmpty ? roleId : null,
         );
-        if (response != null && response.status == true) {
+
+        final bool isSuccess = response != null && response.status == true;
+
+        if (isSuccess) {
+          final dynamic data = response.data;
+          final bool isDataEmpty = data == null ||
+              (data is List && data.isEmpty) ||
+              (data is Map && data.isEmpty) ||
+              (data is String && data.trim().isEmpty);
+
+          // If message specifically indicates a failure or error payload
+          if (isDataEmpty &&
+              response.message.isNotEmpty &&
+              (response.message.toLowerCase().contains("fail") ||
+                  response.message.toLowerCase().contains("not found") ||
+                  response.message.toLowerCase().contains("invalid") ||
+                  response.message.toLowerCase().contains("error"))) {
+            showError(response.message);
+            return;
+          }
+
+          // API confirmed success: persist state, notify listener and update toggle UI
           await Common.saveSharedPref("is_work_started", "true");
           widget.onToggle(true);
+          if (!mounted) return;
           setState(() => isWorkStarted = true);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("Log in at ${DateFormat('hh:mm a').format(now)}"),
+              content: Text(response.message.isNotEmpty
+                  ? response.message
+                  : "Log in at ${DateFormat('hh:mm a').format(now)}"),
               backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
               margin: const EdgeInsets.only(bottom: 10, left: 16, right: 16),
@@ -413,14 +466,20 @@ class _StartStopToggleState extends State<StartStopToggle> {
             ),
           );
         } else {
-          showError(response?.message ?? "Failed to start work");
+          final String errMsg = (response != null && response.message.trim().isNotEmpty)
+              ? response.message
+              : "Failed to start work. Please check your staff permissions or network.";
+          showError(errMsg);
         }
       } catch (e) {
-        if (Navigator.of(loaderContext).canPop())
+        if (Navigator.of(loaderContext).canPop()) {
           Navigator.of(loaderContext).pop();
+        }
         showError("Error: $e");
       } finally {
-        setState(() => isLoading = false);
+        if (mounted) {
+          setState(() => isLoading = false);
+        }
         widget.setDashboardLoading(false);
       }
     } else {
@@ -439,6 +498,7 @@ class _StartStopToggleState extends State<StartStopToggle> {
   }
 
   void showError(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -450,34 +510,37 @@ class _StartStopToggleState extends State<StartStopToggle> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () async {
-        try {
-          final result = await HttpService.getWorkStatus();
-          if (result != null && result.data.isNotEmpty) {
-            showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text('Logout Blocked'),
-                content: const Text(
-                    'Work is in progress. Please close all work before logging out.'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('OK'),
-                  ),
-                ],
-              ),
-            );
-          } else {
-               toggleSwitch(skipConfirmation: true);
-          }
-        } catch (e) {
-          print('Error checking work status: $e');
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to check work status')),
-          );
-        }
-      },
+      onTap: isLoading
+          ? null
+          : () async {
+              if (isWorkStarted) {
+                // When work is already started (logging out), verify no ongoing works
+                try {
+                  final result = await HttpService.getWorkStatus();
+                  if (result != null && result.data.isNotEmpty) {
+                    if (!context.mounted) return;
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Logout Blocked'),
+                        content: const Text(
+                            'Work is in progress. Please close all work before logging out.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
+                    return;
+                  }
+                } catch (e) {
+                  debugPrint('Error checking work status on logout: $e');
+                }
+              }
+              toggleSwitch(skipConfirmation: true);
+            },
       //   onTap: isLoading ? null : toggleSwitch,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
