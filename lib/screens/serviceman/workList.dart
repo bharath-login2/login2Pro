@@ -8726,7 +8726,7 @@ class _WorkListPageState extends State<WorkListPage>
                           _detailTile(
                             Icons.badge_outlined,
                             "Customer Type",
-                            work.customerType,
+                            work.customerTypeName,
                             Colors.teal.shade700,
                           ),
                           _detailTile(
@@ -8792,7 +8792,7 @@ class _WorkListPageState extends State<WorkListPage>
                             _detailTile(
                               Icons.call_received_rounded,
                               "Received Through",
-                              work.receivedTru,
+                              work.recievedThrough,
                               Colors.cyan.shade700,
                             ),
 
@@ -8827,7 +8827,7 @@ class _WorkListPageState extends State<WorkListPage>
                           // Schedule
                           _detailTile(
                             Icons.calendar_month,
-                            "Preferred",
+                            "Preferred Date",
                             work.preferredDateTime,
                             Colors.redAccent,
                           ),
@@ -9532,9 +9532,8 @@ class _WorkListPageState extends State<WorkListPage>
             separatorBuilder: (_, __) => const SizedBox(width: 10),
             itemBuilder: (context, index) {
               final img = images[index];
-              final thumb = img.thumbnailUrl.isNotEmpty
-                  ? img.thumbnailUrl
-                  : img.viewUrl;
+              final thumb =
+                  img.thumbnailUrl.isNotEmpty ? img.thumbnailUrl : img.viewUrl;
               return GestureDetector(
                 onTap: () => _openWorkImageView(img),
                 child: Container(
