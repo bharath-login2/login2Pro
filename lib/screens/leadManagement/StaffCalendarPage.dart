@@ -117,9 +117,8 @@ class _StaffCalendarPageState extends State<StaffCalendarPage> {
                       ? item.logoutTime!
                       : "--",
                   "totalDuration": "--",
-                  "ideal_time": item.idleTime?.isNotEmpty == true
-                      ? item.idleTime!
-                      : "--",
+                  "ideal_time":
+                      item.idleTime?.isNotEmpty == true ? item.idleTime! : "--",
                   "work_time": item.workingTime?.isNotEmpty == true
                       ? item.workingTime!
                       : "--",
@@ -503,9 +502,8 @@ class _StaffCalendarPageState extends State<StaffCalendarPage> {
                       ? item.logoutTime!
                       : "--",
                   "totalDuration": "--",
-                  "ideal_time": item.idleTime?.isNotEmpty == true
-                      ? item.idleTime!
-                      : "--",
+                  "ideal_time":
+                      item.idleTime?.isNotEmpty == true ? item.idleTime! : "--",
                   "work_time": item.workingTime?.isNotEmpty == true
                       ? item.workingTime!
                       : "--",
@@ -1993,7 +1991,6 @@ class _StaffCalendarPageState extends State<StaffCalendarPage> {
                     ],
                   ),
                 ),
-
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
@@ -2522,8 +2519,13 @@ class _StaffCalendarPageState extends State<StaffCalendarPage> {
                                       const SizedBox(height: 5),
                                       _buildReportRow(
                                         context: context,
-                                        color: const Color.fromARGB(
-                                            255, 20, 116, 139),
+                                        // color: const Color.fromARGB(
+                                        //     255, 20, 116, 139),
+                                        color: attendanceReport!.data!.summary!
+                                                    .effectiveTimeIsNegative ==
+                                                true
+                                            ? Colors.red
+                                            : Colors.green,
                                         label: "Effective Working Hours",
                                         count: attendanceReport!
                                                 .data!.summary!.effectiveTime ??

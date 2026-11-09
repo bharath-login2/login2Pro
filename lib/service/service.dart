@@ -440,6 +440,7 @@ import '../models/Product_mannagement/checkBarcodeDuplicateModel.dart';
 import '../models/staffServiceModel.dart';
 import '../models/serviceman/serviceMandatoryFieldModel.dart';
 import '../models/userPermissionModel.dart';
+import '../models/lead_management/runningTaskModel.dart';
 import '../models/verifyPhoneModel.dart';
 
 class HttpService {
@@ -4248,7 +4249,8 @@ class HttpService {
     return [];
   }
 
-  static Future<Set<String>> getServiceMandatoryFields([String? customToken]) async {
+  static Future<Set<String>> getServiceMandatoryFields(
+      [String? customToken]) async {
     try {
       final token = customToken ?? await Common.getSharedPref("token");
       final formData = FormData.fromMap({"token": token ?? ""});
@@ -4315,7 +4317,8 @@ class HttpService {
     return keys;
   }
 
-  static Future<List<ServiceMandatoryFieldItem>> getServiceMandatoryFieldItems([String? customToken]) async {
+  static Future<List<ServiceMandatoryFieldItem>> getServiceMandatoryFieldItems(
+      [String? customToken]) async {
     try {
       final token = customToken ?? await Common.getSharedPref("token");
       final formData = FormData.fromMap({"token": token ?? ""});
@@ -4342,7 +4345,8 @@ class HttpService {
     }
   }
 
-  static List<ServiceMandatoryFieldItem> _parseServiceMandatoryFieldItems(dynamic data) {
+  static List<ServiceMandatoryFieldItem> _parseServiceMandatoryFieldItems(
+      dynamic data) {
     final List<ServiceMandatoryFieldItem> items = [];
     try {
       dynamic parsed = data;
@@ -4360,7 +4364,8 @@ class HttpService {
             if (item is Map<String, dynamic>) {
               items.add(ServiceMandatoryFieldItem.fromJson(item));
             } else if (item is Map) {
-              items.add(ServiceMandatoryFieldItem.fromJson(Map<String, dynamic>.from(item)));
+              items.add(ServiceMandatoryFieldItem.fromJson(
+                  Map<String, dynamic>.from(item)));
             }
           }
         }
@@ -4371,7 +4376,8 @@ class HttpService {
     return items;
   }
 
-  static Future<List<MandatoryFieldSelectItem>> getServiceMandatoryFieldsSelect([String? customToken]) async {
+  static Future<List<MandatoryFieldSelectItem>> getServiceMandatoryFieldsSelect(
+      [String? customToken]) async {
     try {
       final token = customToken ?? await Common.getSharedPref("token");
       final formData = FormData.fromMap({"token": token ?? ""});
@@ -4398,7 +4404,8 @@ class HttpService {
     }
   }
 
-  static List<MandatoryFieldSelectItem> _parseMandatoryFieldSelectItems(dynamic data) {
+  static List<MandatoryFieldSelectItem> _parseMandatoryFieldSelectItems(
+      dynamic data) {
     final List<MandatoryFieldSelectItem> items = [];
     try {
       dynamic parsed = data;
@@ -4416,7 +4423,8 @@ class HttpService {
             if (item is Map<String, dynamic>) {
               items.add(MandatoryFieldSelectItem.fromJson(item));
             } else if (item is Map) {
-              items.add(MandatoryFieldSelectItem.fromJson(Map<String, dynamic>.from(item)));
+              items.add(MandatoryFieldSelectItem.fromJson(
+                  Map<String, dynamic>.from(item)));
             }
           }
         }
@@ -4449,7 +4457,9 @@ class HttpService {
         final dynamic raw = response.data;
         final Map<String, dynamic> data = raw is Map<String, dynamic>
             ? raw
-            : (raw is String ? jsonDecode(raw) : Map<String, dynamic>.from(raw));
+            : (raw is String
+                ? jsonDecode(raw)
+                : Map<String, dynamic>.from(raw));
         final bool status = data["status"] == true ||
             data["status"] == 1 ||
             data["status"]?.toString().toLowerCase() == "true" ||
@@ -4457,7 +4467,9 @@ class HttpService {
         return {
           "status": status,
           "message": data["message"]?.toString() ??
-              (status ? "Field deleted successfully" : "Failed to delete field"),
+              (status
+                  ? "Field deleted successfully"
+                  : "Failed to delete field"),
         };
       }
       return {
@@ -4494,7 +4506,9 @@ class HttpService {
         final dynamic raw = response.data;
         final Map<String, dynamic> data = raw is Map<String, dynamic>
             ? raw
-            : (raw is String ? jsonDecode(raw) : Map<String, dynamic>.from(raw));
+            : (raw is String
+                ? jsonDecode(raw)
+                : Map<String, dynamic>.from(raw));
         final bool status = data["status"] == true ||
             data["status"] == 1 ||
             data["status"]?.toString().toLowerCase() == "true" ||
@@ -4540,17 +4554,21 @@ class HttpService {
         final dynamic raw = response.data;
         final Map<String, dynamic> data = raw is Map<String, dynamic>
             ? raw
-            : (raw is String ? jsonDecode(raw) : Map<String, dynamic>.from(raw));
+            : (raw is String
+                ? jsonDecode(raw)
+                : Map<String, dynamic>.from(raw));
         final bool status = data["status"] == true ||
             data["status"] == 1 ||
             data["status"]?.toString().toLowerCase() == "true" ||
             data["status"]?.toString().toLowerCase() == "success";
 
         if (!status &&
-            (data["message"]?.toString().toLowerCase().contains("required") ?? false)) {
+            (data["message"]?.toString().toLowerCase().contains("required") ??
+                false)) {
           final fallbackFormData = FormData();
           fallbackFormData.fields.add(MapEntry("token", token ?? ""));
-          fallbackFormData.fields.add(MapEntry("field_key", fieldKeys.join(",")));
+          fallbackFormData.fields
+              .add(MapEntry("field_key", fieldKeys.join(",")));
           for (final key in fieldKeys) {
             fallbackFormData.fields.add(MapEntry("field_key", key));
           }
@@ -4558,11 +4576,14 @@ class HttpService {
             "${await Config.getUrl()}add_service_mandatory_fields",
             data: fallbackFormData,
           );
-          if (fallbackResponse.statusCode == 200 && fallbackResponse.data != null) {
+          if (fallbackResponse.statusCode == 200 &&
+              fallbackResponse.data != null) {
             final dynamic fbRaw = fallbackResponse.data;
             final Map<String, dynamic> fbData = fbRaw is Map<String, dynamic>
                 ? fbRaw
-                : (fbRaw is String ? jsonDecode(fbRaw) : Map<String, dynamic>.from(fbRaw));
+                : (fbRaw is String
+                    ? jsonDecode(fbRaw)
+                    : Map<String, dynamic>.from(fbRaw));
             final bool fbStatus = fbData["status"] == true ||
                 fbData["status"] == 1 ||
                 fbData["status"]?.toString().toLowerCase() == "true" ||
@@ -4580,7 +4601,9 @@ class HttpService {
         return {
           "status": status,
           "message": data["message"]?.toString() ??
-              (status ? "Mandatory fields added successfully" : "Failed to add fields"),
+              (status
+                  ? "Mandatory fields added successfully"
+                  : "Failed to add fields"),
         };
       }
       return {
@@ -11048,7 +11071,8 @@ class HttpService {
       if (response.statusCode == 200 && response.data != null) {
         return response.data;
       } else {
-        print("âš ï¸ Update uploaded quotation failed: ${response.statusCode}");
+        print(
+            "âš ï¸ Update uploaded quotation failed: ${response.statusCode}");
         return null;
       }
     } catch (e, stackTrace) {
@@ -11576,7 +11600,8 @@ class HttpService {
       final token = await Common.getSharedPref('token') ?? '';
       final endpoint = isEdit ? 'updateBooking' : 'createBooking';
       final url = "${await Config.getUrl()}$endpoint";
-      print("ðŸŸ¢ ${isEdit ? 'Updating' : 'Submitting'} booking data to API...");
+      print(
+          "ðŸŸ¢ ${isEdit ? 'Updating' : 'Submitting'} booking data to API...");
       print("ðŸ“¦ Booking data payload: $bookingData");
       print(
           "ðŸ“ ID Proof file: ${idProofFile != null ? idProofFile.path : 'No file'}");
@@ -11628,7 +11653,8 @@ class HttpService {
         if (responseData != null) {
           final result = BookingResponse.fromJson(responseData);
           if (result.status == true) {
-            print("âœ… Booking ${isEdit ? 'updated' : 'created'} successfully!");
+            print(
+                "âœ… Booking ${isEdit ? 'updated' : 'created'} successfully!");
             if (!isEdit) {
               print("ðŸ“‹ Booking ID: ${result.bookingId}");
             }
@@ -11711,7 +11737,8 @@ class HttpService {
             print("âœ… Booking details fetched successfully");
             if (result.data != null) {
               print("ðŸ“‹ Booking ID: ${result.data!.bookingDetails.id}");
-              print("ðŸ“‹ Invoice: ${result.data!.bookingDetails.invoiceNumber}");
+              print(
+                  "ðŸ“‹ Invoice: ${result.data!.bookingDetails.invoiceNumber}");
               print(
                   "ðŸ“‹ Total Amount: ${result.data!.bookingDetails.totalAmount}");
               print("ðŸ“‹ Rooms: ${result.data!.bookingRoomsList.length}");
@@ -12368,7 +12395,9 @@ class HttpService {
         final dynamic raw = response.data;
         final Map<String, dynamic> data = raw is Map<String, dynamic>
             ? raw
-            : (raw is String ? jsonDecode(raw) : Map<String, dynamic>.from(raw));
+            : (raw is String
+                ? jsonDecode(raw)
+                : Map<String, dynamic>.from(raw));
         final bool status = data["status"] == true ||
             data["status"] == 1 ||
             data["status"]?.toString().toLowerCase() == "true" ||
@@ -12376,7 +12405,9 @@ class HttpService {
         return {
           "status": status,
           "message": data["message"]?.toString() ??
-              (status ? "Image deleted successfully" : "Failed to delete image"),
+              (status
+                  ? "Image deleted successfully"
+                  : "Failed to delete image"),
         };
       }
       return {
@@ -12446,8 +12477,7 @@ class HttpService {
     return null;
   }
 
-  Future<Map<String, dynamic>?> addWorkService(
-      dynamic body) async {
+  Future<Map<String, dynamic>?> addWorkService(dynamic body) async {
     try {
       final token = await Common.getSharedPref("token");
       final FormData formData;
@@ -12457,7 +12487,8 @@ class HttpService {
           formData.fields.add(MapEntry("token", token ?? ""));
         }
       } else {
-        formData = FormData.fromMap({"token": token, ...Map<String, dynamic>.from(body as Map)});
+        formData = FormData.fromMap(
+            {"token": token, ...Map<String, dynamic>.from(body as Map)});
       }
       final result = await _dio.post(
         "${await Config.getUrl()}addWork",
@@ -18905,6 +18936,31 @@ class HttpService {
       print('getWorkOrderCardPdf error: $e');
     }
 
+    return null;
+  }
+
+  //get running work order list
+  static Future<RunningTasksResponse?> getRunningTasks(
+      {String? token, bool? fromDashboard}) async {
+    final token = await Common.getSharedPref("token");
+
+    final data = {
+      'token': token,
+      'from_dashboard': fromDashboard,
+    };
+
+    try {
+      final response = await _dio.post(
+        "${await Config.getUrl()}get_work_dashboard_running", // Replace with your exact endpoint name if needed
+        data: FormData.fromMap(data),
+      );
+
+      if (response.statusCode == 200) {
+        return RunningTasksResponse.fromJson(response.data);
+      }
+    } catch (e) {
+      log("getRunningTasks error: $e");
+    }
     return null;
   }
 }

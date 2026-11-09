@@ -17,6 +17,7 @@ import 'package:login2/screens/rental/rentalReturnList.dart';
 import 'package:login2/screens/rental/damagedListPage.dart';
 import 'package:login2/screens/rental/expiredListPage.dart';
 import 'package:login2/screens/rental/overdueReturnsPage.dart';
+import 'package:login2/screens/rental/addRentalIssuePage.dart';
 import 'package:login2/screens/drawerScreen.dart';
 import 'package:login2/service/service.dart';
 
@@ -146,6 +147,10 @@ class _RentalDashboardState extends State<RentalDashboard> {
                     children: [
                       // Date Filter Row
                       _buildDateFilter(context),
+                      const SizedBox(height: 20),
+
+                      // Add Rental Issue Widget
+                      _buildAddRentalIssueWidget(context),
                       const SizedBox(height: 20),
 
                       // Show error message if API returned false status
@@ -289,6 +294,67 @@ class _RentalDashboardState extends State<RentalDashboard> {
     );
   }
 
+//add rental issue widget
+  Widget _buildAddRentalIssueWidget(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        // Navigator.push(
+        //   context,
+        //   MaterialPageRoute(
+        //     builder: (_) => const CreateNewJobPage(),
+        //   ),
+        // ).then((_) {
+        //   onRefresh?.call();
+        // });
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AddRentalIssuePage()),
+        ).then((_) {
+          // _loadRentalIssues();
+        });
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F6FC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFFD5E5F7),
+          ),
+        ),
+        child: const Row(
+          children: [
+            Icon(
+              Icons.add_circle_outline,
+              color: Color.fromARGB(255, 37, 118, 194),
+              size: 24,
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                "Add Rental Issue",
+                style: TextStyle(
+                  color: Colors.blue,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 15,
+              color: Color(0xFF3976B9),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildErrorMessage() {
     if (dashboardData == null || dashboardData!.status) return const SizedBox();
 
@@ -393,7 +459,7 @@ class _RentalDashboardState extends State<RentalDashboard> {
                   builder: (context) => DamagedListPage(token: widget.token),
                 ),
               );
-            }else if (value == 'expired_list') {
+            } else if (value == 'expired_list') {
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -413,7 +479,7 @@ class _RentalDashboardState extends State<RentalDashboard> {
                 ],
               ),
             ),
-             const PopupMenuItem(
+            const PopupMenuItem(
               value: 'expired_list',
               child: Row(
                 children: [
@@ -431,7 +497,7 @@ class _RentalDashboardState extends State<RentalDashboard> {
 
   Widget _buildTopStats(BuildContext context) {
     final data = dashboardData?.data;
-    
+
     // Calculate pending returns
     final pendingReturn = (data?.pendingReturn ?? 0);
     final overdueCount = (data?.overdueCount ?? 0);

@@ -72,7 +72,7 @@ class ListData {
     this.workingTime,
     this.idleTime,
     this.status,
-    this.logoutStatus, 
+    this.logoutStatus,
     this.remarks,
     this.leaveReason,
   });
@@ -98,7 +98,7 @@ class ListData {
     data['logout_time'] = logoutTime;
     data['working_time'] = workingTime;
     data['idle_time'] = idleTime;
-    data['status'] = status;   
+    data['status'] = status;
     data['logout_status'] = logoutStatus;
     data['remark'] = remarks;
     data['leave_reason'] = leaveReason;
@@ -112,6 +112,7 @@ class Summary {
   String? totalWorkableTime;
   String? totalAllowedIdleTime;
   String? effectiveTime;
+  bool? effectiveTimeIsNegative;
 
   Summary({
     this.totalWorkingTime,
@@ -119,6 +120,7 @@ class Summary {
     this.totalWorkableTime,
     this.totalAllowedIdleTime,
     this.effectiveTime,
+    this.effectiveTimeIsNegative,
   });
 
   Summary.fromJson(Map<String, dynamic> json) {
@@ -127,6 +129,7 @@ class Summary {
     totalWorkableTime = json['total_workable_time'];
     totalAllowedIdleTime = json['total_allowed_idle_time'];
     effectiveTime = json['effective_time'];
+    effectiveTimeIsNegative = json['is_negative'];
   }
 
   Map<String, dynamic> toJson() {
@@ -136,6 +139,7 @@ class Summary {
     data['total_workable_time'] = totalWorkableTime;
     data['total_allowed_idle_time'] = totalAllowedIdleTime;
     data['effective_time'] = effectiveTime;
+    data['is_negative'] = effectiveTimeIsNegative;
     return data;
   }
 }

@@ -596,7 +596,7 @@ class _AddWorkPageState extends State<AddWorkPage> {
     };
     try {
       final response = widget.existingWork != null
-          ?await HttpService.saveWorkData(workData)
+          ? await HttpService.saveWorkData(workData)
           // await HttpService.updateWorkData(workData)
           : await HttpService.submitWorkData(workData);
 
@@ -1458,7 +1458,9 @@ class _AddWorkPageState extends State<AddWorkPage> {
                             }),
 
                             // Add Task Button (only for last task)
-                            if ((taskIndex == tasks.length - 1) && widget.Restart != 1 && widget.isAssigned != 1)
+                            if ((taskIndex == tasks.length - 1) &&
+                                widget.Restart != 1 &&
+                                widget.isAssigned != 1)
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton.icon(
@@ -1595,7 +1597,6 @@ class _AddWorkPageState extends State<AddWorkPage> {
 
                 const SizedBox(height: 12),
 
-              
                 if (widget.existingWork != null &&
                     widget.isPaused != 1 &&
                     widget.Restart != 1) ...[
@@ -1663,9 +1664,7 @@ class _AddWorkPageState extends State<AddWorkPage> {
                       ),
                       onPressed: widget.isPaused == 1 && widget.Restart != 1
                           ? _pauseWork
-                          : (widget.Restart == 1
-                              ? _restartWork
-                              : _submitWork),
+                          : (widget.Restart == 1 ? _restartWork : _submitWork),
                       child: Text(
                         widget.isPaused == 1
                             ? "PAUSE WORK"
@@ -1722,6 +1721,7 @@ class _AddWorkPageState extends State<AddWorkPage> {
                     ),
                     const SizedBox(height: 12),
                     TextField(
+                      autofocus: true,
                       controller: search,
                       decoration: InputDecoration(
                         hintText: 'Search...',

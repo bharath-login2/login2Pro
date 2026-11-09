@@ -17,6 +17,7 @@ import 'package:login2/models/lead_management/leadDashboardModel.dart';
 import 'package:login2/models/lead_management/leadProgressbarModel.dart';
 import 'package:login2/models/lead_management/projectList_model.dart';
 import 'package:login2/models/lead_management/workstatus_model.dart';
+import 'package:login2/models/lead_management/runningTaskModel.dart';
 import 'package:login2/models/loginCheckModel.dart';
 import 'package:login2/models/projectCountModel.dart';
 import 'package:login2/models/staff_report/AttendanceStaffwiseModel.dart';
@@ -41,6 +42,7 @@ import 'package:login2/screens/leadManagement/pendingWorkPageNew.dart';
 import 'package:login2/screens/leadManagement/salaryReportPage.dart';
 import 'package:login2/screens/leadManagement/totalSummeryPage.dart';
 import 'package:login2/screens/leadManagement/viewallcompanyworks.dart';
+import 'package:login2/screens/leadManagement/running_task_list_screen.dart';
 import 'package:login2/screens/leave_request_list_page.dart';
 import 'package:login2/service/service.dart';
 import 'package:login2/widgets/togglebutton_start.dart';
@@ -48,6 +50,7 @@ import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
 import '../authentication/deep_link_handler.dart';
+import 'package:login2/screens/leadManagement/viewwork_page.dart';
 
 class ProjectDashboard extends StatefulWidget {
   const ProjectDashboard({super.key});
@@ -132,6 +135,7 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
   String officialWhatsapp = '';
   String unOfficialWhatsapp = '';
   List<ProCount> projectCounts = [];
+  RunningTasksResponse? runningTasks;
   String? _faceBase64;
   LeadProgressbarModel? object1;
   bool toggle = false;
@@ -151,7 +155,7 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
     loadPrefs();
     loginorNot();
     dashboardCounts();
-
+    loadRunningTasks();
     _loadWorkStatus();
     loadAssignedData();
 
@@ -267,7 +271,7 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
     final value = await Common.getSharedPref("multipleWorks");
     userId = await Common.getSharedPref("userId");
     token = await Common.getSharedPref("token");
-      viewWorkReport = await Common.getSharedPref("viewWorkReport");
+    viewWorkReport = await Common.getSharedPref("viewWorkReport");
     ProjectDashboardPermission =
         await Common.getSharedPref("ProjectDashboardPermission");
     AccountsDashboardPermission =
@@ -321,6 +325,13 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
     setState(() {
       isWorkStarted = status == "true";
     });
+  }
+
+  //load running tasks
+  Future<void> loadRunningTasks() async {
+    final res = await HttpService.getRunningTasks(fromDashboard: true);
+    if (!mounted) return;
+    setState(() => runningTasks = res);
   }
 
   void showError(String message) {
@@ -1046,7 +1057,7 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                                                     AddWorkPage(
                                                   workId: "",
                                                   existingWork: existingWork,
-                                                   isAssigned: 1,
+                                                  isAssigned: 1,
                                                   onSuccess: () {
                                                     setState(() {
                                                       getData(token, fromdate,
@@ -1198,87 +1209,174 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                             ? _buildAssignedByMeSection()
                             : const SizedBox(),
                         const SizedBox(height: 16),
-                        
-                        // Recent Projects Section
-                        if (projectList != null && projectList!.data.isNotEmpty) ...[
+
+                        // Recent running Section
+                        if (runningTasks != null &&
+                            runningTasks!.data.isNotEmpty) ...[
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text(
-                                "Recent Projects",
+                                "Running Tasks",
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const AddProjectPage(),
-                                    ),
-                                  );
-                                },
-                                child: const Row(
-                                  children: [
-                                    Text(
-                                      'View More',
-                                      style: TextStyle(
-                                        color: Colors.blue,
-                                        fontWeight: FontWeight.bold,
+                              if (runningTasks!.data.length > 5)
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        // fromDashboard false -> full list
+                                        builder: (context) =>
+                                            const RunningTasksPage(
+                                                fromDashboard: false),
                                       ),
-                                    ),
-                                    Icon(
-                                      Icons.arrow_forward_ios,
-                                      size: 12,
-                                      color: Colors.blue,
-                                    ),
-                                  ],
+                                    );
+                                  },
+                                  child: const Row(
+                                    children: [
+                                      Text(
+                                        'View More',
+                                        style: TextStyle(
+                                          color: Colors.blue,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Icon(
+                                        Icons.arrow_forward_ios,
+                                        size: 12,
+                                        color: Colors.blue,
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
                           const SizedBox(height: 10),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: projectList!.data.length > 5 ? 5 : projectList!.data.length,
-                            itemBuilder: (context, index) {
-                              final project = projectList!.data[index];
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
+                          SizedBox(
+                            // each card ≈ 84px (72 tile + 12 margin); max 5 cards
+                            height: (runningTasks!.data.length > 5
+                                    ? 5
+                                    : runningTasks!.data.length) *
+                                84.0,
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              physics: const NeverScrollableScrollPhysics(),
+                              // dashboard (from_dashboard = true) -> only 5
+                              itemCount: runningTasks!.data.length > 5
+                                  ? 5
+                                  : runningTasks!.data.length,
+                              itemBuilder: (context, index) {
+                                final task = runningTasks!.data[index];
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                    border:
+                                        Border.all(color: Colors.grey.shade100),
+                                  ),
+                                  child: ListTile(
+                                    onTap: () {
+                                      final staffName = task.assignedToName;
+                                      final staffId = task.assignedTo;
+                                      final selectedDate = DateTime.now();
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => ViewWorkPage(
+                                            staffName: staffName,
+                                            staffId: staffId,
+                                            selectedDate: selectedDate,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    leading: CircleAvatar(
+                                      backgroundColor: Colors.blue.shade50,
+                                      child: Icon(Icons.timelapse_rounded,
+                                          color: Colors.blue.shade400,
+                                          size: 20),
                                     ),
-                                  ],
-                                  border: Border.all(color: Colors.grey.shade100),
-                                ),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: Colors.blue.shade50,
-                                    child: Icon(Icons.rocket_launch_rounded, color: Colors.blue.shade400, size: 20),
-                                  ),
-                                  title: Text(
-                                    project.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black87,
+                                    title: Text(
+                                      task.assignedToName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      "${task.projectName} • ${task.taskName}",
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                          color: Colors.grey.shade600,
+                                          fontSize: 12),
+                                    ),
+                                    trailing: Text(
+                                      task.totalDuration ?? '--:--:--',
+                                      style: TextStyle(
+                                          color: Colors.grey.shade700,
+                                          fontSize: 12),
                                     ),
                                   ),
-                                  subtitle: Text(
-                                    "Project ID: ${project.id}",
-                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                        if (runningTasks != null &&
+                            runningTasks!.data.isEmpty) ...[
+                          const Text(
+                            "Running Tasks",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                              border: Border.all(color: Colors.grey.shade100),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(Icons.timelapse_rounded,
+                                    size: 36, color: Colors.grey.shade400),
+                                const SizedBox(height: 8),
+                                Text(
+                                  "No running tasks now",
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 14,
                                   ),
                                 ),
-                              );
-                            },
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 24),
                         ],
@@ -1364,7 +1462,6 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                                   _buildQuickLinkCard(
                                     "Work Summery All",
                                     Colors.cyan.shade100,
-                                    
                                     () => Navigator.push(
                                       context,
                                       MaterialPageRoute(
