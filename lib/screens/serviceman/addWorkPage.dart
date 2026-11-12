@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:login2/models/lead_management/addLeadCommonDataModel.dart';
 import 'package:login2/models/serviceman/customerModel.dart';
 import 'package:login2/models/serviceman/customerTypeModel.dart';
 import 'package:login2/models/serviceman/receivedThroughModel.dart';
@@ -51,7 +52,22 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
   final TextEditingController _remarksController = TextEditingController();
 
   // Selected values
+  String roleId = '';
+  String multiBranch = '';
+  String isMultiBranch = 'N';
+  String? _tokenBranchId;
+  String? _tokenBranchName;
+  String? _selectedBranchId;
   String? _selectedCustomerId;
+
+  bool get _isBranchReadOnly =>
+      _tokenBranchId != null &&
+      _tokenBranchId!.trim().isNotEmpty &&
+      _tokenBranchId!.trim() != '0' &&
+      _tokenBranchId!.trim() != 'null';
+
+  bool get _shouldShowBranchField =>
+      isMultiBranch.toUpperCase() == 'Y';
   String? _selectedCustomerType;
   String? _selectedPriority;
   String? _selectedProduct;
@@ -73,6 +89,7 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
   final ImagePicker _picker = ImagePicker();
 
   // Models
+  AddLeadCommonDataModel? commonDetails;
   CustomerModelService? customerModel;
   CustomerTypeModel? custTypeModel;
   StaffsModel? staffModel;
@@ -124,13 +141,287 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
     }
   }
 
+  String _getBranchNameById(String? branchId) {
+    final target = branchId?.trim() ?? '';
+    if (target.isEmpty) return '';
+    for (final item in _branchItems) {
+      if (item["id"]?.toString().trim() == target) {
+        return item["name"]?.toString().trim() ?? '';
+      }
+    }
+    if (_tokenBranchId == target && _tokenBranchName != null) {
+      return _tokenBranchName!.trim();
+    }
+    return '';
+  }
+
+  Future<CustomerModelService?> _fetchCustomersByBranch(String? branchId) async {
+    final trimmedBranch = branchId?.trim() ?? '';
+    final model = await HttpService().getCustomerListService(
+      branchId: trimmedBranch.isNotEmpty ? trimmedBranch : null,
+    );
+    if (model == null) return CustomerModelService(status: "true", data: []);
+    if (trimmedBranch.isNotEmpty) {
+      final hasBranchId =
+          model.data.any((c) => c.branchId.trim().isNotEmpty);
+      if (hasBranchId) {
+        final filtered = model.data
+            .where((c) => c.branchId.trim() == trimmedBranch)
+            .toList();
+        return CustomerModelService(status: model.status, data: filtered);
+      }
+      final branchName = _getBranchNameById(trimmedBranch);
+      if (branchName.isNotEmpty &&
+          model.data.any((c) => c.branchName.trim().isNotEmpty)) {
+        final filtered = model.data
+            .where((c) =>
+                c.branchName.trim().toLowerCase() == branchName.toLowerCase())
+            .toList();
+        return CustomerModelService(status: model.status, data: filtered);
+      }
+    }
+    return model;
+  }
+
+  Future<StaffsModel?> _fetchStaffByBranch(String? branchId) async {
+    final trimmedBranch = branchId?.trim() ?? '';
+    final model = await HttpService().getStaffName(
+      branchId: trimmedBranch.isNotEmpty ? trimmedBranch : null,
+    );
+    if (model == null) return StaffsModel(status: "true", data: []);
+    if (trimmedBranch.isNotEmpty) {
+      final hasBranchId =
+          model.data.any((s) => s.branchId.trim().isNotEmpty);
+      if (hasBranchId) {
+        final filtered = model.data
+            .where((s) => s.branchId.trim() == trimmedBranch)
+            .toList();
+        return StaffsModel(status: model.status, data: filtered);
+      }
+      final branchName = _getBranchNameById(trimmedBranch);
+      if (branchName.isNotEmpty &&
+          model.data.any((s) => s.branchName.trim().isNotEmpty)) {
+        final filtered = model.data
+            .where((s) =>
+                s.branchName.trim().toLowerCase() == branchName.toLowerCase())
+            .toList();
+        return StaffsModel(status: model.status, data: filtered);
+      }
+    }
+    return model;
+  }
+
+  Future<void> _onBranchChanged(String? branchId) async {
+    if (_isBranchReadOnly || _selectedBranchId == branchId) return;
+    setState(() {
+      _selectedBranchId = branchId;
+      _selectedCustomerId = null;
+      _selectedServiceMan = null;
+      _customerError = false;
+      _phoneController.clear();
+      _addressController.clear();
+      _emailController.clear();
+      customerModel = CustomerModelService(status: "true", data: []);
+      staffModel = StaffsModel(status: "true", data: []);
+    });
+
+    if (branchId != null &&
+        branchId.trim().isNotEmpty &&
+        branchId.trim() != '0') {
+      try {
+        final results = await Future.wait([
+          _fetchCustomersByBranch(branchId.trim()),
+          _fetchStaffByBranch(branchId.trim()),
+        ]);
+        if (mounted && _selectedBranchId == branchId) {
+          setState(() {
+            customerModel = (results[0] as CustomerModelService?) ??
+                CustomerModelService(status: "true", data: []);
+            staffModel = (results[1] as StaffsModel?) ??
+                StaffsModel(status: "true", data: []);
+          });
+        }
+      } catch (e) {
+        debugPrint("Error loading customers/staff by branch: $e");
+      }
+    }
+  }
+
+  List<Map<String, dynamic>> get _branchItems {
+    final rawBranches = commonDetails?.data.branch ?? [];
+    final List<Map<String, dynamic>> list = [];
+    for (final b in rawBranches) {
+      String id = '';
+      String name = '';
+      if (b is Map) {
+        id = (b['branch_id'] ?? b['branchId'] ?? b['id'] ?? '').toString().trim();
+        name =
+            (b['branch_name'] ?? b['branchName'] ?? b['name'] ?? '').toString().trim();
+      } else {
+        try {
+          id = (b.branchId ?? '').toString().trim();
+          name = (b.branchName ?? '').toString().trim();
+        } catch (_) {}
+      }
+      if (id.isNotEmpty && id != '0') {
+        list.add({"id": id, "name": name});
+      }
+    }
+
+    if (_selectedBranchId != null &&
+        _selectedBranchId!.trim().isNotEmpty &&
+        _selectedBranchId!.trim() != '0') {
+      final selId = _selectedBranchId!.trim();
+      final exists = list.any((item) => item["id"].toString() == selId);
+      if (!exists) {
+        String displayName = '';
+        if (_tokenBranchId == selId &&
+            _tokenBranchName != null &&
+            _tokenBranchName!.trim().isNotEmpty) {
+          displayName = _tokenBranchName!.trim();
+        }
+        if (displayName.isEmpty) {
+          displayName = 'Branch $selId';
+        }
+        list.add({"id": selId, "name": displayName});
+      }
+    }
+    return list;
+  }
+
   Future<void> _loadAllData() async {
     if (mounted) setState(() => _loadFailed = false);
     try {
       final mandatoryFuture = _fetchMandatoryFields();
-      customerModel = await HttpService().getCustomerListService();
+      final token = (await Common.getSharedPref("token") ?? '').toString();
+      final prefRole = (await Common.getSharedPref("roleId") ??
+              await Common.getSharedPref("role") ??
+              '')
+          .toString()
+          .trim();
+      final prefMultiBranch =
+          (await Common.getSharedPref("multiBranch") ?? '').toString().trim();
+
+      String jwtRole = '';
+      String jwtMultiBranch = '';
+      String? jwtBranchId;
+      String? jwtBranchName;
+
+      final jwt = Common.decodeJwt(token);
+      if (jwt != null) {
+        final Map<String, dynamic> jwtData = jwt['data'] is Map
+            ? Map<String, dynamic>.from(jwt['data'] as Map)
+            : jwt;
+        jwtRole = (jwtData['role'] ??
+                jwtData['roleId'] ??
+                jwtData['role_id'] ??
+                '')
+            .toString()
+            .trim();
+        jwtMultiBranch = (jwtData['is_multi_branch'] ??
+                jwtData['isMultiBranch'] ??
+                '')
+            .toString()
+            .trim();
+        final rawBId = jwtData['branch_id'] ??
+            jwtData['branchId'] ??
+            jwtData['branch'] ??
+            jwt['branch_id'] ??
+            jwt['branchId'];
+        if (rawBId != null) {
+          jwtBranchId = rawBId.toString().trim();
+        }
+        final rawBName = jwtData['branch_name'] ??
+            jwtData['branchName'] ??
+            jwt['branch_name'] ??
+            jwt['branchName'];
+        if (rawBName != null) {
+          jwtBranchName = rawBName.toString().trim();
+        }
+      }
+
+      roleId = (jwtRole == '3' || prefRole == '3')
+          ? '3'
+          : (jwtRole.isNotEmpty ? jwtRole : prefRole);
+
+      if (jwtMultiBranch.isNotEmpty) {
+        if (jwtMultiBranch.toUpperCase() == 'Y' ||
+            jwtMultiBranch.toLowerCase() == 'true') {
+          isMultiBranch = 'Y';
+          multiBranch = 'true';
+        } else {
+          isMultiBranch = 'N';
+          multiBranch = 'false';
+        }
+      } else {
+        if (prefMultiBranch.toUpperCase() == 'Y' ||
+            prefMultiBranch.toLowerCase() == 'true') {
+          isMultiBranch = 'Y';
+          multiBranch = 'true';
+        } else {
+          isMultiBranch = 'N';
+          multiBranch = 'false';
+        }
+      }
+
+      if (jwtBranchId != null &&
+          jwtBranchId.isNotEmpty &&
+          jwtBranchId != 'null') {
+        _tokenBranchId = jwtBranchId;
+      } else {
+        final prefBranch = (await Common.getSharedPref("branch_id") ??
+                await Common.getSharedPref("branchId") ??
+                '')
+            .toString()
+            .trim();
+        if (prefBranch.isNotEmpty && prefBranch != 'null') {
+          _tokenBranchId = prefBranch;
+        } else {
+          _tokenBranchId = null;
+        }
+      }
+      _tokenBranchName = jwtBranchName;
+
+      if (_isBranchReadOnly) {
+        _selectedBranchId = _tokenBranchId!.trim();
+      }
+
+      try {
+        commonDetails = await HttpService.addLeadCommonData(token);
+      } catch (e) {
+        debugPrint("Error loading commonDetails: $e");
+      }
+
+      // If token branch name was not in JWT, sync it from commonDetails
+      if (_tokenBranchId != null &&
+          _tokenBranchId!.isNotEmpty &&
+          (_tokenBranchName == null || _tokenBranchName!.isEmpty)) {
+        for (final item in _branchItems) {
+          if (item["id"].toString() == _tokenBranchId) {
+            final name = item["name"]?.toString();
+            if (name != null && !name.startsWith('Branch ')) {
+              _tokenBranchName = name;
+              break;
+            }
+          }
+        }
+      }
+
+      if (_selectedBranchId != null &&
+          _selectedBranchId!.trim().isNotEmpty &&
+          _selectedBranchId!.trim() != '0') {
+        customerModel =
+            await _fetchCustomersByBranch(_selectedBranchId!.trim());
+        staffModel = await _fetchStaffByBranch(_selectedBranchId!.trim());
+      } else if (multiBranch == 'true') {
+        customerModel = CustomerModelService(status: "true", data: []);
+        staffModel = StaffsModel(status: "true", data: []);
+      } else {
+        customerModel = await HttpService().getCustomerListService();
+        staffModel = await HttpService().getStaffName();
+      }
+
       custTypeModel = await HttpService().getCustomerType();
-      staffModel = await HttpService().getStaffName();
       workType = await HttpService().getWorkType();
       workCategory = await HttpService().getWorkCategory();
       receivedOne = await HttpService().getReceivedThrough();
@@ -505,7 +796,12 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
 
     if (newCustomer != null) {
       try {
-        final refreshedModel = await HttpService().getCustomerListService();
+        final refreshedModel = multiBranch == 'true'
+            ? (_selectedBranchId != null &&
+                    _selectedBranchId!.trim().isNotEmpty
+                ? await _fetchCustomersByBranch(_selectedBranchId!.trim())
+                : CustomerModelService(status: "true", data: []))
+            : await HttpService().getCustomerListService();
         if (refreshedModel != null && refreshedModel.data.isNotEmpty) {
           customerModel = refreshedModel;
         }
@@ -799,8 +1095,7 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
     bool showMoreHasError = false;
     String? firstErrorMessage;
 
-    if (_isMandatory("1") &&
-        (_selectedProduct == null || _selectedProduct!.trim().isEmpty)) {
+    if (_selectedProduct == null || _selectedProduct!.trim().isEmpty) {
       firstErrorMessage ??= 'Please select Product';
     }
     if (_isMandatory("2") && _locationController.text.trim().isEmpty) {
@@ -812,12 +1107,14 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
     if (_isMandatory("4") && _brandController.text.trim().isEmpty) {
       firstErrorMessage ??= 'Please enter Brand';
     }
-    if (_isMandatory("5") &&
-        (_selectedCategory == null || _selectedCategory!.trim().isEmpty)) {
+    if (_selectedCategory == null || _selectedCategory!.trim().isEmpty) {
       firstErrorMessage ??= 'Please select Issue Type';
     }
     if (_isMandatory("6") && _problemDescController.text.trim().isEmpty) {
       firstErrorMessage ??= 'Please enter Problem Description';
+    }
+    if (_selectedServiceMan == null || _selectedServiceMan!.trim().isEmpty) {
+      firstErrorMessage ??= 'Please select Assigned Staff';
     }
 
     // Check collapsible (Show more) mandatory fields
@@ -847,11 +1144,6 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
     if (_isMandatory("12") && _estimatedDate == null) {
       showMoreHasError = true;
       firstErrorMessage ??= 'Please select Estimated Date';
-    }
-    if (_isMandatory("13") &&
-        (_selectedServiceMan == null || _selectedServiceMan!.trim().isEmpty)) {
-      showMoreHasError = true;
-      firstErrorMessage ??= 'Please select Assigned Staff';
     }
     if (_isMandatory("14") &&
         (_selectedStatus == null || _selectedStatus!.trim().isEmpty)) {
@@ -938,7 +1230,15 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
       return;
     }
 
+    final String? effectiveBranchId = (_selectedBranchId != null &&
+            _selectedBranchId!.trim().isNotEmpty &&
+            _selectedBranchId!.trim() != '0')
+        ? _selectedBranchId!.trim()
+        : (_isBranchReadOnly ? _tokenBranchId!.trim() : null);
+
     final Map<String, dynamic> body = {
+      if (effectiveBranchId != null && effectiveBranchId.isNotEmpty)
+        "branch_id": effectiveBranchId,
       "customer_id": _selectedCustomerId,
       "customer_type": _selectedCustomerType,
       "priority": _selectedPriority,
@@ -1144,6 +1444,15 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
       title: 'Job Details',
       icon: Icons.assignment_outlined,
       children: [
+        if (_shouldShowBranchField)
+          _buildDropdown(
+            "Branch",
+            _selectedBranchId,
+            _branchItems,
+            _isBranchReadOnly ? null : (val) => _onBranchChanged(val),
+            icon: Icons.business_outlined,
+            readOnly: _isBranchReadOnly,
+          ),
         // Customer name picker + add button
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1218,11 +1527,9 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
               .toList(),
           (val) => setState(() => _selectedProduct = val),
           icon: Icons.devices_other_outlined,
-          isRequired: _isMandatory("1"),
-          validator: _isMandatory("1")
-              ? (v) => (v == null || v.trim().isEmpty)
-                  ? 'Please select Product'
-                  : null
+          isRequired: true,
+          validator: (v) => (v == null || v.trim().isEmpty)
+              ? 'Please select Product'
               : null,
         ),
         _buildDropdown(
@@ -1234,11 +1541,9 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
           (val) => setState(() => _selectedCategory = val),
           icon: Icons.category_outlined,
           onAddPressed: _openAddNewWorkCategoryPopup,
-          isRequired: _isMandatory("5"),
-          validator: _isMandatory("5")
-              ? (v) => (v == null || v.trim().isEmpty)
-                  ? 'Please select Issue Type'
-                  : null
+          isRequired: true,
+          validator: (v) => (v == null || v.trim().isEmpty)
+              ? 'Please select Issue Type'
               : null,
         ),
         _buildTextField(
@@ -1246,12 +1551,25 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
           "Problem Description",
           icon: Icons.report_problem_outlined,
           maxLines: 3,
-          isLast: true,
           isRequired: _isMandatory("6"),
           validator: _isMandatory("6")
               ? (v) => (v == null || v.trim().isEmpty)
                   ? 'Please enter Problem Description'
                   : null
+              : null,
+        ),
+        _buildDropdown(
+          "Assigned Staff",
+          _selectedServiceMan,
+          staffModel!.data
+              .map((e) => {"id": e.staffId, "name": e.staffName})
+              .toList(),
+          (val) => setState(() => _selectedServiceMan = val),
+          icon: Icons.engineering_outlined,
+          isRequired: true,
+          isLast: true,
+          validator: (v) => (v == null || v.trim().isEmpty)
+              ? 'Please select Assigned Staff'
               : null,
         ),
       ],
@@ -1378,21 +1696,6 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
               () => _pickDateTime(context, false),
               onClear: () => setState(() => _estimatedDate = null),
               isRequired: _isMandatory("12"),
-            ),
-            _buildDropdown(
-              "Assigned Staff",
-              _selectedServiceMan,
-              staffModel!.data
-                  .map((e) => {"id": e.staffId, "name": e.staffName})
-                  .toList(),
-              (val) => setState(() => _selectedServiceMan = val),
-              icon: Icons.engineering_outlined,
-              isRequired: _isMandatory("13"),
-              validator: _isMandatory("13")
-                  ? (v) => (v == null || v.trim().isEmpty)
-                      ? 'Please select Assigned Staff'
-                      : null
-                  : null,
             ),
             _buildDropdown(
               "Status",
@@ -1705,18 +2008,39 @@ class _CreateNewJobPageState extends State<CreateNewJobPage> {
     bool isRequired = false,
     String? Function(String?)? validator,
   }) {
+    final uniqueItems = <String, Map<String, dynamic>>{};
+    for (final item in items) {
+      final id = item["id"].toString();
+      if (!uniqueItems.containsKey(id)) {
+        uniqueItems[id] = item;
+      }
+    }
+    final deduplicatedItems = uniqueItems.values.toList();
+    final bool valueExists = deduplicatedItems.any(
+      (item) => item["id"].toString() == selectedValue,
+    );
+
     final Widget dropdown = DropdownButtonFormField<String>(
-      value: selectedValue,
+      value: valueExists ? selectedValue : null,
       isExpanded: true,
-      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _textMuted),
+      icon: Icon(
+        readOnly
+            ? Icons.lock_outline_rounded
+            : Icons.keyboard_arrow_down_rounded,
+        color: _textMuted,
+        size: readOnly ? 18 : 24,
+      ),
       borderRadius: BorderRadius.circular(12),
-      items: items.map((item) {
+      items: deduplicatedItems.map((item) {
         return DropdownMenuItem<String>(
           value: item["id"].toString(),
           child: Text(
             item["name"]?.toString() ?? "",
             overflow: TextOverflow.ellipsis,
             maxLines: 1,
+            style: TextStyle(
+              color: readOnly ? _textMuted : _textDark,
+            ),
           ),
         );
       }).toList(),

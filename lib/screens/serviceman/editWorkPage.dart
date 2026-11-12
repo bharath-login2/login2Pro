@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:login2/models/lead_management/addLeadCommonDataModel.dart';
 import 'package:login2/models/serviceman/customerModel.dart';
 import 'package:login2/models/serviceman/customerTypeModel.dart';
 import 'package:login2/models/serviceman/receivedThroughModel.dart';
@@ -74,6 +75,12 @@ class _EditWorkPageState extends State<EditWorkPage> {
   final TextEditingController _remarksController = TextEditingController();
 
   // Selected values
+  String roleId = '';
+  String multiBranch = '';
+  String? _tokenBranchId;
+  String? _tokenBranchName;
+  String? _selectedBranchId;
+  bool _hasInvoice = false;
   String? _selectedCustomerId;
   String? _selectedCustomerType;
   String? _selectedPriority;
@@ -95,6 +102,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
   final ImagePicker _picker = ImagePicker();
 
   // Models
+  AddLeadCommonDataModel? commonDetails;
   CustomerModelService? customerModel;
   CustomerTypeModel? custTypeModel;
   StaffsModel? staffModel;
@@ -174,6 +182,148 @@ class _EditWorkPageState extends State<EditWorkPage> {
   }
 
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Data loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  String _getBranchNameById(String? branchId) {
+    final target = branchId?.trim() ?? '';
+    if (target.isEmpty) return '';
+    for (final item in _branchItems) {
+      if (item["id"]?.toString().trim() == target) {
+        final name = item["name"]?.toString().trim() ?? '';
+        if (name.isNotEmpty && name != target) return name;
+      }
+    }
+    if (_tokenBranchId == target && _tokenBranchName != null) {
+      return _tokenBranchName!.trim();
+    }
+    return '';
+  }
+
+  Future<CustomerModelService?> _fetchCustomersByBranch(String? branchId) async {
+    final trimmedBranch = branchId?.trim() ?? '';
+    final res = await HttpService().getCustomerListService(
+      branchId: trimmedBranch.isNotEmpty ? trimmedBranch : null,
+    );
+    if (res == null) {
+      return CustomerModelService(status: "true", data: []);
+    }
+    if (trimmedBranch.isNotEmpty) {
+      final hasBranchField =
+          res.data.any((c) => c.branchId.trim().isNotEmpty);
+      if (hasBranchField) {
+        final filtered = res.data
+            .where((c) => c.branchId.trim() == trimmedBranch)
+            .toList();
+        return CustomerModelService(status: res.status, data: filtered);
+      }
+      final branchName = _getBranchNameById(trimmedBranch);
+      if (branchName.isNotEmpty &&
+          res.data.any((c) => c.branchName.trim().isNotEmpty)) {
+        final filtered = res.data
+            .where((c) =>
+                c.branchName.trim().toLowerCase() == branchName.toLowerCase())
+            .toList();
+        return CustomerModelService(status: res.status, data: filtered);
+      }
+    }
+    return res;
+  }
+
+  Future<StaffsModel?> _fetchStaffByBranch(String? branchId) async {
+    final trimmedBranch = branchId?.trim() ?? '';
+    final res = await HttpService().getStaffName(
+      branchId: trimmedBranch.isNotEmpty ? trimmedBranch : null,
+    );
+    if (res == null) {
+      return StaffsModel(status: "true", data: []);
+    }
+    if (trimmedBranch.isNotEmpty) {
+      final hasBranchId =
+          res.data.any((s) => s.branchId.trim().isNotEmpty);
+      if (hasBranchId) {
+        final filtered = res.data
+            .where((s) => s.branchId.trim() == trimmedBranch)
+            .toList();
+        return StaffsModel(status: res.status, data: filtered);
+      }
+      final branchName = _getBranchNameById(trimmedBranch);
+      if (branchName.isNotEmpty &&
+          res.data.any((s) => s.branchName.trim().isNotEmpty)) {
+        final filtered = res.data
+            .where((s) =>
+                s.branchName.trim().toLowerCase() == branchName.toLowerCase())
+            .toList();
+        return StaffsModel(status: res.status, data: filtered);
+      }
+    }
+    return res;
+  }
+
+  Future<void> _onBranchChanged(String? branchId) async {
+    if (_hasInvoice || roleId == '3' || _selectedBranchId == branchId) return;
+    setState(() {
+      _selectedBranchId = branchId;
+      _selectedCustomerId = null;
+      _selectedServiceMan = null;
+      _customerError = false;
+      _phoneController.clear();
+      _addressController.clear();
+      _emailController.clear();
+      customerModel = CustomerModelService(status: "true", data: []);
+      staffModel = StaffsModel(status: "true", data: []);
+    });
+    if (branchId != null && branchId.trim().isNotEmpty) {
+      final results = await Future.wait([
+        _fetchCustomersByBranch(branchId),
+        _fetchStaffByBranch(branchId),
+      ]);
+      if (mounted && _selectedBranchId == branchId) {
+        setState(() {
+          customerModel = (results[0] as CustomerModelService?) ??
+              CustomerModelService(status: "true", data: []);
+          staffModel = (results[1] as StaffsModel?) ??
+              StaffsModel(status: "true", data: []);
+        });
+      }
+    }
+  }
+
+  List<Map<String, dynamic>> get _branchItems {
+    final branches = commonDetails?.data.branch ?? [];
+    final items = branches
+        .map<Map<String, dynamic>>((b) {
+          if (b is Map) {
+            return {
+              "id": (b["branch_id"] ?? b["branchId"] ?? "").toString(),
+              "name": (b["branch_name"] ?? b["branchName"] ?? "").toString(),
+            };
+          }
+          try {
+            return {
+              "id": (b.branchId ?? "").toString(),
+              "name": (b.branchName ?? "").toString(),
+            };
+          } catch (_) {
+            return {"id": "", "name": ""};
+          }
+        })
+        .where((e) => e["id"].toString().isNotEmpty)
+        .toList();
+
+    if (_selectedBranchId != null &&
+        _selectedBranchId!.isNotEmpty &&
+        !items.any((e) => e["id"].toString() == _selectedBranchId)) {
+      final fallbackName = (_workData?.rawJson?["branch_name"] ??
+              _workData?.rawJson?["branchName"] ??
+              _workDetails?.rawJson?["branch_name"] ??
+              _selectedBranchId)
+          .toString();
+      items.add({
+        "id": _selectedBranchId!,
+        "name": fallbackName,
+      });
+    }
+    return items;
+  }
+
   Future<void> _loadAllData() async {
     setState(() {
       _isLoading = true;
@@ -181,6 +331,81 @@ class _EditWorkPageState extends State<EditWorkPage> {
     });
     try {
       final mandatoryFuture = _fetchMandatoryFields();
+      final token = (await Common.getSharedPref("token") ?? '').toString();
+      final prefRole = (await Common.getSharedPref("roleId") ??
+              await Common.getSharedPref("role") ??
+              '')
+          .toString()
+          .trim();
+      final prefMultiBranch =
+          (await Common.getSharedPref("multiBranch") ?? '').toString().trim();
+
+      String jwtRole = '';
+      String jwtMultiBranch = '';
+      String jwtBranchId = '';
+      String jwtBranchName = '';
+
+      final jwt = Common.decodeJwt(token);
+      if (jwt != null) {
+        final Map<String, dynamic> jwtData = jwt['data'] is Map
+            ? Map<String, dynamic>.from(jwt['data'] as Map)
+            : jwt;
+        jwtRole = (jwtData['role'] ??
+                jwtData['roleId'] ??
+                jwtData['role_id'] ??
+                '')
+            .toString()
+            .trim();
+        jwtMultiBranch = (jwtData['is_multi_branch'] ??
+                jwtData['isMultiBranch'] ??
+                '')
+            .toString()
+            .trim();
+        jwtBranchId = (jwtData['branch_id'] ?? jwtData['branchId'] ?? '')
+            .toString()
+            .trim();
+        jwtBranchName =
+            (jwtData['branch_name'] ?? jwtData['branchName'] ?? '')
+                .toString()
+                .trim();
+      }
+
+      roleId = (jwtRole == '3' || prefRole == '3')
+          ? '3'
+          : (jwtRole.isNotEmpty ? jwtRole : prefRole);
+
+      final bool isMulti = prefMultiBranch.toLowerCase() == 'true' ||
+          prefMultiBranch.toUpperCase() == 'Y' ||
+          jwtMultiBranch.toUpperCase() == 'Y' ||
+          jwtMultiBranch.toLowerCase() == 'true' ||
+          jwtMultiBranch == '1';
+      multiBranch = isMulti ? 'true' : 'false';
+
+      if (jwtBranchId.isNotEmpty &&
+          jwtBranchId != 'null' &&
+          jwtBranchId != '0') {
+        _tokenBranchId = jwtBranchId;
+      } else {
+        final prefBranch = (await Common.getSharedPref("branch_id") ??
+                await Common.getSharedPref("branchId") ??
+                '')
+            .toString()
+            .trim();
+        _tokenBranchId =
+            (prefBranch.isNotEmpty && prefBranch != 'null' && prefBranch != '0')
+                ? prefBranch
+                : null;
+      }
+      _tokenBranchName = jwtBranchName.isNotEmpty ? jwtBranchName : null;
+
+      if (multiBranch == 'true') {
+        try {
+          commonDetails = await HttpService.addLeadCommonData(token);
+        } catch (e) {
+          debugPrint("Error loading branch commonDetails: $e");
+        }
+      }
+
       final workDetails = await HttpService().getWorkEditDetails(
         widget.workOrderId,
       );
@@ -190,12 +415,60 @@ class _EditWorkPageState extends State<EditWorkPage> {
       } else {
         throw Exception('Failed to load work details');
       }
-      customerModel = await HttpService().getCustomerListService();
-      custTypeModel = await HttpService().getCustomerType();
-      staffModel = await HttpService().getStaffName();
-      workType = await HttpService().getWorkType();
-      workCategory = await HttpService().getWorkCategory();
-      receivedOne = await HttpService().getReceivedThrough();
+
+      final rawBranchId = (_workData?.branchId.isNotEmpty == true
+              ? _workData!.branchId
+              : (_workData?.rawJson?["branch_id"] ??
+                  _workData?.rawJson?["branchId"] ??
+                  _workDetails?.rawJson?["branch_id"] ??
+                  _workDetails?.rawJson?["branchId"] ??
+                  ''))
+          .toString()
+          .trim();
+
+      if (roleId == '3' &&
+          _tokenBranchId != null &&
+          _tokenBranchId!.isNotEmpty) {
+        _selectedBranchId = _tokenBranchId;
+      } else if (rawBranchId.isNotEmpty &&
+          rawBranchId != 'null' &&
+          rawBranchId != '0') {
+        _selectedBranchId = rawBranchId;
+      } else {
+        _selectedBranchId = null;
+      }
+
+      final rawHasInvoice = _workData?.rawJson?["has_invoice"] ??
+          _workData?.rawJson?["hasInvoice"] ??
+          _workDetails?.rawJson?["has_invoice"] ??
+          _workDetails?.rawJson?["hasInvoice"] ??
+          _workData?.hasInvoice ??
+          0;
+      _hasInvoice = rawHasInvoice == 1 ||
+          rawHasInvoice.toString().trim() == '1' ||
+          rawHasInvoice == true ||
+          rawHasInvoice.toString().trim().toLowerCase() == 'true';
+
+      if (_selectedBranchId != null && _selectedBranchId!.isNotEmpty) {
+        customerModel = await _fetchCustomersByBranch(_selectedBranchId);
+        staffModel = await _fetchStaffByBranch(_selectedBranchId);
+      } else if (multiBranch != 'true') {
+        customerModel = await HttpService().getCustomerListService();
+        staffModel = await HttpService().getStaffName() ??
+            StaffsModel(status: "true", data: []);
+      } else {
+        customerModel = CustomerModelService(status: "true", data: []);
+        staffModel = StaffsModel(status: "true", data: []);
+      }
+
+      custTypeModel = await HttpService().getCustomerType() ??
+          CustomerTypeModel(status: "true", data: []);
+      workType = await HttpService().getWorkType() ??
+          WorkTypeModel(status: "true", data: []);
+      workCategory = await HttpService().getWorkCategory() ??
+          WorkCategory(status: "true", data: []);
+      receivedOne = await HttpService().getReceivedThrough() ??
+          ReceivedThroughModel(status: "true", data: []);
       _fillExistingData();
       await mandatoryFuture;
     } catch (e) {
@@ -211,7 +484,38 @@ class _EditWorkPageState extends State<EditWorkPage> {
   void _fillExistingData() {
     if (_workData == null) return;
     final data = _workData!;
-    _selectedCustomerId = data.customerName;
+    final rawCustomerName = data.customerName.trim();
+    final rawCustomerActual = data.customerNameActual.trim();
+    String? resolvedCustomerId = rawCustomerName;
+    if (customerModel != null && customerModel!.data.isNotEmpty) {
+      CustomerDetails? match;
+      for (final c in customerModel!.data) {
+        if (c.id.toString().trim() == rawCustomerName) {
+          match = c;
+          break;
+        }
+      }
+      if (match == null && rawCustomerName.isNotEmpty) {
+        for (final c in customerModel!.data) {
+          if (c.name.trim().toLowerCase() == rawCustomerName.toLowerCase()) {
+            match = c;
+            break;
+          }
+        }
+      }
+      if (match == null && rawCustomerActual.isNotEmpty) {
+        for (final c in customerModel!.data) {
+          if (c.name.trim().toLowerCase() == rawCustomerActual.toLowerCase()) {
+            match = c;
+            break;
+          }
+        }
+      }
+      if (match != null) {
+        resolvedCustomerId = match.id;
+      }
+    }
+    _selectedCustomerId = resolvedCustomerId;
     _selectedCustomerType = data.customerType;
     _selectedPriority = data.priority;
     _selectedProduct = data.workType;
@@ -226,14 +530,22 @@ class _EditWorkPageState extends State<EditWorkPage> {
     }
     _selectedJobType = data.jobType;
     _selectedReceivedThrough = data.receivedTru;
-    _selectedAccessory = data.accessories;
+    final rawAcc = data.accessories
+        .replaceAll('[', '')
+        .replaceAll(']', '')
+        .replaceAll('"', '')
+        .replaceAll("'", '')
+        .trim();
+    _selectedAccessory = rawAcc;
     _phoneController.text = data.mobileNumber;
     _emailController.text = data.emailId;
     _addressController.text = data.address;
     _locationController.text = data.location;
     _serialController.text = data.serialNo;
     _brandController.text = data.brand;
-    _problemDescController.text = data.issueDescription;
+    _problemDescController.text = data.issueDescription.isNotEmpty
+        ? data.issueDescription
+        : data.problemReportedByCustomer;
     _dealerCustomerController.text = data.dealerName;
     _userPasswordController.text = data.userPassword;
     _remarksController.text = data.remarks;
@@ -280,7 +592,6 @@ class _EditWorkPageState extends State<EditWorkPage> {
         _hasText(_selectedPriority) ||
         _preferredDate != null ||
         _estimatedDate != null ||
-        _hasText(_selectedServiceMan) ||
         _hasText(_selectedServiceType) ||
         _hasText(_selectedJobType) ||
         _hasText(_remarksCustomerController.text) ||
@@ -341,18 +652,26 @@ class _EditWorkPageState extends State<EditWorkPage> {
 
   String? get _selectedCustomerName {
     final v = _selectedCustomerId;
-    if (v == null || v.isEmpty || customerModel == null) return null;
-    for (final c in customerModel!.data) {
-      if (c.id.toString() == v) return c.name;
+    if (v == null || v.isEmpty) return null;
+    if (customerModel != null) {
+      for (final c in customerModel!.data) {
+        if (c.id.toString() == v) return c.name;
+      }
+      for (final c in customerModel!.data) {
+        if (c.name.trim().toLowerCase() == v.trim().toLowerCase()) return c.name;
+      }
     }
-    for (final c in customerModel!.data) {
-      if (c.name.trim().toLowerCase() == v.trim().toLowerCase()) return c.name;
+    if (_workData != null &&
+        v == _workData!.customerName &&
+        _workData!.customerNameActual.trim().isNotEmpty) {
+      return _workData!.customerNameActual;
     }
     return int.tryParse(v) == null ? v : null;
   }
 
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Customer picker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<void> _showCustomerPicker() async {
+    if (_hasInvoice) return;
     final CustomerDetails? selected = await showDialog<CustomerDetails>(
       context: context,
       builder: (context) {
@@ -438,7 +757,11 @@ class _EditWorkPageState extends State<EditWorkPage> {
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Accessories picker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   List<String> _parseAccessories() {
     if (_selectedAccessory == null || _selectedAccessory!.isEmpty) return [];
-    final cleaned = _selectedAccessory!.replaceAll('"', '').replaceAll("'", '');
+    final cleaned = _selectedAccessory!
+        .replaceAll('[', '')
+        .replaceAll(']', '')
+        .replaceAll('"', '')
+        .replaceAll("'", '');
     return cleaned
         .split(',')
         .map((e) => e.trim())
@@ -591,8 +914,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
     bool showMoreHasError = false;
     String? firstErrorMessage;
 
-    if (_isMandatory("1") &&
-        (_selectedProduct == null || _selectedProduct!.trim().isEmpty)) {
+    if (_selectedProduct == null || _selectedProduct!.trim().isEmpty) {
       firstErrorMessage ??= 'Please select Product';
     }
     if (_isMandatory("2") && _locationController.text.trim().isEmpty) {
@@ -604,12 +926,14 @@ class _EditWorkPageState extends State<EditWorkPage> {
     if (_isMandatory("4") && _brandController.text.trim().isEmpty) {
       firstErrorMessage ??= 'Please enter Brand';
     }
-    if (_isMandatory("5") &&
-        (_selectedCategory == null || _selectedCategory!.trim().isEmpty)) {
+    if (_selectedCategory == null || _selectedCategory!.trim().isEmpty) {
       firstErrorMessage ??= 'Please select Issue Type';
     }
     if (_isMandatory("6") && _problemDescController.text.trim().isEmpty) {
       firstErrorMessage ??= 'Please enter Problem Description';
+    }
+    if (_selectedServiceMan == null || _selectedServiceMan!.trim().isEmpty) {
+      firstErrorMessage ??= 'Please select Assigned Staff';
     }
 
     // Check collapsible (Show more) mandatory fields
@@ -639,11 +963,6 @@ class _EditWorkPageState extends State<EditWorkPage> {
     if (_isMandatory("12") && _estimatedDate == null) {
       showMoreHasError = true;
       firstErrorMessage ??= 'Please select Estimated Date';
-    }
-    if (_isMandatory("13") &&
-        (_selectedServiceMan == null || _selectedServiceMan!.trim().isEmpty)) {
-      showMoreHasError = true;
-      firstErrorMessage ??= 'Please select Assigned Staff';
     }
     if (_isMandatory("14") &&
         (_selectedStatus == null || _selectedStatus!.trim().isEmpty)) {
@@ -743,6 +1062,10 @@ class _EditWorkPageState extends State<EditWorkPage> {
     try {
       final Map<String, dynamic> body = {
         "WorkOrderID": widget.workOrderId,
+        if (_selectedBranchId != null && _selectedBranchId!.trim().isNotEmpty) ...{
+          "branch_id": _selectedBranchId!.trim(),
+          "editbranch_id": _selectedBranchId!.trim(),
+        },
         "editcustomername": _selectedCustomerId,
         "editcustomer_type": _selectedCustomerType,
         "editpriority": _selectedPriority ?? "Normal",
@@ -905,6 +1228,10 @@ class _EditWorkPageState extends State<EditWorkPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (_hasInvoice) ...[
+                            _buildInvoiceRestrictionBanner(),
+                            const SizedBox(height: 16),
+                          ],
                           _buildMainSection(),
                           const SizedBox(height: 16),
                           _buildMoreDetailsToggle(),
@@ -996,11 +1323,67 @@ class _EditWorkPageState extends State<EditWorkPage> {
   }
 
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Sections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  Widget _buildInvoiceRestrictionBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            color: Color(0xFFD97706),
+            size: 22,
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Invoice generated',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF92400E),
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'An invoice has already been generated for this work order, so the Branch and Customer cannot be changed.',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    height: 1.35,
+                    color: Color(0xFF92400E),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMainSection() {
     return _sectionCard(
       title: 'Job Details',
       icon: Icons.assignment_outlined,
       children: [
+        if (multiBranch == 'true' || (_selectedBranchId != null && _selectedBranchId!.isNotEmpty && _selectedBranchId != '0'))
+          _buildDropdown(
+            "Branch",
+            _selectedBranchId,
+            _branchItems,
+            (_hasInvoice || roleId == '3') ? null : (val) => _onBranchChanged(val),
+            icon: Icons.business_outlined,
+            readOnly: _hasInvoice || roleId == '3',
+          ),
         _buildSelectField(
           label: 'Customer Name',
           isRequired: true,
@@ -1009,6 +1392,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
           placeholder: 'Tap to select customer',
           errorText: _customerError ? 'Please select a customer' : null,
           onTap: _showCustomerPicker,
+          readOnly: _hasInvoice,
         ),
         const SizedBox(height: 14),
         _buildTextField(
@@ -1065,11 +1449,9 @@ class _EditWorkPageState extends State<EditWorkPage> {
               .toList(),
           (val) => setState(() => _selectedProduct = val),
           icon: Icons.devices_other_outlined,
-          isRequired: _isMandatory("1"),
-          validator: _isMandatory("1")
-              ? (v) => (v == null || v.trim().isEmpty)
-                  ? 'Please select Product'
-                  : null
+          isRequired: true,
+          validator: (v) => (v == null || v.trim().isEmpty)
+              ? 'Please select Product'
               : null,
         ),
         _buildDropdown(
@@ -1080,11 +1462,9 @@ class _EditWorkPageState extends State<EditWorkPage> {
               .toList(),
           (val) => setState(() => _selectedCategory = val),
           icon: Icons.category_outlined,
-          isRequired: _isMandatory("5"),
-          validator: _isMandatory("5")
-              ? (v) => (v == null || v.trim().isEmpty)
-                  ? 'Please select Issue Type'
-                  : null
+          isRequired: true,
+          validator: (v) => (v == null || v.trim().isEmpty)
+              ? 'Please select Issue Type'
               : null,
         ),
         _buildTextField(
@@ -1092,7 +1472,6 @@ class _EditWorkPageState extends State<EditWorkPage> {
           "Problem Description",
           icon: Icons.report_problem_outlined,
           maxLines: 3,
-          isLast: true,
           isRequired: _isMandatory("6"),
           validator: _isMandatory("6")
               ? (v) => (v == null || v.trim().isEmpty)
@@ -1100,6 +1479,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
                   : null
               : null,
         ),
+        _buildServiceManDropdown(isRequired: true, isLast: true),
       ],
     );
   }
@@ -1224,7 +1604,6 @@ class _EditWorkPageState extends State<EditWorkPage> {
               onClear: () => setState(() => _estimatedDate = null),
               isRequired: _isMandatory("12"),
             ),
-            _buildServiceManDropdown(isRequired: _isMandatory("13")),
             _buildDropdown(
               "Status",
               _selectedStatus,
@@ -1526,10 +1905,11 @@ class _EditWorkPageState extends State<EditWorkPage> {
     String label,
     String? selectedValue,
     List<Map<String, dynamic>> items,
-    ValueChanged<String?> onChanged, {
+    ValueChanged<String?>? onChanged, {
     IconData? icon,
     bool isLast = false,
     bool isRequired = false,
+    bool readOnly = false,
     String? Function(String?)? validator,
   }) {
     // De-duplicate by id and make sure the current value exists in the list.
@@ -1550,7 +1930,11 @@ class _EditWorkPageState extends State<EditWorkPage> {
       child: DropdownButtonFormField<String>(
         value: valueExists ? selectedValue : null,
         isExpanded: true,
-        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _textMuted),
+        icon: Icon(
+          readOnly ? Icons.lock_outline_rounded : Icons.keyboard_arrow_down_rounded,
+          color: _textMuted,
+          size: readOnly ? 18 : 24,
+        ),
         borderRadius: BorderRadius.circular(12),
         items: deduplicatedItems.map((item) {
           return DropdownMenuItem<String>(
@@ -1562,7 +1946,7 @@ class _EditWorkPageState extends State<EditWorkPage> {
             ),
           );
         }).toList(),
-        onChanged: onChanged,
+        onChanged: readOnly ? null : onChanged,
         validator: validator,
         autovalidateMode: validator != null
             ? AutovalidateMode.onUserInteraction
@@ -1572,16 +1956,30 @@ class _EditWorkPageState extends State<EditWorkPage> {
     );
   }
 
-  Widget _buildServiceManDropdown({bool isRequired = false}) {
+  Widget _buildServiceManDropdown({bool isRequired = true, bool isLast = false}) {
     final staffMap = <String, String>{};
     final List<Map<String, dynamic>> uniqueStaffItems = [];
     for (final staff in staffModel!.data) {
       final staffName = staff.staffName;
       final staffId = staff.staffId;
-      if (!staffMap.containsKey(staffName)) {
-        staffMap[staffName] = staffId;
+      if (staffId.isNotEmpty && !staffMap.containsKey(staffId)) {
+        staffMap[staffId] = staffName;
         uniqueStaffItems.add({"id": staffId, "name": staffName});
       }
+    }
+
+    if (_selectedServiceMan != null &&
+        _selectedServiceMan!.trim().isNotEmpty &&
+        _workData != null &&
+        _selectedServiceMan!.trim() == _workData!.assignedServiceMan.trim() &&
+        _workData!.assignedStaffName.trim().isNotEmpty &&
+        !uniqueStaffItems.any((item) =>
+            item["id"].toString() == _selectedServiceMan!.trim() ||
+            item["name"].toString() == _selectedServiceMan!.trim())) {
+      uniqueStaffItems.add({
+        "id": _workData!.assignedServiceMan.trim(),
+        "name": _workData!.assignedStaffName.trim(),
+      });
     }
 
     String? resolvedValue;
@@ -1607,11 +2005,10 @@ class _EditWorkPageState extends State<EditWorkPage> {
       uniqueStaffItems,
       (val) => setState(() => _selectedServiceMan = val),
       icon: Icons.engineering_outlined,
+      isLast: isLast,
       isRequired: isRequired,
-      validator: isRequired
-          ? (v) => (v == null || v.trim().isEmpty)
-              ? 'Please select Assigned Staff'
-              : null
+      validator: (v) => (v == null || v.trim().isEmpty)
+          ? 'Please select Assigned Staff'
           : null,
     );
   }
@@ -1626,10 +2023,11 @@ class _EditWorkPageState extends State<EditWorkPage> {
     required VoidCallback onTap,
     String? errorText,
     bool isRequired = false,
+    bool readOnly = false,
   }) {
     final bool hasValue = valueText != null && valueText.isNotEmpty;
     return InkWell(
-      onTap: onTap,
+      onTap: readOnly ? null : onTap,
       borderRadius: BorderRadius.circular(12),
       child: InputDecorator(
         decoration: _decoration(
@@ -1640,15 +2038,21 @@ class _EditWorkPageState extends State<EditWorkPage> {
           alwaysFloat: true,
           isRequired: isRequired,
         ).copyWith(
-          suffixIcon:
-              const Icon(Icons.keyboard_arrow_down_rounded, color: _textMuted),
+          suffixIcon: Icon(
+            readOnly ? Icons.lock_outline_rounded : Icons.keyboard_arrow_down_rounded,
+            color: _textMuted,
+            size: readOnly ? 18 : 24,
+          ),
         ),
         isEmpty: !hasValue,
         child: Text(
           hasValue ? valueText : '',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 16, color: _textDark),
+          style: TextStyle(
+            fontSize: 16,
+            color: readOnly ? _textMuted : _textDark,
+          ),
         ),
       ),
     );

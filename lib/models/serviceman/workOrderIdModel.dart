@@ -21,9 +21,15 @@ class WorkOrderDetailsModel {
   });
 
   factory WorkOrderDetailsModel.fromJson(Map<String, dynamic> json) {
-    final rawData = json["data"] != null && json["data"] is Map
-        ? Map<String, dynamic>.from(json["data"])
-        : <String, dynamic>{};
+    Map<String, dynamic> rawData = <String, dynamic>{};
+    final dynamic dataField = json["data"];
+    if (dataField is Map) {
+      rawData = Map<String, dynamic>.from(dataField);
+    } else if (dataField is List &&
+        dataField.isNotEmpty &&
+        dataField.first is Map) {
+      rawData = Map<String, dynamic>.from(dataField.first as Map);
+    }
 
     final prodImgs = json["product_images"] ??
         json["product_image"] ??
@@ -35,10 +41,17 @@ class WorkOrderDetailsModel {
         rawData["warranty_images"] ??
         rawData["warranty_image"];
 
+    final dynamic rawStatus = json["status"];
+    final bool parsedStatus = rawStatus == true ||
+        rawStatus == 1 ||
+        rawStatus?.toString().trim().toLowerCase() == 'true' ||
+        rawStatus?.toString().trim() == '1' ||
+        rawStatus?.toString().trim().toLowerCase() == 'success';
+
     return WorkOrderDetailsModel(
-      status: json["status"] ?? false,
+      status: parsedStatus,
       data: WorkOrderData.fromJson(rawData),
-      message: json["message"] ?? '',
+      message: (json["message"] ?? '').toString(),
       rawJson: json,
       productImages: prodImgs,
       warrantyImages: warrImgs,
@@ -88,6 +101,8 @@ class WorkOrderData {
   String serviceOption;
   String serviceCharge;
   String serviceType;
+  String branchId;
+  int hasInvoice;
   dynamic productImages;
   dynamic warrantyImages;
   Map<String, dynamic>? rawJson;
@@ -134,54 +149,66 @@ class WorkOrderData {
     this.serviceOption = '',
     this.serviceCharge = '',
     this.serviceType = '',
+    this.branchId = '',
+    this.hasInvoice = 0,
     this.productImages,
     this.warrantyImages,
     this.rawJson,
   });
 
+  static String _asString(dynamic val) {
+    if (val == null) return '';
+    if (val is String) return val;
+    if (val is List || val is Map) return jsonEncode(val);
+    return val.toString();
+  }
+
   factory WorkOrderData.fromJson(Map<String, dynamic> json) => WorkOrderData(
-        workOrderID: json["WorkOrderID"] ?? '',
-        workOrderId: json["work_order_id"] ?? '',
-        assignedServiceMan: json["assigned_service_man"] ?? '',
-        customerName: json["customer_name"] ?? '',
-        customerType: json["customer_type"] ?? '',
-        receivedTru: json["received_tru"] ?? '',
-        workCategory: json["work_category"] ?? '',
-        serialNo: json["serial_no"] ?? '',
-        brand: json["brand"] ?? '',
-        workType: json["work_type"] ?? '',
-        pipelineName: json["pipeline_name"] ?? '',
-        problemReportedByCustomer: json["problem_reported_by_customer"] ?? '',
-        mobileNumber: json["MobileNumber"] ?? '',
-        emailId: json["EmailID"] ?? '',
-        address: json["Address"] ?? '',
-        location: json["Location"] ?? '',
-        jobType: json["job_type"] ?? '',
-        issueDescription: json["IssueDescription"] ?? '',
-        preferredDateTime: json["PreferredDateTime"] ?? '',
-        estimatedDatetime: json["Estimated_datetime"] ?? '',
-        priority: json["Priority"] ?? '',
-        dealerName: json["dealer_name"] ?? '',
-        userPassword: json["user_password"] ?? '',
-        remarks: json["remarks"] ?? '',
-        accessories: json["accessories"] ?? '',
-        status: json["Status"] ?? '',
-        createdBy: json["CreatedBy"] ?? '',
-        companyId: json["company_id"] ?? '',
-        createdAt: json["CreatedAt"] ?? '',
-        startedAt: json["StartedAt"] ?? '',
-        stoppedAt: json["StoppedAt"] ?? '',
-        startedBy: json["StartedBy"] ?? '',
-        stoppedBy: json["StoppedBy"] ?? '',
-        createdByName: json["created_by_name"] ?? '',
-        assignedStaffName: json["assigned_staff_name"] ?? '',
-        addProducts: json["add_products"] != null
-            ? List<dynamic>.from(json["add_products"].map((x) => x))
+        workOrderID: _asString(json["WorkOrderID"]),
+        workOrderId: _asString(json["work_order_id"]),
+        assignedServiceMan: _asString(json["assigned_service_man"]),
+        customerName: _asString(json["customer_name"]),
+        customerType: _asString(json["customer_type"]),
+        receivedTru: _asString(json["received_tru"]),
+        workCategory: _asString(json["work_category"]),
+        serialNo: _asString(json["serial_no"]),
+        brand: _asString(json["brand"]),
+        workType: _asString(json["work_type"]),
+        pipelineName: _asString(json["pipeline_name"]),
+        problemReportedByCustomer:
+            _asString(json["problem_reported_by_customer"]),
+        mobileNumber: _asString(json["MobileNumber"]),
+        emailId: _asString(json["EmailID"]),
+        address: _asString(json["Address"]),
+        location: _asString(json["Location"]),
+        jobType: _asString(json["job_type"]),
+        issueDescription: _asString(json["IssueDescription"]),
+        preferredDateTime: _asString(json["PreferredDateTime"]),
+        estimatedDatetime: _asString(json["Estimated_datetime"]),
+        priority: _asString(json["Priority"]),
+        dealerName: _asString(json["dealer_name"]),
+        userPassword: _asString(json["user_password"]),
+        remarks: _asString(json["remarks"]),
+        accessories: _asString(json["accessories"]),
+        status: _asString(json["Status"]),
+        createdBy: _asString(json["CreatedBy"]),
+        companyId: _asString(json["company_id"]),
+        createdAt: _asString(json["CreatedAt"]),
+        startedAt: _asString(json["StartedAt"]),
+        stoppedAt: _asString(json["StoppedAt"]),
+        startedBy: _asString(json["StartedBy"]),
+        stoppedBy: _asString(json["StoppedBy"]),
+        createdByName: _asString(json["created_by_name"]),
+        assignedStaffName: _asString(json["assigned_staff_name"]),
+        addProducts: json["add_products"] is List
+            ? List<dynamic>.from(json["add_products"])
             : [],
-        customerNameActual: json["customer_name_actual"] ?? '',
-        productDetails: json["product_details"] != null
-            ? ProductDetails.fromJson(json["product_details"])
-            : ProductDetails(id: '', productName: '', productType: '', pipeline: []),
+        customerNameActual: _asString(json["customer_name_actual"]),
+        productDetails: json["product_details"] is Map
+            ? ProductDetails.fromJson(
+                Map<String, dynamic>.from(json["product_details"]))
+            : ProductDetails(
+                id: '', productName: '', productType: '', pipeline: []),
         serviceOption: json["service_option"]?.toString() ??
             json["editservice_option"]?.toString() ??
             '',
@@ -191,6 +218,11 @@ class WorkOrderData {
         serviceType: json["service_type"]?.toString() ??
             json["editservice_type"]?.toString() ??
             '',
+        branchId: (json["branch_id"] ?? json["branchId"] ?? '').toString(),
+        hasInvoice: int.tryParse(
+                (json["has_invoice"] ?? json["hasInvoice"] ?? '0')
+                    .toString()) ??
+            (json["has_invoice"] == true ? 1 : 0),
         productImages: json["product_images"] ??
             json["product_image"] ??
             json["productImages"] ??
@@ -217,9 +249,12 @@ class ProductDetails {
   });
 
   factory ProductDetails.fromJson(Map<String, dynamic> json) => ProductDetails(
-        id: json["id"],
-        productName: json["product_name"],
-        productType: json["product_type"],
-        pipeline: List<String>.from(json["pipeline"].map((x) => x)),
+        id: (json["id"] ?? '').toString(),
+        productName: (json["product_name"] ?? '').toString(),
+        productType: (json["product_type"] ?? '').toString(),
+        pipeline: json["pipeline"] is List
+            ? List<String>.from(
+                (json["pipeline"] as List).map((x) => (x ?? '').toString()))
+            : [],
       );
 }

@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
@@ -12193,10 +12193,15 @@ class HttpService {
     return false;
   }
 
-  Future<CustomerModelService?> getCustomerListService() async {
-    var formData = FormData.fromMap({
+  Future<CustomerModelService?> getCustomerListService(
+      {String? branchId}) async {
+    final Map<String, dynamic> fields = {
       "token": await Common.getSharedPref("token"),
-    });
+    };
+    if (branchId != null && branchId.trim().isNotEmpty) {
+      fields["branch_id"] = branchId.trim();
+    }
+    var formData = FormData.fromMap(fields);
     try {
       var result = await _dio.post(
         "${await Config.getUrl()}getCustomerName",
@@ -12204,7 +12209,13 @@ class HttpService {
       );
 
       if (result.statusCode == 200 && result.data != null) {
-        return CustomerModelService.fromJson(result.data);
+        final dynamic raw = result.data;
+        final Map<String, dynamic> parsed = raw is Map<String, dynamic>
+            ? raw
+            : (raw is String
+                ? jsonDecode(raw) as Map<String, dynamic>
+                : Map<String, dynamic>.from(raw as Map));
+        return CustomerModelService.fromJson(parsed);
       } else {
         log("Unexpected status code: ${result.statusCode}");
       }
@@ -12251,11 +12262,29 @@ class HttpService {
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        final data = response.data;
-        if (data is Map<String, dynamic>) {
+        final dynamic raw = response.data;
+        Map<String, dynamic>? data;
+        if (raw is Map<String, dynamic>) {
+          data = raw;
+        } else if (raw is Map) {
+          data = Map<String, dynamic>.from(raw);
+        } else if (raw is String) {
+          final trimmed = raw.trim();
+          final startIdx = trimmed.indexOf('{');
+          final endIdx = trimmed.lastIndexOf('}');
+          final jsonStr =
+              (startIdx != -1 && endIdx != -1 && endIdx >= startIdx)
+                  ? trimmed.substring(startIdx, endIdx + 1)
+                  : trimmed;
+          final decoded = jsonDecode(jsonStr);
+          if (decoded is Map) {
+            data = Map<String, dynamic>.from(decoded);
+          }
+        }
+        if (data != null) {
           return WorkOrderDetailsModel.fromJson(data);
         } else {
-          log("Invalid response format: Expected Map, got ${data.runtimeType}");
+          log("Invalid response format: Expected Map, got ${raw.runtimeType}");
         }
       } else {
         log("Unexpected status code: ${response.statusCode}");
@@ -12267,10 +12296,14 @@ class HttpService {
     return null;
   }
 
-  Future<StaffsModel?> getStaffName() async {
-    var formData = FormData.fromMap({
+  Future<StaffsModel?> getStaffName({String? branchId}) async {
+    final Map<String, dynamic> fields = {
       "token": await Common.getSharedPref("token"),
-    });
+    };
+    if (branchId != null && branchId.trim().isNotEmpty) {
+      fields["branch_id"] = branchId.trim();
+    }
+    var formData = FormData.fromMap(fields);
 
     try {
       var result = await _dio.post(
@@ -12279,12 +12312,18 @@ class HttpService {
       );
 
       if (result.statusCode == 200 && result.data != null) {
-        return StaffsModel.fromJson(result.data);
+        final dynamic raw = result.data;
+        final Map<String, dynamic> parsed = raw is Map<String, dynamic>
+            ? raw
+            : (raw is String
+                ? jsonDecode(raw) as Map<String, dynamic>
+                : Map<String, dynamic>.from(raw as Map));
+        return StaffsModel.fromJson(parsed);
       } else {
         log("Unexpected status code: ${result.statusCode}");
       }
     } catch (e) {
-      log("getCustomerList error: $e");
+      log("getStaffName error: $e");
     }
     return null;
   }
