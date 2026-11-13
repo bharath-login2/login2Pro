@@ -2157,85 +2157,36 @@ class _StaffCalendarPageState extends State<StaffCalendarPage> {
                           ),
                           child: Padding(
                             padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      width: 4,
-                                      height: 20,
-                                      decoration: BoxDecoration(
-                                        color: Colors.blue.shade600,
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Text(
-                                      "Legend",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 18,
-                                        color: Colors.grey.shade800,
-                                        letterSpacing: -0.3,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 20),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          _buildLegendItem(
-                                            color: Colors.green.shade500,
-                                            backgroundColor:
-                                                Colors.green.shade50,
-                                            text: "Present",
-                                            icon: Icons.check_circle_rounded,
-                                          ),
-                                          const SizedBox(height: 14),
-                                          _buildLegendItem(
-                                            color: Colors.orange.shade500,
-                                            backgroundColor:
-                                                Colors.orange.shade50,
-                                            text: "Half Day",
-                                            icon: Icons.timelapse_rounded,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          _buildLegendItem(
-                                            color: Colors.red.shade500,
-                                            backgroundColor: Colors.red.shade50,
-                                            text: "Absent / Leave",
-                                            icon: Icons.cancel_rounded,
-                                          ),
-                                          const SizedBox(height: 14),
-                                          _buildLegendItem(
-                                            color: Colors.blue.shade600,
-                                            backgroundColor:
-                                                Colors.blue.shade50,
-                                            text: "Holiday",
-                                            icon: Icons.beach_access_rounded,
-                                            hasBorder: true,
-                                            borderColor: Colors.blue.shade200,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: Wrap(
+                                spacing: 24,
+                                runSpacing: 14,
+                                alignment: WrapAlignment.center,
+                                children: [
+                                  _LegendItem(
+                                    color: Colors.green.shade400,
+                                    label: 'Present',
+                                    icon: Icons.circle,
+                                  ),
+                                  _LegendItem(
+                                    color: Colors.orange.shade400,
+                                    label: 'Half Day',
+                                    icon: Icons.circle,
+                                  ),
+                                  _LegendItem(
+                                    color: Colors.red.shade400,
+                                    label: 'Absent / Leave',
+                                    icon: Icons.circle,
+                                  ),
+                                  _LegendItem(
+                                    color: Colors.blue.shade400,
+                                    label: 'Holiday',
+                                    icon: Icons.circle,
+                                    // borderColor: Colors.red,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -2724,44 +2675,85 @@ Widget _buildReportRow({
   );
 }
 
-Widget _buildLegendItem({
-  required Color color,
-  required Color backgroundColor,
-  required String text,
-  required IconData icon,
-  bool hasBorder = false,
-  Color? borderColor,
-}) {
-  return Row(
-    children: [
-      Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(10),
-          border: hasBorder && borderColor != null
-              ? Border.all(color: borderColor, width: 1.5)
-              : null,
+class _LegendItem extends StatelessWidget {
+  final Color color;
+  final String label;
+  final IconData icon;
+  final Color? borderColor;
+
+  const _LegendItem({
+    required this.color,
+    required this.label,
+    required this.icon,
+    this.borderColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        icon == Icons.circle
+            ? Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: borderColor != null
+                      ? Border.all(color: borderColor!, width: 1.5)
+                      : null,
+                ),
+              )
+            : Icon(icon, size: 14, color: color),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12),
         ),
-        child: Icon(
-          icon,
-          size: 18,
-          color: color,
-        ),
-      ),
-      const SizedBox(width: 12),
-      Text(
-        text,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: Colors.grey.shade700,
-        ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
+
+// Widget _buildLegendItem({
+//   required Color color,
+//   required Color backgroundColor,
+//   required String text,
+//   required IconData icon,
+//   bool hasBorder = false,
+//   Color? borderColor,
+// }) {
+//   return Row(
+//     children: [
+//       Container(
+//         width: 32,
+//         height: 32,
+//         decoration: BoxDecoration(
+//           color: backgroundColor,
+//           borderRadius: BorderRadius.circular(10),
+//           border: hasBorder && borderColor != null
+//               ? Border.all(color: borderColor, width: 1.5)
+//               : null,
+//         ),
+//         child: Icon(
+//           icon,
+//           size: 18,
+//           color: color,
+//         ),
+//       ),
+//       const SizedBox(width: 12),
+//       Text(
+//         text,
+//         style: TextStyle(
+//           fontSize: 14,
+//           fontWeight: FontWeight.w500,
+//           color: Colors.grey.shade700,
+//         ),
+//       ),
+//     ],
+//   );
+// }
 
 class WorkRow extends StatelessWidget {
   final Color color;

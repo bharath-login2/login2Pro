@@ -44,7 +44,8 @@ class AssignReport extends StatefulWidget {
 
 class _AssignReportState extends State<AssignReport> {
   late String currentDate;
-  Future<List<AssignedWork>> assignedWorkFuture = Future.value(<AssignedWork>[]);
+  Future<List<AssignedWork>> assignedWorkFuture =
+      Future.value(<AssignedWork>[]);
   Map<String, dynamic> currentFilters = {};
   Map<String, bool> _expandedDescriptions = {};
   Map<String, bool> _expandedRemarks = {};
@@ -62,8 +63,8 @@ class _AssignReportState extends State<AssignReport> {
   String? userId;
   String? phoneCallLogPermission;
   String? assignWork;
-    String? editAssignWork;
-    String? deleteAssignWork;
+  String? editAssignWork;
+  String? deleteAssignWork;
   bool isLoading = true;
   bool isRemarkExpanded = false;
   List<String> participantIds = [];
@@ -179,8 +180,8 @@ class _AssignReportState extends State<AssignReport> {
     token = await Common.getSharedPref("token");
     name = await Common.getSharedPref("name");
     assignWork = await Common.getSharedPref("assignWork");
-     editAssignWork = await Common.getSharedPref("editAssignWork");
-     deleteAssignWork = await Common.getSharedPref("deleteAssignWork");
+    editAssignWork = await Common.getSharedPref("editAssignWork");
+    deleteAssignWork = await Common.getSharedPref("deleteAssignWork");
     userId = await Common.getSharedPref("userId");
     phoneCallLogPermission =
         await Common.getSharedPref("phoneCallLogPermission");
@@ -1735,6 +1736,42 @@ class _AssignReportState extends State<AssignReport> {
                     ),
                   ],
                 ),
+                if (item.dueDate.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade400),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.event,
+                            size: 16, color: Colors.orange.shade800),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Due: ',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.orange.shade800,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          item.dueDate,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.orange.shade900,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 if (workSessions.isNotEmpty) ...[
                   Container(
@@ -2204,47 +2241,47 @@ class _AssignReportState extends State<AssignReport> {
                         ),
                         const PopupMenuDivider(),
                         if (editAssignWork == "true") ...[
-                        PopupMenuItem<String>(
-                          value: 'edit',
-                          child: SizedBox(
-                            width: 100,
-                            child: Row(
-                              children: [
-                                const Icon(Icons.edit,
-                                    color: Colors.blue, size: 20),
-                                const SizedBox(width: 12),
-                                const Expanded(
-                                  child: Text(
-                                    'Edit',
-                                    style: TextStyle(fontSize: 14),
+                          PopupMenuItem<String>(
+                            value: 'edit',
+                            child: SizedBox(
+                              width: 100,
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.edit,
+                                      color: Colors.blue, size: 20),
+                                  const SizedBox(width: 12),
+                                  const Expanded(
+                                    child: Text(
+                                      'Edit',
+                                      style: TextStyle(fontSize: 14),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
                         ],
                         const PopupMenuDivider(),
                         if (deleteAssignWork == "true") ...[
-                        PopupMenuItem<String>(
-                          value: 'delete',
-                          child: SizedBox(
-                            width: 100, // Same width for consistency
-                            child: Row(
-                              children: [
-                                const Icon(Icons.delete,
-                                    color: Colors.red, size: 20),
-                                const SizedBox(width: 12),
-                                const Expanded(
-                                  child: Text(
-                                    'Delete',
-                                    style: TextStyle(fontSize: 14),
+                          PopupMenuItem<String>(
+                            value: 'delete',
+                            child: SizedBox(
+                              width: 100, // Same width for consistency
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.delete,
+                                      color: Colors.red, size: 20),
+                                  const SizedBox(width: 12),
+                                  const Expanded(
+                                    child: Text(
+                                      'Delete',
+                                      style: TextStyle(fontSize: 14),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
                         ]
                       ],
                       shape: RoundedRectangleBorder(
@@ -3038,7 +3075,7 @@ class _AssignReportState extends State<AssignReport> {
             existingWork: null,
             isPaused: 0,
             Restart: 0,
-            isAssigned:1,
+            isAssigned: 1,
             onSuccess: () {
               setState(() {
                 checkExistingWorkStatus();

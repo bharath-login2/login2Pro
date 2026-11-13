@@ -1244,6 +1244,9 @@ class _ViewCalendarPageState extends State<ViewCalendarPage>
     }
   }
 
+  List<AttendanceItem> get _halfDayList => _attendanceList
+      .where((a) => a.status.toLowerCase().contains('half'))
+      .toList();
   void _showAttendanceLeaveViewDialog(BuildContext context, DateTime date) {
     showModalBottomSheet(
       context: context,
@@ -1296,19 +1299,20 @@ class _ViewCalendarPageState extends State<ViewCalendarPage>
                         ),
                       ),
                     ),
-                    markAttendance =="true"?
-                    IconButton(
-                      icon: Icon(
-                        Icons.edit_outlined,
-                        size: 20,
-                        color: Colors.white,
-                      ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _showDayActionDialog(context, date);
-                      },
-                      tooltip: 'Edit',
-                    ):SizedBox(),
+                    markAttendance == "true"
+                        ? IconButton(
+                            icon: Icon(
+                              Icons.edit_outlined,
+                              size: 20,
+                              color: Colors.white,
+                            ),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _showDayActionDialog(context, date);
+                            },
+                            tooltip: 'Edit',
+                          )
+                        : SizedBox(),
                     IconButton(
                       icon: Icon(
                         Icons.close,
@@ -1355,7 +1359,7 @@ class _ViewCalendarPageState extends State<ViewCalendarPage>
               ),
               Expanded(
                 child: DefaultTabController(
-                  length: 2,
+                  length: 3,
                   child: Column(
                     children: [
                       Container(
@@ -1367,6 +1371,7 @@ class _ViewCalendarPageState extends State<ViewCalendarPage>
                         child: TabBar(
                           labelColor: Colors.blue.shade600,
                           unselectedLabelColor: Colors.grey.shade600,
+                          isScrollable: true,
                           indicator: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
@@ -1408,6 +1413,23 @@ class _ViewCalendarPageState extends State<ViewCalendarPage>
                                   const SizedBox(width: 6),
                                   Text(
                                     'Leave (${_leaveList.length})',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Tab(
+                              icon: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.access_time,
+                                    size: 16,
+                                    color: Colors.blue.shade600,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Half Day (${_halfDayList.length})',
                                     style: const TextStyle(fontSize: 13),
                                   ),
                                 ],
@@ -1477,6 +1499,36 @@ class _ViewCalendarPageState extends State<ViewCalendarPage>
                                     itemBuilder: (context, index) {
                                       final item = _leaveList[index];
                                       return _LeaveCard(item: item);
+                                    },
+                                  ),
+                            _halfDayList.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.access_time,
+                                            size: 60,
+                                            color: Colors.grey.shade300),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'No half day marked',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    controller: scrollController,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16),
+                                    itemCount: _halfDayList.length,
+                                    itemBuilder: (context, index) {
+                                      final item = _halfDayList[index];
+                                      return _AttendanceCard(item: item);
                                     },
                                   ),
                           ],

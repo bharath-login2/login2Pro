@@ -2048,9 +2048,9 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
             builder: (context) => PendingWorkPageNew(
               workId: "",
               sectionId: sectionId,
-              selectedStatus: 'pending',
+              // selectedStatus: 'pending',
               staffId: '',
-              assignedByMyself: "1",
+              // assignedByMyself: "1",
             ),
           ),
         );
@@ -2063,7 +2063,7 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
               workId: "",
               sectionId: sectionId,
               selectedStatus: 'unassigned',
-              assignedToMyself: '1',
+              // assignedToMyself: '1',
               isUnassigned: '1',
             ),
           ),
@@ -2076,9 +2076,9 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
             builder: (context) => PendingWorkPageNew(
               workId: "",
               sectionId: sectionId,
-              selectedStatus: 'pending',
+              // selectedStatus: 'pending',
               staffId: '',
-              assignedByMyself: "1",
+              // assignedByMyself: "1",
             ),
           ),
         );
