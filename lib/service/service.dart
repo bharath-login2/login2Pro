@@ -193,6 +193,7 @@ import 'package:login2/models/lead_management/uploadedQuotationModel.dart';
 import 'package:login2/models/lead_management/viewPurcahseBillModel.dart';
 import 'package:login2/models/lead_management/workCountModel.dart';
 import 'package:login2/models/lead_management/workMessageModel.dart';
+import 'package:login2/models/lead_management/target_list_model.dart';
 import 'package:login2/models/lead_management/workOrderIdModel.dart';
 import 'package:login2/models/officialWhatsapp/campaigns_official_message_model.dart';
 import 'package:login2/models/officialWhatsapp/campaign_sample_model.dart';
@@ -12272,10 +12273,9 @@ class HttpService {
           final trimmed = raw.trim();
           final startIdx = trimmed.indexOf('{');
           final endIdx = trimmed.lastIndexOf('}');
-          final jsonStr =
-              (startIdx != -1 && endIdx != -1 && endIdx >= startIdx)
-                  ? trimmed.substring(startIdx, endIdx + 1)
-                  : trimmed;
+          final jsonStr = (startIdx != -1 && endIdx != -1 && endIdx >= startIdx)
+              ? trimmed.substring(startIdx, endIdx + 1)
+              : trimmed;
           final decoded = jsonDecode(jsonStr);
           if (decoded is Map) {
             data = Map<String, dynamic>.from(decoded);
@@ -18990,7 +18990,7 @@ class HttpService {
 
     try {
       final response = await _dio.post(
-        "${await Config.getUrl()}get_work_dashboard_running", // Replace with your exact endpoint name if needed
+        "${await Config.getUrl()}get_work_dashboard_running",
         data: FormData.fromMap(data),
       );
 
@@ -18999,6 +18999,38 @@ class HttpService {
       }
     } catch (e) {
       log("getRunningTasks error: $e");
+    }
+    return null;
+  }
+
+  // Get target list
+  static Future<TargetListResponse?> getTargetList({
+    String? userId,
+  }) async {
+    final token = await Common.getSharedPref("token");
+    final data = {
+      'token': token,
+      if (userId != null) 'user_id': userId,
+    };
+
+    try {
+      final response = await _dio.post(
+        "${await Config.getUrl()}getTargetCount", // Update endpoint suffix if needed
+        data: FormData.fromMap(data),
+      );
+
+      if (response.statusCode == 200) {
+        print("API Raw Response: ${response.data}");
+
+        final targetResponse = TargetListResponse.fromJson(response.data);
+
+        // PRINT PARSED MODEL DATA HERE
+        print(
+            "Data loaded successfully! Total items: ${targetResponse.data.length}");
+        return TargetListResponse.fromJson(response.data);
+      }
+    } catch (e) {
+      log("getTargetList error: $e");
     }
     return null;
   }
