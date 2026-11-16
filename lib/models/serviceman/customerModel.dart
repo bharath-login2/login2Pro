@@ -14,8 +14,11 @@ class CustomerModelService {
     String toRawJson() => json.encode(toJson());
 
     factory CustomerModelService.fromJson(Map<String, dynamic> json) => CustomerModelService(
-        status: json["status"],
-        data: List<CustomerDetails>.from(json["data"].map((x) => CustomerDetails.fromJson(x))),
+        status: json["status"]?.toString() ?? "",
+        data: json["data"] != null && json["data"] is List
+            ? List<CustomerDetails>.from(
+                json["data"].map((x) => CustomerDetails.fromJson(x)))
+            : [],
     );
 
     Map<String, dynamic> toJson() => {
@@ -30,6 +33,8 @@ class CustomerDetails {
     String contactNo;
     String address;
     String emailId;
+    String branchId;
+    String branchName;
 
     CustomerDetails({
         required this.id,
@@ -37,6 +42,8 @@ class CustomerDetails {
         required this.contactNo,
         required this.address,
         required this.emailId,
+        this.branchId = "",
+        this.branchName = "",
     });
 
     factory CustomerDetails.fromRawJson(String str) => CustomerDetails.fromJson(json.decode(str));
@@ -44,11 +51,13 @@ class CustomerDetails {
     String toRawJson() => json.encode(toJson());
 
     factory CustomerDetails.fromJson(Map<String, dynamic> json) => CustomerDetails(
-        id: json["id"]??"",
-        name: json["name"]??"",
-        contactNo: json["contact_no"]??"",
-        address: json["address"]??"",
-        emailId: json["email_id"]??"",
+        id: json["id"]?.toString() ?? "",
+        name: json["name"]?.toString() ?? "",
+        contactNo: json["contact_no"]?.toString() ?? "",
+        address: json["address"]?.toString() ?? "",
+        emailId: json["email_id"]?.toString() ?? "",
+        branchId: (json["branch_id"] ?? json["branchId"] ?? "").toString(),
+        branchName: (json["branch_name"] ?? json["branchName"] ?? "").toString(),
     );
 
     Map<String, dynamic> toJson() => {
@@ -57,5 +66,7 @@ class CustomerDetails {
         "contact_no": contactNo,
         "address": address,
         "email_id": emailId,
+        "branch_id": branchId,
+        "branch_name": branchName,
     };
 }

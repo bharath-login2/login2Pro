@@ -15,9 +15,11 @@ class StaffsModel {
   String toRawJson() => json.encode(toJson());
 
   factory StaffsModel.fromJson(Map<String, dynamic> json) => StaffsModel(
-        status: json["status"],
-        data: List<staffsModel>.from(
-            json["data"].map((x) => staffsModel.fromJson(x))),
+        status: json["status"]?.toString() ?? "",
+        data: json["data"] != null && json["data"] is List
+            ? List<staffsModel>.from(
+                (json["data"] as List).map((x) => staffsModel.fromJson(x)))
+            : [],
       );
 
   Map<String, dynamic> toJson() => {
@@ -33,6 +35,7 @@ class staffsModel {
   String phoneNo;
   String designation;
   String branchName;
+  String branchId;
 
   staffsModel({
     required this.userId,
@@ -41,6 +44,7 @@ class staffsModel {
     required this.phoneNo,
     required this.designation,
     required this.branchName,
+    this.branchId = "",
   });
 
   factory staffsModel.fromRawJson(String str) =>
@@ -49,12 +53,13 @@ class staffsModel {
   String toRawJson() => json.encode(toJson());
 
   factory staffsModel.fromJson(Map<String, dynamic> json) => staffsModel(
-        userId: json["user_id"],
-        staffId: json["staff_id"],
-        staffName: json["staff_name"],
-        phoneNo: json["phone_no"],
-        designation: json["designation"],
-        branchName: json["branch_name"],
+        userId: (json["user_id"] ?? "").toString(),
+        staffId: (json["staff_id"] ?? "").toString(),
+        staffName: (json["staff_name"] ?? "").toString(),
+        phoneNo: (json["phone_no"] ?? "").toString(),
+        designation: (json["designation"] ?? "").toString(),
+        branchName: (json["branch_name"] ?? "").toString(),
+        branchId: (json["branch_id"] ?? json["branchId"] ?? "").toString(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -64,5 +69,6 @@ class staffsModel {
         "phone_no": phoneNo,
         "designation": designation,
         "branch_name": branchName,
+        "branch_id": branchId,
       };
 }

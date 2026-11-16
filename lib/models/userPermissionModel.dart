@@ -7,6 +7,15 @@ class UserPermissionModel {
 
   UserPermissionModel.fromJson(Map<String, dynamic> json) {
     data = json['data'] != null ? Data.fromJson(json['data']) : null;
+    if (data != null && data!.mandatoryServiceFields != true) {
+      final rawRoot = json['mandatory_service_fields'];
+      if (rawRoot == true ||
+          rawRoot == 'true' ||
+          rawRoot == 1 ||
+          rawRoot == '1') {
+        data!.mandatoryServiceFields = true;
+      }
+    }
     status = json['status'];
     message = json['message'];
   }
@@ -122,6 +131,7 @@ class Data {
   String? addAttendanceRemarks;
   String? startWorkOrder;
   String? startWorkOrderCamera;
+  bool? mandatoryServiceFields;
   Data({
     this.ProjectDashboard,
     this.LeadDashboard,
@@ -222,6 +232,7 @@ class Data {
     this.addAttendanceRemarks,
     this.startWorkOrder,
     this.startWorkOrderCamera,
+    this.mandatoryServiceFields,
   });
 
   Data.fromJson(Map<String, dynamic> json) {
@@ -324,10 +335,16 @@ class Data {
     addAttendanceRemarks = json['add_attendance_remark'];
     startWorkOrder = json['start_work_order']?.toString();
     startWorkOrderCamera = json['start_work_order_camera']?.toString();
+    final rawMandatory = json['mandatory_service_fields'];
+    mandatoryServiceFields = rawMandatory == true ||
+        rawMandatory == 'true' ||
+        rawMandatory == 1 ||
+        rawMandatory == '1';
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
+    data['mandatory_service_fields'] = mandatoryServiceFields;
     data['dashboard_project'] = ProjectDashboard;
     data['dashboard_lead'] = LeadDashboard;
     data['dashboard_accounts'] = AccountsDashboard;

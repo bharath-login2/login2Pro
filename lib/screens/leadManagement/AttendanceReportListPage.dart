@@ -569,6 +569,10 @@ class _AttendanceReportListPageState extends State<AttendanceReportListPage> {
         statusColor = Colors.red;
         statusIcon = Icons.cancel;
         break;
+      case 'present':
+        statusColor = Colors.yellow.shade700;
+        statusIcon = Icons.check_circle;
+        break;
       default:
         statusColor = Colors.grey;
         statusIcon = Icons.help_outline;
@@ -576,7 +580,9 @@ class _AttendanceReportListPageState extends State<AttendanceReportListPage> {
 
     return Card(
       elevation: 2,
-      color: item.status?.toLowerCase() == 'leave' ? Colors.red.shade50 : Colors.white,
+      color: item.status?.toLowerCase() == 'leave'
+          ? Colors.red.shade50
+          : Colors.white,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -717,7 +723,9 @@ class _AttendanceReportListPageState extends State<AttendanceReportListPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: item.status?.toLowerCase() == 'leave' ? Colors.red.shade100.withOpacity(0.5) : Colors.grey.shade50,
+                  color: item.status?.toLowerCase() == 'leave'
+                      ? Colors.red.shade100.withOpacity(0.5)
+                      : Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -792,13 +800,15 @@ class _AttendanceReportListPageState extends State<AttendanceReportListPage> {
                               ],
                             ),
                           ),
-                          addAttendanceRemarks !="false"?
-                          IconButton(
-                            icon: const Icon(Icons.edit_note, size: 20),
-                            color: const Color.fromARGB(255, 44, 126, 180),
-                            onPressed: () => _showEditRemarkDialog(item),
-                            tooltip: "Edit Remark",
-                          ):SizedBox(),
+                          addAttendanceRemarks != "false"
+                              ? IconButton(
+                                  icon: const Icon(Icons.edit_note, size: 20),
+                                  color:
+                                      const Color.fromARGB(255, 44, 126, 180),
+                                  onPressed: () => _showEditRemarkDialog(item),
+                                  tooltip: "Edit Remark",
+                                )
+                              : SizedBox(),
                         ],
                       ),
                     ),

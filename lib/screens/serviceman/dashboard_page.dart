@@ -28,6 +28,7 @@ import 'work_status_page.dart';
 import 'work_category_page.dart';
 import 'expense_income_page.dart';
 import 'serviceCollectionListPage.dart';
+import 'mandatory_service_fields_page.dart';
 import 'work_progress_page.dart';
 import 'package:intl/intl.dart';
 import 'package:login2/models/serviceman/workModel.dart';
@@ -53,6 +54,7 @@ class _DashboardPageState extends State<DashboardPage> {
   String? MenuDashboard;
   String? RenewalDashboardPermission;
   String? NewleadDashboardPermission;
+  bool mandatoryServiceFieldsPermission = false;
   String name = '';
   String role = '';
   String roleId = '';
@@ -75,6 +77,7 @@ class _DashboardPageState extends State<DashboardPage> {
   void initState() {
     super.initState();
     _loadStaffName();
+    _fetchUserPermissions();
     _setupFirebaseMessaging();
     _fetchOngoingWorks();
     _fetchDashboardCounts();
@@ -248,12 +251,37 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Future<void> _fetchUserPermissions() async {
+    try {
+      final t = token.isNotEmpty
+          ? token
+          : (await Common.getSharedPref("token") ?? "");
+      if (t.isEmpty) return;
+      final permModel = await HttpService.userPermissionCheck(t);
+      if (permModel != null && permModel.data != null) {
+        final bool isAllowed = permModel.data!.mandatoryServiceFields == true;
+        await Common.saveSharedPref(
+            "mandatory_service_fields", isAllowed.toString());
+        if (mounted) {
+          setState(() {
+            mandatoryServiceFieldsPermission = isAllowed;
+          });
+        } else {
+          mandatoryServiceFieldsPermission = isAllowed;
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching user permissions in dashboard: $e");
+    }
+  }
+
   Future<void> _refreshPage() async {
     debugPrint("Page Refreshed!");
     await Future.wait([
       _fetchOngoingWorks(),
       _fetchDashboardCounts(),
       _fetchRecentPaymentReports(),
+      _fetchUserPermissions(),
     ]);
     if (mounted) setState(() {});
   }
@@ -286,6 +314,11 @@ class _DashboardPageState extends State<DashboardPage> {
         await Common.getSharedPref("RenewalDashboardPermission");
     NewleadDashboardPermission =
         await Common.getSharedPref("NewleadDashboardPermission");
+    final String? cachedMandatory =
+        await Common.getSharedPref("mandatory_service_fields");
+    if (cachedMandatory == "true" || cachedMandatory == "1") {
+      mandatoryServiceFieldsPermission = true;
+    }
     setState(() {
       staffName = prefs.getString('staff_name') ?? "Staff";
       profilePic = pPic;
@@ -569,6 +602,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
             // Add Work Button directly below the Welcome Back section
             _buildAddWorkButton(),
+
+            // Settings Button (only when mandatory_service_fields is true)
+            if (mandatoryServiceFieldsPermission) _buildSettingsButton(),
 
             // Attendance List Section
             if (roleId == '2') _buildAttendanceListCard(),
@@ -1054,6 +1090,71 @@ class _DashboardPageState extends State<DashboardPage> {
                   "Add Work",
                   style: TextStyle(
                     color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsButton() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2A86C9).withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+        border: Border.all(
+          color: const Color(0xFF2A86C9).withOpacity(0.25),
+          width: 1.2,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const MandatoryServiceFieldsPage(),
+              ),
+            ).then((_) => _refreshPage());
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2a86c9).withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.settings_outlined,
+                    color: Color(0xFF2a86c9),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  "Settings",
+                  style: TextStyle(
+                    color: Color(0xFF2a86c9),
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.3,

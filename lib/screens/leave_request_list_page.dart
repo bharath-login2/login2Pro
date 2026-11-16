@@ -1076,9 +1076,8 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
           ),
         ],
       ),
-      bottomNavigationBar: _selectedLeaves.isNotEmpty
-          ? _buildBulkActionBar()
-          : null,
+      bottomNavigationBar:
+          _selectedLeaves.isNotEmpty ? _buildBulkActionBar() : null,
       floatingActionButton: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(30),
@@ -1220,31 +1219,34 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (_canApprove) ...[
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8.0, top: 8.0),
-                          child: SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: Checkbox(
-                              value: isSelected,
-                              activeColor: primaryBlue,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
+                        if (isPending) ...[
+                          Padding(
+                            padding:
+                                const EdgeInsets.only(right: 8.0, top: 8.0),
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: Checkbox(
+                                value: isSelected,
+                                activeColor: primaryBlue,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                onChanged: isEligible
+                                    ? (bool? val) {
+                                        setState(() {
+                                          if (val == true) {
+                                            _selectedLeaves[itemId] = item;
+                                          } else {
+                                            _selectedLeaves.remove(itemId);
+                                          }
+                                        });
+                                      }
+                                    : null,
                               ),
-                              onChanged: isEligible
-                                  ? (bool? val) {
-                                      setState(() {
-                                        if (val == true) {
-                                          _selectedLeaves[itemId] = item;
-                                        } else {
-                                          _selectedLeaves.remove(itemId);
-                                        }
-                                      });
-                                    }
-                                  : null,
                             ),
                           ),
-                        ),
+                        ],
                       ],
                       Container(
                         decoration: BoxDecoration(
@@ -2094,7 +2096,8 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close, color: darkGrey, size: 20),
+                        icon:
+                            const Icon(Icons.close, color: darkGrey, size: 20),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
@@ -2116,12 +2119,12 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
                     ),
                     child: Column(
                       children: [
-                        _buildDetailRow(
-                            Icons.person_outline, "Staff", item.staffName ?? 'N/A'),
+                        _buildDetailRow(Icons.person_outline, "Staff",
+                            item.staffName ?? 'N/A'),
                         _buildDetailRow(Icons.category_outlined, "Leave Type",
                             item.leaveType ?? 'N/A'),
-                        _buildDetailRow(Icons.calendar_today_outlined, "Duration",
-                            '${item.noOfDays ?? '0'} Days'),
+                        _buildDetailRow(Icons.calendar_today_outlined,
+                            "Duration", '${item.noOfDays ?? '0'} Days'),
                         if (item.session != null && item.session != "")
                           _buildDetailRow(
                               Icons.access_time,
@@ -2134,8 +2137,8 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
                         //     Icons.date_range, "To Date", item.toDate ?? 'N/A'),
                         // _buildDetailRow(Icons.access_time, "Applied On",
                         //     item.createdAt ?? 'N/A'),
-                        _buildDetailRow(
-                            Icons.info_outline, "Status", item.status ?? 'Pending',
+                        _buildDetailRow(Icons.info_outline, "Status",
+                            item.status ?? 'Pending',
                             isStatus: true, status: item.status),
                         _buildDetailRow(
                           Icons.note_alt_outlined,
@@ -2146,9 +2149,10 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
                               : 'N/A',
                         ),
                         if (item.approvedBy != null && item.approvedBy != "")
-                          _buildDetailRow(Icons.person_pin_outlined, "Approved By",
-                              item.approvedBy),
-                        if (item.approvedDates != null && item.approvedDates != "")
+                          _buildDetailRow(Icons.person_pin_outlined,
+                              "Approved By", item.approvedBy),
+                        if (item.approvedDates != null &&
+                            item.approvedDates != "")
                           _buildDetailRow(Icons.date_range_outlined,
                               "Approved Dates", item.approvedDates),
                         if (item.remarks != null && item.remarks!.isNotEmpty)
@@ -2181,7 +2185,8 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
                             fit: BoxFit.scaleDown,
                             child: Text(
                               "Attendance",
-                              style: TextStyle(color: primaryBlue, fontSize: 13),
+                              style:
+                                  TextStyle(color: primaryBlue, fontSize: 13),
                             ),
                           ),
                           style: OutlinedButton.styleFrom(
@@ -2325,13 +2330,22 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
                             color: softGreen, size: 24),
                       ),
                       const SizedBox(width: 12),
-                      const Text(
-                        "Approve Leave",
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: softGreen,
+                      const Expanded(
+                        child: Text(
+                          "Approve Leave",
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: softGreen,
+                          ),
                         ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon:
+                            const Icon(Icons.close, color: darkGrey, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                       ),
                     ],
                   ),
@@ -2615,8 +2629,8 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
     }
 
     final bool allEligibleSelected = eligibleItems.isNotEmpty &&
-        eligibleItems.every(
-            (item) => _selectedLeaves.containsKey((item as dynamic).id.toString()));
+        eligibleItems.every((item) =>
+            _selectedLeaves.containsKey((item as dynamic).id.toString()));
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -2643,11 +2657,13 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
                       setState(() {
                         if (val == true) {
                           for (var item in eligibleItems) {
-                            _selectedLeaves[(item as dynamic).id.toString()] = item;
+                            _selectedLeaves[(item as dynamic).id.toString()] =
+                                item;
                           }
                         } else {
                           for (var item in eligibleItems) {
-                            _selectedLeaves.remove((item as dynamic).id.toString());
+                            _selectedLeaves
+                                .remove((item as dynamic).id.toString());
                           }
                         }
                       });
@@ -3065,7 +3081,8 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
                         ),
                         IconButton(
                           onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.close, color: darkGrey, size: 20),
+                          icon: const Icon(Icons.close,
+                              color: darkGrey, size: 20),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
@@ -3098,7 +3115,8 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
                           const SizedBox(height: 16),
                           if (_allTemplates != null &&
                               _allTemplates!.any((e) =>
-                                  e.templateType?.toLowerCase() == 'reject')) ...[
+                                  e.templateType?.toLowerCase() ==
+                                  'reject')) ...[
                             const Text(
                               "Select Template",
                               style: TextStyle(
@@ -3116,8 +3134,10 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
                                       e.templateType?.toLowerCase() == 'reject')
                                   .map((t) => ActionChip(
                                         label: Text(t.templateName ?? '',
-                                            style: const TextStyle(fontSize: 12)),
-                                        backgroundColor: softRed.withOpacity(0.1),
+                                            style:
+                                                const TextStyle(fontSize: 12)),
+                                        backgroundColor:
+                                            softRed.withOpacity(0.1),
                                         onPressed: () {
                                           setState(() {
                                             if (remarksCtrl.text.isEmpty) {
@@ -3212,8 +3232,7 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
                                             content: const Text(
                                                 "Leave request rejected"),
                                             backgroundColor: softGreen,
-                                            behavior:
-                                                SnackBarBehavior.floating,
+                                            behavior: SnackBarBehavior.floating,
                                             shape: RoundedRectangleBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(10)),
@@ -3226,8 +3245,7 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
                                             content: Text(res?.message ??
                                                 "Failed to reject"),
                                             backgroundColor: softRed,
-                                            behavior:
-                                                SnackBarBehavior.floating,
+                                            behavior: SnackBarBehavior.floating,
                                             shape: RoundedRectangleBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(10)),
@@ -3578,13 +3596,19 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
                             ),
                           ),
                           const SizedBox(width: 16),
-                          Text(
-                            isEdit ? "Edit Leave Request" : "Apply for Leave",
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: primaryBlue,
+                          Expanded(
+                            child: Text(
+                              isEdit ? "Edit Leave Request" : "Apply for Leave",
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: primaryBlue,
+                              ),
                             ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.close, color: darkGrey),
                           ),
                         ],
                       ),
@@ -3772,7 +3796,8 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
                                 final p = await showDatePicker(
                                   context: context,
                                   initialDate: DateTime.now(),
-                                  firstDate: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
+                                  firstDate: DateTime(DateTime.now().year,
+                                      DateTime.now().month, DateTime.now().day),
                                   lastDate: DateTime(2100),
                                   builder: (context, child) {
                                     return Theme(

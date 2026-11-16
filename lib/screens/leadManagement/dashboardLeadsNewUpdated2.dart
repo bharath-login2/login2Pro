@@ -55,6 +55,7 @@ import '../../models/commonConfigureModel.dart';
 import '../../models/dashboardModel.dart';
 import 'package:login2/models/lead_management/dashboardLeadsCountsModel.dart';
 import 'package:login2/models/lead_management/leadDashboardCountNewModel.dart';
+import 'package:login2/models/lead_management/target_list_model.dart';
 import 'package:login2/models/expense/staffListModel.dart' as sl;
 import '../../models/lead_management/leadDashboardModel.dart' as ld;
 import '../../models/lead_management/viewLeadsModel.dart';
@@ -123,6 +124,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
   ProjectList? projectList;
   WorkStatusModel? workStatus;
   CommonResponse? loginOrNot;
+  TargetListResponse? _targetResponse;
   List<String> selectedIUsers = [];
   List<String> selectedUserNumbers = [];
   String transferStaffToggleName = "Staff";
@@ -580,6 +582,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     _loadWorkStatus();
     _checkDashboardPermission();
     _updateTabController();
+    _fetchTargetListData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       deepLinkHandler.getPendingDeepLink().then((data) {
         if (data != null && mounted) {
@@ -616,6 +619,22 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
       "NewleadDashboardPermission",
     );
     setState(() {});
+  }
+
+  //Target list
+  Future<void> _fetchTargetListData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final response = await HttpService.getTargetList(
+      userId: await Common.getSharedPref("userId") ?? '',
+    );
+
+    setState(() {
+      _targetResponse = response;
+      _isLoading = false;
+    });
   }
 
   void _loadWorkStatus() async {
@@ -3571,6 +3590,215 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     );
   }
 
+  //for single target
+  Widget _buildSingleTargetItem(TargetList target) {
+    // ---------- Data ----------
+    final double progress =
+        double.tryParse(target.progressPercentage ?? "0.0") ?? 0.0;
+    final double progressFraction = (progress / 100).clamp(0.0, 1.0);
+
+    final double targetAmt = double.tryParse(
+            (target.maxAmount ?? "0").toString().replaceAll(',', '')) ??
+        0.0;
+    final double achievedAmt = double.tryParse(
+            (target.achieved ?? "0").toString().replaceAll(',', '')) ??
+        0.0;
+    final double pendingAmt =
+        (targetAmt - achievedAmt).clamp(0.0, double.infinity);
+    final double extra = achievedAmt - targetAmt;
+
+    final bool isAchieved = progress >= 100;
+
+    // Indian number format: 1,20,000
+    String fmt(double v) {
+      final s = v.round().abs().toString();
+      if (s.length <= 3) return s;
+      final last3 = s.substring(s.length - 3);
+      final rest = s.substring(0, s.length - 3).replaceAllMapped(
+            RegExp(r'(\d)(?=(\d\d)+$)'),
+            (m) => '${m[1]},',
+          );
+      return '$rest,$last3';
+    }
+
+    // ---------- Colors ----------
+    const Color successGreen = Color(0xFF2E9E5B);
+    const Color pendingOrange = Color(0xFFF08A24);
+    final Color accent = isAchieved ? successGreen : primaryBlue;
+    final Color pendingColor = pendingAmt == 0 ? successGreen : pendingOrange;
+
+    // ---------- Local stat column ----------
+    Widget stat(String label, String value, Color valueColor) {
+      return Expanded(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: textSecondary,
+              ),
+            ),
+            const SizedBox(height: 3),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: valueColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget divider() => Container(
+          width: 1,
+          height: 28,
+          color: borderLight,
+        );
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isAchieved ? successGreen.withOpacity(0.35) : borderLight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withOpacity(0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ---------- Header: ring + name + status ----------
+          Row(
+            children: [
+              SizedBox(
+                width: 50,
+                height: 50,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: progressFraction),
+                      duration: const Duration(milliseconds: 900),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, value, _) => SizedBox(
+                        width: 50,
+                        height: 50,
+                        child: CircularProgressIndicator(
+                          value: value,
+                          strokeWidth: 5,
+                          strokeCap: StrokeCap.round,
+                          backgroundColor: accent.withOpacity(0.12),
+                          valueColor: AlwaysStoppedAnimation<Color>(accent),
+                        ),
+                      ),
+                    ),
+                    isAchieved
+                        ? Icon(Icons.emoji_events_rounded,
+                            size: 22, color: accent)
+                        : Text(
+                            '${progress.toStringAsFixed(0)}%',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: accent,
+                            ),
+                          ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      target.groupName ?? 'Target',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      isAchieved
+                          ? (extra > 0
+                              ? 'Target exceeded by ₹${fmt(extra)}'
+                              : 'Target completed')
+                          : '${progress.toStringAsFixed(1)}% completed',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: isAchieved ? successGreen : textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: accent.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  isAchieved ? 'Achieved' : 'In progress',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    color: accent,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // ---------- Target | Achieved | Pending ----------
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                stat('Target', '₹${fmt(targetAmt)}', textPrimary),
+                divider(),
+                stat('Achieved', '₹${fmt(achievedAmt)}', accent),
+                divider(),
+                stat('Pending', '₹${fmt(pendingAmt)}', pendingColor),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTargetStat(String label, String value, IconData icon) {
     return Row(
       children: [
@@ -4598,7 +4826,21 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
       color: _getListTabBackgroundColor(),
       child: Column(
         children: [
-          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Column(
+              children: [
+                // Render your target items here using your _buildSingleTargetItem method
+                if (_targetResponse?.data != null &&
+                    _targetResponse!.data.isNotEmpty) ...[
+                  ..._targetResponse!.data
+                      .map((target) => _buildSingleTargetItem(target)),
+                ] else ...[
+                  const SizedBox(height: 12),
+                ],
+              ],
+            ),
+          ),
           if (leadDashboard?.data != null) ...[
             _buildSummaryRowSection(leadDashboard!.data),
             const SizedBox(height: 16),
@@ -10184,9 +10426,8 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: hasPrev
-                        ? Colors.indigo.shade50
-                        : Colors.grey.shade100,
+                    color:
+                        hasPrev ? Colors.indigo.shade50 : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: hasPrev
@@ -10251,9 +10492,8 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: hasNext
-                        ? Colors.indigo.shade50
-                        : Colors.grey.shade100,
+                    color:
+                        hasNext ? Colors.indigo.shade50 : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: hasNext
