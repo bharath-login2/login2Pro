@@ -358,7 +358,7 @@ Future<void> handleCallLogUpload() async {
         final String dateTimeFrom =
             prefs.getString('callLogsStartingTime').toString();
         final DateTime startingTime = DateTime.parse(dateTimeFrom);
-        List<CallLogEntry> logs = await getFilteredCallLogs(startingTime);
+        List<CallLogEntry> logs = await getSimFilteredCallLogs(startingTime);
 
         for (var log in logs) {
           print(
@@ -555,6 +555,7 @@ Future<void> handleCallLogUpload() async {
 
         // Debug
         log('allowedCallLogs (for upload): ${allowedCallLogs.length}');
+        log('🔍 [BG SIM DEBUG] Count actually sent in upload request: ${allowedCallLogs.length}');
 
         // --- Select the newest call as the recording target. ---
         // hiveCallAddList order depends on the code path, so always pick

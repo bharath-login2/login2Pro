@@ -592,6 +592,90 @@ Future<List<CallLogEntry>> getFilteredCallLogs(DateTime startingTime) async {
   return filteredLogs;
 }
 
+/// Matches entry.phoneAccountId against native active SIM subscriptionId.
+/// Returns 0 for SIM 1, 1 for SIM 2, -1 for unknown/unmatched.
+int getSimSlotForEntry(CallLogEntry entry, List<Map<dynamic, dynamic>> activeSims) {
+  final phoneAccountId = entry.phoneAccountId;
+  if (phoneAccountId == null || phoneAccountId.isEmpty) return -1;
+  for (var sim in activeSims) {
+    final subId = sim['subscriptionId']?.toString();
+    if (subId != null && subId.isNotEmpty && phoneAccountId == subId) {
+      final slotIdx = sim['simSlotIndex'];
+      if (slotIdx is int) return slotIdx;
+      return int.tryParse(slotIdx?.toString() ?? '') ?? -1;
+    }
+  }
+  return -1;
+}
+
+/// Filters CallLogEntry list by the selected SIM.
+/// 'SIM 1' -> simSlotIndex == 0, 'SIM 2' -> simSlotIndex == 1.
+/// If activeSims is empty, falls back safely to returning all entries.
+List<CallLogEntry> filterCallLogsBySim(
+  List<CallLogEntry> entries,
+  String selectedSim,
+  List<Map<dynamic, dynamic>> activeSims,
+) {
+  if (activeSims.isEmpty) {
+    return entries;
+  }
+  final targetSlot = selectedSim == 'SIM 2' ? 1 : 0;
+  return entries.where((entry) {
+    return getSimSlotForEntry(entry, activeSims) == targetSlot;
+  }).toList();
+}
+
+/// Wraps [getFilteredCallLogs] and additionally filters by the SIM selected
+/// in SharedPreferences ('selectedSim'). Used ONLY by [handleCallLogUpload]
+/// in backgroundService.dart.
+///
+/// Falls back to [getFilteredCallLogs] unchanged when:
+///   • SIM detection is unavailable (MethodChannel error)
+///   • activeSims is empty (no SIM data returned)
+///
+/// Entries whose phoneAccountId cannot be matched to any active SIM slot
+/// are excluded (same behavior as manual upload and UI list).
+Future<List<CallLogEntry>> getSimFilteredCallLogs(DateTime startingTime) async {
+  // Step 1: Get call-type filtered logs (existing behavior preserved).
+  final List<CallLogEntry> callTypedLogs =
+      await getFilteredCallLogs(startingTime);
+
+  // Step 2: Read selected SIM from SharedPreferences.
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.reload();
+  final String selectedSim = prefs.getString('selectedSim') ?? 'SIM 1';
+
+  log('🔍 [BG SIM DEBUG] selectedSim from prefs: $selectedSim');
+  log('🔍 [BG SIM DEBUG] total call-type filtered logs: ${callTypedLogs.length}');
+
+  // Step 3: Fetch active SIMs via _simChannel ('com.login2Pro/sim_info').
+  List<Map<dynamic, dynamic>> activeSims = [];
+  try {
+    final result = await _simChannel.invokeMethod('getActiveSims');
+    if (result != null) {
+      activeSims = List<Map<dynamic, dynamic>>.from(result);
+    }
+  } catch (e) {
+    log('🔍 [BG SIM DEBUG] getActiveSims failed, falling back to all: $e');
+    return callTypedLogs;
+  }
+
+  if (activeSims.isEmpty) {
+    log('🔍 [BG SIM DEBUG] No active SIMs detected, falling back to all');
+    return callTypedLogs;
+  }
+
+  // Step 4: Apply shared SIM filter logic.
+  final List<CallLogEntry> simFiltered = filterCallLogsBySim(
+    callTypedLogs,
+    selectedSim,
+    activeSims,
+  );
+
+  log('🔍 [BG SIM DEBUG] logs after SIM filter ($selectedSim): ${simFiltered.length}');
+  return simFiltered;
+}
+
 // Helper function to parse call type to string
 String _parseCallTypeToString(CallLogEntry entry) {
   final typeStr = entry.callType.toString().toLowerCase();

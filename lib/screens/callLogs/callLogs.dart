@@ -251,6 +251,11 @@ class _CallLogsState extends State<CallLogs> {
   }
 
   Future<void> bulkUploadAll() async {
+    log('🔍 [MANUAL UPLOAD DEBUG] selectedSim: $_selectedSimFilter');
+    log('🔍 [MANUAL UPLOAD DEBUG] _activeSims count: ${_activeSims.length}');
+    log('🔍 [MANUAL UPLOAD DEBUG] Total device logs (_callLogEntries): ${_callLogEntries.length}');
+    log('🔍 [MANUAL UPLOAD DEBUG] Filtered logs (_filteredCallLogEntries): ${_filteredCallLogEntries.length}');
+
     if (history.isEmpty && selectAll) {
       history.clear();
       historyIndex.clear();
@@ -291,6 +296,7 @@ class _CallLogsState extends State<CallLogs> {
     };
 
     if (context.mounted) {
+      log('🔍 [MANUAL UPLOAD DEBUG] Count actually sent in upload request: ${history.length}');
       Common.showProgressDialog(context, "Uploading ${history.length} logs...");
     }
 
@@ -300,8 +306,8 @@ class _CallLogsState extends State<CallLogs> {
       Common.toastMessaage(
           "${object1.message} (${history.length} logs)", Colors.green);
 
-      // Mark as uploaded in Hive
-      for (var entry in _callLogEntries) {
+      // Mark as uploaded in Hive (only for filtered SIM entries that were uploaded)
+      for (var entry in _filteredCallLogEntries) {
         bool existsInHive = await HiveUtil.isCallLogWithIdAndNumberExists(
             entry.timestamp.toString(), entry.number.toString());
 
@@ -735,6 +741,9 @@ class _CallLogsState extends State<CallLogs> {
         _activeSims.length >= 2;
     if (_selectedSimFilter == 'SIM 2' && !hasSim2) {
       _selectedSimFilter = 'SIM 1';
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setString('selectedSim', 'SIM 1');
+      });
     }
 
     final Iterable<CallLogEntry> callResult = await CallLog.query(
@@ -748,17 +757,7 @@ class _CallLogsState extends State<CallLogs> {
   /// entry.phoneAccountId against native active SIM subscriptionId.
   /// Returns 0 for SIM 1, 1 for SIM 2, -1 for unknown/unmatched.
   int _getSimSlotForEntry(CallLogEntry entry) {
-    final phoneAccountId = entry.phoneAccountId;
-    if (phoneAccountId == null || phoneAccountId.isEmpty) return -1;
-    for (var sim in _activeSims) {
-      final subId = sim['subscriptionId']?.toString();
-      if (subId != null && subId.isNotEmpty && phoneAccountId == subId) {
-        final slotIdx = sim['simSlotIndex'];
-        if (slotIdx is int) return slotIdx;
-        return int.tryParse(slotIdx?.toString() ?? '') ?? -1;
-      }
-    }
-    return -1;
+    return getSimSlotForEntry(entry, _activeSims);
   }
 
   /// Returns 'SIM 1' or 'SIM 2' based on the call's resolved simSlotIndex.
@@ -772,35 +771,17 @@ class _CallLogsState extends State<CallLogs> {
   }
 
   /// Returns the filtered call log entries based on the current SIM filter.
-  /// 'All' shows everything, 'SIM 1' shows simSlotIndex == 0,
-  /// 'SIM 2' shows simSlotIndex == 1.
-  /// Unknown/unmatched entries are shown under 'All' only.
-  /// Returns the filtered call log entries based on the current SIM filter.
-  /// 'SIM 1' shows simSlotIndex == 0,
-  /// 'SIM 2' shows simSlotIndex == 1.
+  /// 'SIM 1' shows simSlotIndex == 0, 'SIM 2' shows simSlotIndex == 1.
   /// If SIM detection has no data, falls back to all call logs safely.
   List<CallLogEntry> get _filteredCallLogEntries {
-    if (_activeSims.isEmpty) {
-      return _callLogEntries.toList();
-    }
-    final targetSlot = _selectedSimFilter == 'SIM 2' ? 1 : 0;
-    return _callLogEntries.where((entry) {
-      return _getSimSlotForEntry(entry) == targetSlot;
-    }).toList();
+    return filterCallLogsBySim(_callLogEntries.toList(), _selectedSimFilter, _activeSims);
   }
 
   /// Filters CallLogEntry list by the selected SIM for automatic upload.
-  /// SIM 1 -> simSlotIndex == 0
-  /// SIM 2 -> simSlotIndex == 1
+  /// SIM 1 -> simSlotIndex == 0, SIM 2 -> simSlotIndex == 1.
   /// If SIM detection has no data, returns entries unchanged.
   List<CallLogEntry> _filterBySelectedSim(List<CallLogEntry> entries) {
-    if (_activeSims.isEmpty) {
-      return entries;
-    }
-    final targetSlot = _selectedSimFilter == 'SIM 2' ? 1 : 0;
-    return entries.where((entry) {
-      return _getSimSlotForEntry(entry) == targetSlot;
-    }).toList();
+    return filterCallLogsBySim(entries, _selectedSimFilter, _activeSims);
   }
 
   /// Filters Hive call log records by the selected SIM for automatic upload (Path B).
@@ -1616,7 +1597,8 @@ class _CallLogsState extends State<CallLogs> {
                                     backgroundColor: Colors.white,
                                     child: Text(
                                       selectAll
-                                          ? _callLogEntries.length.toString()
+                                          ? _filteredCallLogEntries.length
+                                              .toString()
                                           : history.length.toString(),
                                       style: const TextStyle(
                                           color: Colors.blue, fontSize: 17),
@@ -2546,6 +2528,8 @@ class _CallLogsState extends State<CallLogs> {
                                                                                   if (uploadPermission == "true" && onLongPress != true && isUploaded == false)
                                                                                     InkWell(
                                                                                       onTap: () async {
+                                                                                        log('🔍 [PER-ITEM UPLOAD DEBUG] selectedSim: $_selectedSimFilter');
+                                                                                        log('🔍 [PER-ITEM UPLOAD DEBUG] Sending 1 log for ${_filteredCallLogEntries.elementAt(indexStaff).number}');
                                                                                         Common.showProgressDialog(context, "Loading..");
 
                                                                                         history.clear();
@@ -4156,6 +4140,8 @@ class _CallLogsState extends State<CallLogs> {
   }
 
   bulkUpload() async {
+    log('🔍 [MANUAL SELECT UPLOAD DEBUG] selectedSim: $_selectedSimFilter');
+    log('🔍 [MANUAL SELECT UPLOAD DEBUG] Count actually sent in upload request: ${history.length}');
     if (history.isEmpty) {
       Common.toastMessaage("No logs selected to upload", Colors.blue);
       return;
