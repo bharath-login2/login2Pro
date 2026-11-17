@@ -1824,6 +1824,7 @@ class _AddWorkPageState extends State<AddWorkPage> {
                     ),
                     const SizedBox(height: 12),
                     TextField(
+                      autofocus: true,
                       controller: searchController,
                       decoration: InputDecoration(
                         hintText: 'Search Modules...',

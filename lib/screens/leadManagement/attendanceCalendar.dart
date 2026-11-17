@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:login2/core/common.dart';
+import 'package:login2/core/app_colors.dart';
 import 'package:login2/models/lead_management/attendanceAllmodel.dart';
 import 'package:login2/models/lead_management/calendarDataModel.dart';
 import 'package:login2/models/lead_management/dailyAllCountModel.dart';
@@ -1247,290 +1248,212 @@ class _ViewCalendarPageState extends State<ViewCalendarPage>
   List<AttendanceItem> get _halfDayList => _attendanceList
       .where((a) => a.status.toLowerCase().contains('half'))
       .toList();
+
   void _showAttendanceLeaveViewDialog(BuildContext context, DateTime date) {
+    const Color blue = Color(0xFF2F7FD1);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.8,
         maxChildSize: 0.95,
         minChildSize: 0.5,
         builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 20,
-                spreadRadius: 5,
-              ),
-            ],
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
           ),
+          clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
+              // ------------------------------------------------ header
               Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color.fromARGB(255, 77, 155, 228),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(20),
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 10, 12, 18),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF4D9BE4), blue],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                 ),
-                child: Row(
+                child: Column(
                   children: [
-                    Icon(
-                      Icons.calendar_month,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        DateFormat('EEEE, MMM d, yyyy').format(date),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    // drag handle
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                     ),
-                    markAttendance == "true"
-                        ? IconButton(
-                            icon: Icon(
-                              Icons.edit_outlined,
-                              size: 20,
-                              color: Colors.white,
-                            ),
-                            onPressed: () {
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(Icons.calendar_month_rounded,
+                              color: Colors.white, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                DateFormat('EEEE').format(date),
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.85),
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                DateFormat('MMM d, yyyy').format(date),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (markAttendance == "true")
+                          _headerButton(
+                            icon: Icons.edit_outlined,
+                            tooltip: 'Edit',
+                            onTap: () {
                               Navigator.pop(context);
                               _showDayActionDialog(context, date);
                             },
-                            tooltip: 'Edit',
-                          )
-                        : SizedBox(),
-                    IconButton(
-                      icon: Icon(
-                        Icons.close,
-                        size: 20,
-                        color: Colors.white,
-                      ),
-                      onPressed: () => Navigator.pop(context),
+                          ),
+                        const SizedBox(width: 6),
+                        _headerButton(
+                          icon: Icons.close_rounded,
+                          tooltip: 'Close',
+                          onTap: () => Navigator.pop(context),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: Colors.grey.shade300),
-                  ),
-                ),
+
+              // ------------------------------------------------ summary tiles
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _StatBadge(
-                      icon: Icons.check_circle,
-                      label: 'Present',
-                      count: _attendanceList.length,
-                      color: Colors.green.shade600,
+                    Expanded(
+                      child: _SummaryTile(
+                        icon: Icons.check_circle_rounded,
+                        label: 'Present',
+                        count: _attendanceList.length,
+                        color: Colors.green.shade600,
+                      ),
                     ),
-                    _StatBadge(
-                      icon: Icons.beach_access,
-                      label: 'Leave',
-                      count: _leaveList.length,
-                      color: Colors.orange.shade600,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _SummaryTile(
+                        icon: Icons.beach_access_rounded,
+                        label: 'Leave',
+                        count: _leaveList.length,
+                        color: Colors.orange.shade700,
+                      ),
                     ),
-                    _StatBadge(
-                      icon: Icons.access_time,
-                      label: 'Half Day',
-                      count: _attendanceList
-                          .where((a) => a.status.contains('Half'))
-                          .length,
-                      color: Colors.blue.shade600,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _SummaryTile(
+                        icon: Icons.timelapse_rounded,
+                        label: 'Half Day',
+                        count: _halfDayList.length,
+                        color: Colors.blue.shade600,
+                      ),
                     ),
                   ],
                 ),
               ),
+
+              // ------------------------------------------------ tabs + lists
               Expanded(
                 child: DefaultTabController(
                   length: 3,
                   child: Column(
                     children: [
+                      // segmented tab bar
                       Container(
+                        margin: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                        padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(10),
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        margin: const EdgeInsets.all(16),
                         child: TabBar(
-                          labelColor: Colors.blue.shade600,
+                          dividerColor: Colors.transparent,
+                          indicatorSize: TabBarIndicatorSize.tab,
+                          labelColor: blue,
                           unselectedLabelColor: Colors.grey.shade600,
-                          isScrollable: true,
+                          labelStyle: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w700),
+                          unselectedLabelStyle: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w500),
+                          splashBorderRadius: BorderRadius.circular(10),
                           indicator: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 4,
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 6,
                                 offset: const Offset(0, 2),
                               ),
                             ],
                           ),
-                          tabs: [
-                            Tab(
-                              icon: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.check_circle,
-                                    size: 16,
-                                    color: Colors.green.shade600,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Attendance (${_attendanceList.length})',
-                                    style: const TextStyle(fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Tab(
-                              icon: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.beach_access,
-                                    size: 16,
-                                    color: Colors.orange.shade600,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Leave (${_leaveList.length})',
-                                    style: const TextStyle(fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Tab(
-                              icon: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.access_time,
-                                    size: 16,
-                                    color: Colors.blue.shade600,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Half Day (${_halfDayList.length})',
-                                    style: const TextStyle(fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                            ),
+                          tabs: const [
+                            Tab(height: 36, text: 'Attendance'),
+                            Tab(height: 36, text: 'Leave'),
+                            Tab(height: 36, text: 'Half Day'),
                           ],
                         ),
                       ),
                       Expanded(
                         child: TabBarView(
                           children: [
-                            _attendanceList.isEmpty
-                                ? Center(
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.people_outline,
-                                            size: 60,
-                                            color: Colors.grey.shade300),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'No attendance marked',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    controller: scrollController,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16),
-                                    itemCount: _attendanceList.length,
-                                    itemBuilder: (context, index) {
-                                      final item = _attendanceList[index];
-                                      return _AttendanceCard(item: item);
-                                    },
-                                  ),
-                            _leaveList.isEmpty
-                                ? Center(
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.beach_access_outlined,
-                                            size: 60,
-                                            color: Colors.grey.shade300),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'No leave marked',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    controller: scrollController,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16),
-                                    itemCount: _leaveList.length,
-                                    itemBuilder: (context, index) {
-                                      final item = _leaveList[index];
-                                      return _LeaveCard(item: item);
-                                    },
-                                  ),
-                            _halfDayList.isEmpty
-                                ? Center(
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.access_time,
-                                            size: 60,
-                                            color: Colors.grey.shade300),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'No half day marked',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    controller: scrollController,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16),
-                                    itemCount: _halfDayList.length,
-                                    itemBuilder: (context, index) {
-                                      final item = _halfDayList[index];
-                                      return _AttendanceCard(item: item);
-                                    },
-                                  ),
+                            _tabList<dynamic>(
+                              _attendanceList,
+                              (item) => _AttendanceCard(item: item),
+                              icon: Icons.people_outline_rounded,
+                              title: 'No attendance marked',
+                              subtitle:
+                                  'Nobody is marked present for this day.',
+                              color: Colors.green.shade600,
+                            ),
+                            _tabList<dynamic>(
+                              _leaveList,
+                              (item) => _LeaveCard(item: item),
+                              icon: Icons.beach_access_outlined,
+                              title: 'No leave marked',
+                              subtitle: 'No leave requests for this day.',
+                              color: Colors.orange.shade700,
+                            ),
+                            _tabList<dynamic>(
+                              _halfDayList,
+                              (item) => _AttendanceCard(item: item),
+                              icon: Icons.timelapse_rounded,
+                              title: 'No half day marked',
+                              subtitle: 'No half-day entries for this day.',
+                              color: Colors.blue.shade600,
+                            ),
                           ],
                         ),
                       ),
@@ -1542,6 +1465,48 @@ class _ViewCalendarPageState extends State<ViewCalendarPage>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _headerButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.white.withOpacity(0.2),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Icon(icon, size: 20, color: Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _tabList<T>(
+    List<T> items,
+    Widget Function(T item) itemBuilder, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+  }) {
+    if (items.isEmpty) {
+      return _EmptyTab(
+          icon: icon, title: title, subtitle: subtitle, color: color);
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      itemCount: items.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) => itemBuilder(items[index]),
     );
   }
 
@@ -1607,9 +1572,14 @@ class _ViewCalendarPageState extends State<ViewCalendarPage>
           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
         ),
         // centerTitle: true,
-        backgroundColor: const Color.fromARGB(255, 77, 155, 228),
+        backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: AppColors.appBarGradient,
+          ),
+        ),
       ),
       body: _isLoading
           ? const Center(
@@ -2062,89 +2032,152 @@ class _AttendanceCard extends StatelessWidget {
 
   const _AttendanceCard({required this.item});
 
+  // show "--:--" when a time is empty / null
+  static String _time(dynamic v) {
+    final s = (v ?? '').toString().trim();
+    return (s.isEmpty || s == 'null') ? '--:--' : s;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+    final bool isFull = item.status == "Full Day";
+    final Color color = isFull ? Colors.green.shade600 : Colors.orange.shade700;
+    final String name = item.staffName.toString();
+    final String initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: InkWell(
-        onTap: () {
-          Navigator.pop(context);
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ViewWorkPage(
-                staffId: item.staffId,
-                selectedDate: DateTime.now(),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          splashColor: color.withOpacity(0.08),
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ViewWorkPage(
+                  staffId: item.staffId,
+                  selectedDate: DateTime.now(),
+                ),
               ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // avatar with status-coloured tint
+                Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    initial,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // status chip
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: color.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              item.status.toString(),
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                color: color,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      // in  ->  out
+                      Row(
+                        children: [
+                          Icon(Icons.login_rounded,
+                              size: 14, color: Colors.green.shade600),
+                          const SizedBox(width: 4),
+                          Text(
+                            _time(item.loginTime),
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade800,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Icon(Icons.arrow_forward_rounded,
+                                size: 13, color: Colors.grey.shade400),
+                          ),
+                          Icon(Icons.logout_rounded,
+                              size: 14, color: Colors.red.shade400),
+                          const SizedBox(width: 4),
+                          Text(
+                            _time(item.logoutTime),
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded,
+                    color: Colors.grey.shade400, size: 22),
+              ],
             ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: item.status == "Full Day"
-                      ? Colors.green.shade100
-                      : Colors.orange.shade100,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Icon(
-                  item.status == "Full Day"
-                      ? Icons.check_circle
-                      : Icons.access_time,
-                  color:
-                      item.status == "Full Day" ? Colors.green : Colors.orange,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.staffName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Status: ${item.status}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Time: ${item.loginTime} - ${item.logoutTime}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color: Colors.grey.shade400,
-                size: 20,
-              ),
-            ],
           ),
         ),
       ),
@@ -2159,67 +2192,133 @@ class _LeaveCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+    final Color color = Colors.orange.shade700;
+    final String name = item.staffName.toString();
+    final String initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    final String reason = item.reason.toString().trim();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // avatar
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  initial,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // name + leave type chip
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.beach_access_rounded,
+                              size: 12, color: color),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              item.leaveType.toString(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: color,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          // reason box (only when there is a reason)
+          if (reason.isNotEmpty) ...[
+            const SizedBox(height: 10),
             Container(
-              width: 40,
-              height: 40,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.orange.shade100,
-                borderRadius: BorderRadius.circular(20),
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(
-                Icons.beach_access,
-                color: Colors.orange,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item.staffName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Type: ${item.leaveType}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  if (item.reason.isNotEmpty)
-                    Text(
-                      'Reason: ${item.reason}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade500,
-                      ),
-                      maxLines: 2,
+                  Icon(Icons.notes_rounded,
+                      size: 14, color: Colors.grey.shade500),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      reason,
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.35,
+                        color: Colors.grey.shade700,
+                      ),
                     ),
+                  ),
                 ],
               ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -2389,6 +2488,136 @@ class _LegendItem extends StatelessWidget {
           style: const TextStyle(fontSize: 12),
         ),
       ],
+    );
+  }
+}
+
+class _SummaryTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int count;
+  final Color color;
+
+  const _SummaryTile({
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.18)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 16, color: color),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TweenAnimationBuilder<int>(
+                  tween: IntTween(begin: 0, end: count),
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeOutCubic,
+                  builder: (_, v, __) => Text(
+                    '$v',
+                    style: TextStyle(
+                      fontSize: 20,
+                      height: 1.0,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyTab extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+
+  const _EmptyTab({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.10),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 32, color: color.withOpacity(0.8)),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

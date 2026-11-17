@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:login2/core/common.dart';
+import 'package:login2/core/app_colors.dart';
 import 'package:login2/models/expense/expense_post.dart';
 import 'package:login2/screens/leadManagement/AssignReport.dart';
 import 'package:login2/screens/leadManagement/addWork_page.dart';
@@ -264,8 +265,16 @@ class _ViewWorkPageState extends State<ViewWorkPage> {
                   ),
                 ],
               ),
-        backgroundColor: const Color.fromARGB(255, 77, 155, 228),
+        backgroundColor: Colors
+            .transparent, // changed (was Color.fromARGB(255, 77, 155, 228))
         foregroundColor: Colors.white,
+        elevation: 0, // optional, removes the shadow under the gradient
+        flexibleSpace: Container(
+          // new
+          decoration: const BoxDecoration(
+            gradient: AppColors.appBarGradient,
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_month),
@@ -703,7 +712,8 @@ class _ViewWorkPageState extends State<ViewWorkPage> {
                                                                 widget.staffId ==
                                                                     userId
                                                             ? GestureDetector(
-                                                                onTap: () async {
+                                                                onTap:
+                                                                    () async {
                                                                   await loginorNot();
                                                                   if (isLoggedIn ==
                                                                       true) {
@@ -720,9 +730,8 @@ class _ViewWorkPageState extends State<ViewWorkPage> {
                                                                       return;
                                                                     }
                                                                     final workStatusModel =
-                                                                        await HttpService
-                                                                            .getWorkStatusPaused(
-                                                                                item.id);
+                                                                        await HttpService.getWorkStatusPaused(
+                                                                            item.id);
                                                                     workStatus
                                                                         .WorkStatus?
                                                                         newExistingWork;
@@ -731,10 +740,9 @@ class _ViewWorkPageState extends State<ViewWorkPage> {
                                                                         workStatusModel
                                                                             .data
                                                                             .isNotEmpty) {
-                                                                      newExistingWork =
-                                                                          workStatusModel
-                                                                              .data
-                                                                              .first;
+                                                                      newExistingWork = workStatusModel
+                                                                          .data
+                                                                          .first;
                                                                     }
                                                                     Navigator
                                                                         .push(
@@ -753,8 +761,7 @@ class _ViewWorkPageState extends State<ViewWorkPage> {
                                                                               1,
                                                                           onSuccess:
                                                                               () {
-                                                                            setState(
-                                                                                () {
+                                                                            setState(() {
                                                                               checkExistingWorkStatus();
                                                                             });
                                                                           },
@@ -775,10 +782,8 @@ class _ViewWorkPageState extends State<ViewWorkPage> {
                                                                               const Text('Please login to restart work.'),
                                                                           actions: [
                                                                             TextButton(
-                                                                              child:
-                                                                                  const Text('OK'),
-                                                                              onPressed:
-                                                                                  () {
+                                                                              child: const Text('OK'),
+                                                                              onPressed: () {
                                                                                 Navigator.of(context).pop();
                                                                               },
                                                                             ),

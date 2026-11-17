@@ -5363,7 +5363,8 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
           pageName: 'Dashboard',
           autoExpandFollowup: autoExpandFollowup,
           onDataChanged: () {
-            _refreshLeadData(index);
+            _refreshLeadData(index,
+                callMasterId: targetCallMasterId);
           },
         ),
       );
@@ -5374,7 +5375,18 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     }
   }
 
-  Future<void> _refreshLeadData(int index) async {
+  Future<void> _refreshLeadData(int index, {String? callMasterId}) async {
+    // If a specific callMasterId is supplied, resolve the matching index in the
+    // current list so we update / remove the correct entry.  This handles the
+    // case where the popup was opened with a customCallMasterId that differs
+    // from the lead at `index`.
+    if (callMasterId != null) {
+      final resolvedIndex =
+          listTabLeads.indexWhere((l) => l.callMasterId == callMasterId);
+      if (resolvedIndex >= 0) {
+        index = resolvedIndex;
+      }
+    }
     if (index < 0 || index >= listTabLeads.length) return;
     String cmId = listTabLeads[index].callMasterId;
     try {
@@ -5449,6 +5461,15 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
           });
           // Update counts in background to keep dashboard consistent
           _fetchDashboardTabContent();
+
+          // For the Followup filter, the next follow-up date may have changed
+          // so the lead may no longer belong in the current date sub-filter
+          // (e.g. "Today", "Overdue", "Tomorrow"). Re-fetch from the API so the
+          // list accurately reflects the active filter instead of relying on
+          // the stale local copy.
+          if (_listTabFilter == 'Followup') {
+            _fetchTabLeadsActive();
+          }
         }
       }
     } catch (e) {
