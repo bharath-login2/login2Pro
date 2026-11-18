@@ -36,6 +36,8 @@ class MaterialData {
   final String? currentStock;
 final String? gstPercentage;
 final String? purchasePrice;
+final String? description;
+
   MaterialData({
     this.materialId,
     this.materialName,
@@ -47,7 +49,8 @@ final String? purchasePrice;
     this.lastPurchasePrice,
     this.currentStock,
         this.gstPercentage,
-        this.purchasePrice
+        this.purchasePrice,
+        this.description,
   });
 
   factory MaterialData.fromJson(Map<String, dynamic> json) {
@@ -63,6 +66,7 @@ final String? purchasePrice;
       currentStock: json['current_stock'] ?? "",
       gstPercentage: json['gst_percentage'] ?? "",
       purchasePrice: json['purchase_price'] ?? "",
+      description: json['description'] ?? "",
     );
   }
 
@@ -77,6 +81,7 @@ final String? purchasePrice;
     'last_purchase_amount': lastPurchasePrice,
     'current_stock': currentStock,
     'gst_percentage': gstPercentage,
-      'purchase_price': purchasePrice,
+    'purchase_price': purchasePrice,
+    'description': description,
   };
 }

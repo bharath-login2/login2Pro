@@ -170,6 +170,7 @@ Future<void> _fetchLocations() async {
     debugPrint("Location Error : $e");
   }
 }
+  
   Future<void> _fetchSuppliers() async {
     try {
       final response = await HttpService.getSupplierList({});
@@ -419,8 +420,8 @@ Future<void> _fetchLocations() async {
                                                 ],
                                               ),
                                             ),
-                                            if (order.billStatus ==
-                                                "Bill Not Created")
+                                            if (order.approvalStatus ==
+                                                "Approved")
                                               PopupMenuItem(
                                                 value: 'create_bill',
                                                 child: Row(
@@ -503,6 +504,8 @@ Future<void> _fetchLocations() async {
                               ),
                             ],
                           ),
+                          const SizedBox(height: 8),
+                          _buildApprovalStatusBadge(order.approvalStatus),
                           const Divider(height: 24),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -570,6 +573,64 @@ Future<void> _fetchLocations() async {
           fontWeight: FontWeight.bold,
         ),
       ),
+    );
+  }
+
+  Widget _buildApprovalStatusBadge(String? approvalStatus) {
+    final status = approvalStatus ?? 'Not send for Approval';
+
+    Color badgeColor;
+    Color bgColor;
+    IconData badgeIcon;
+
+    if (status.toLowerCase().contains('approved')) {
+      badgeColor = Colors.green;
+      bgColor = Colors.green.withOpacity(0.1);
+      badgeIcon = Icons.check_circle_outline;
+    } else if (status.toLowerCase().contains('rejected') ||
+        status.toLowerCase().contains('denied')) {
+      badgeColor = Colors.red;
+      bgColor = Colors.red.withOpacity(0.1);
+      badgeIcon = Icons.cancel_outlined;
+    } else if (status.toLowerCase().contains('pending') ||
+        status.toLowerCase().contains('sent')) {
+      badgeColor = Colors.blue;
+      bgColor = Colors.blue.withOpacity(0.1);
+      badgeIcon = Icons.hourglass_empty_rounded;
+    } else {
+      // "Not send for Approval"
+      badgeColor = Colors.orange;
+      bgColor = Colors.orange.withOpacity(0.1);
+      badgeIcon = Icons.pending_actions_outlined;
+    }
+
+    return Row(
+      children: [
+        Icon(Icons.approval_outlined, size: 14, color: Colors.grey),
+        const SizedBox(width: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(badgeIcon, size: 12, color: badgeColor),
+              const SizedBox(width: 4),
+              Text(
+                status,
+                style: TextStyle(
+                  color: badgeColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -704,6 +765,7 @@ String? description;
 
     PlatformFile? orderCopyFile;
     final TextEditingController refNoController = TextEditingController();
+    final TextEditingController shippingaddressController = TextEditingController();
 
     final TextEditingController addressController =
         TextEditingController(
@@ -744,6 +806,8 @@ String? description;
       refNoController.text = d.referenceNo ?? d.refNo ?? "";
 
       addressController.text = d.billingAddress ?? d.address ?? "";
+
+      shippingaddressController.text = d.shippingAddress ?? d.address ?? "";
 
       remarksController.text = d.remarks ?? "";
 
@@ -1241,6 +1305,16 @@ if (createFromRequestItems != null) {
                                     maxLines: 2,
                                     decoration: _inputDecoration(
                                         "Enter full billing address..."),
+                                  ),
+                                ),
+                              const Divider(height: 40),
+                                _buildInputLabelField(
+                                  label: "Shipping Address*",
+                                  child: TextField(
+                                    controller: shippingaddressController,
+                                    maxLines: 2,
+                                    decoration: _inputDecoration(
+                                        "Enter full Shipping address..."),
                                   ),
                                 ),
                                 const Divider(height: 40),
@@ -4481,7 +4555,132 @@ const SizedBox(height: 40),
                               const SizedBox(height: 25),
                             ],
 
-                            if (order.billStatus == "Bill Not Created")
+                            if (order.approvalStatus == "Not send for Approval")
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.send_rounded,
+                                        color: Colors.white, size: 18),
+                                    label: const Text(
+                                      'Send for Approval',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                    onPressed: () async {
+                                      final confirmed = await showDialog<bool>(
+                                        context: dialogContext,
+                                        builder: (ctx) => AlertDialog(
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                          ),
+                                          title: const Row(
+                                            children: [
+                                              Icon(Icons.send_rounded,
+                                                  color: Color(0xFF2a86c9)),
+                                              SizedBox(width: 10),
+                                              Text('Send for Approval?'),
+                                            ],
+                                          ),
+                                          content: const Text(
+                                            'Are you sure you want to send this order for approval?',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(ctx, false),
+                                              child: const Text('Cancel'),
+                                            ),
+                                            ElevatedButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(ctx, true),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    const Color(0xFF2a86c9),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                ),
+                                              ),
+                                              child: const Text(
+                                                'OK',
+                                                style: TextStyle(
+                                                    color: Colors.white),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+
+                                      if (confirmed == true) {
+                                        Navigator.pop(dialogContext);
+
+                                        final success = await HttpService
+                                            .sendForApprovalPurchaseOrder(
+                                          purchaseOrderId: order.poId ?? '',
+                                        );
+
+                                        if (success) {
+                                          Common.toastMessaage(
+                                            'Order sent for approval successfully',
+                                            Colors.green,
+                                          );
+                                          _fetchOrders();
+                                        } else {
+                                          Common.toastMessaage(
+                                            'Failed to send for approval',
+                                            Colors.red,
+                                          );
+                                        }
+                                      }
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF6C63FF),
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 15),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(15),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                            if (order.approvalStatus == "Waiting for Approval")
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.rate_review_outlined,
+                                        color: Colors.white, size: 18),
+                                    label: const Text(
+                                      'Approve/Reject',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                    onPressed: () {
+                                      _showApproveRejectDialog(
+                                          dialogContext, order);
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF2a86c9),
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 15),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(15),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                            if (order.billStatus == "Bill Not Created" &&
+                                order.approvalStatus == "Approved")
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton(
@@ -4532,6 +4731,197 @@ const SizedBox(height: 40),
               ),
             ),
           ),
+        );
+      },
+    );
+  }
+
+  void _showApproveRejectDialog(
+      BuildContext drawerContext, PurchaseOrderData order) {
+    String selectedStatus = "Approved";
+
+    showDialog(
+      context: drawerContext,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                width: MediaQuery.of(context).size.width * 0.85,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Approve Purchase Request',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2C3E50),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.grey),
+                          onPressed: () => Navigator.pop(ctx),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        InkWell(
+                          onTap: () {
+                            setDialogState(() {
+                              selectedStatus = "Approved";
+                            });
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Radio<String>(
+                                value: "Approved",
+                                groupValue: selectedStatus,
+                                activeColor: const Color(0xFF3F5393),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setDialogState(() {
+                                      selectedStatus = val;
+                                    });
+                                  }
+                                },
+                              ),
+                              const Text(
+                                "Approved",
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF2C3E50),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+                        InkWell(
+                          onTap: () {
+                            setDialogState(() {
+                              selectedStatus = "Rejected";
+                            });
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Radio<String>(
+                                value: "Rejected",
+                                groupValue: selectedStatus,
+                                activeColor: const Color(0xFF3F5393),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setDialogState(() {
+                                      selectedStatus = val;
+                                    });
+                                  }
+                                },
+                              ),
+                              const Text(
+                                "Rejected",
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF2C3E50),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFF1F5F9),
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Close',
+                            style: TextStyle(
+                              color: Color(0xFF2C3E50),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: () async {
+                            Navigator.pop(ctx);
+                            Navigator.pop(drawerContext);
+
+                            final statusValue =
+                                selectedStatus == "Approved" ? "2" : "3";
+
+                            final success =
+                                await HttpService.approvePurchaseOrder(
+                              id: order.poId ?? '',
+                              approvalStatus: statusValue,
+                            );
+
+                            if (success) {
+                              Common.toastMessaage(
+                                'Purchase order status updated successfully',
+                                Colors.green,
+                              );
+                              _fetchOrders();
+                            } else {
+                              Common.toastMessaage(
+                                'Failed to update approval status',
+                                Colors.red,
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF3F5393),
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Submit',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -5133,6 +5523,7 @@ void _showItemPicker(
     },
   );
 }
+
 Widget _buildFormField({
   required String label,
   required Widget child,
@@ -5201,6 +5592,7 @@ Widget _buildClickableField(
     ),
   );
 }
+  
   void _showQuickAddSupplierDialog(BuildContext context,
       {required Function(Supplier) onSupplierAdded}) {
     final TextEditingController nameCtrl = TextEditingController();

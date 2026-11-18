@@ -19,6 +19,11 @@ class PendingWorkPageNew extends StatefulWidget {
   final String? assignedByMyself;
   final String? isOverdue;
   final String? isUnassigned;
+  final DateTime? fromDate;
+  final DateTime? toDate;
+  final String? departmentId;
+  final String? assignedById;
+
   const PendingWorkPageNew({
     super.key,
     required this.workId,
@@ -30,6 +35,10 @@ class PendingWorkPageNew extends StatefulWidget {
     this.assignedByMyself,
     this.isOverdue,
     this.isUnassigned,
+    this.fromDate,
+    this.toDate,
+    this.departmentId,
+    this.assignedById,
   });
 
   @override
@@ -186,6 +195,22 @@ class _PendingWorkPageNewState extends State<PendingWorkPageNew> {
         _hasInitialStatusFilter = false;
         _initialStatus = null;
       }
+
+      if (widget.fromDate != null) {
+        currentFilters['from_date'] = DateFormat('yyyy-MM-dd').format(widget.fromDate!);
+        currentFilters['created_from'] = DateFormat('yyyy-MM-dd').format(widget.fromDate!);
+      }
+      if (widget.toDate != null) {
+        currentFilters['to_date'] = DateFormat('yyyy-MM-dd').format(widget.toDate!);
+        currentFilters['created_to'] = DateFormat('yyyy-MM-dd').format(widget.toDate!);
+      }
+      if (widget.departmentId != null && widget.departmentId!.isNotEmpty) {
+        currentFilters['department_id'] = [widget.departmentId!];
+      }
+      if (widget.assignedById != null && widget.assignedById!.isNotEmpty) {
+        currentFilters['assigned_by_ids'] = [widget.assignedById!];
+      }
+
       _loadData(currentFilters);
     });
   }

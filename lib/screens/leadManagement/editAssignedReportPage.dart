@@ -2308,39 +2308,39 @@ if ((taskAttachments[taskIndex] ?? []).isNotEmpty)
                                   
                                   
                                 }),
-                                const SizedBox(height: 8),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () {
-                                      setState(() {
-                                        tasks.add(EditTaskForm(
-                                          controller: TextEditingController(),
-                                          descriptionController:
-                                              TextEditingController(),
-                                          status: allTaskStates.isNotEmpty
-                                              ? allTaskStates.first.id
-                                              : null,
-                                          isExisting: false,
-                                          remarks: [TextEditingController()],
-                                        ));
-                                        _checkForChanges();
-                                      });
-                                    },
-                                    icon: const Icon(Icons.add,
-                                        size: 18, color: Colors.white),
-                                    label: const Text('Add Task'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 20, vertical: 10),
-                                    ),
-                                  ),
-                                ),
+                                // const SizedBox(height: 8),
+                                // Align(
+                                //   alignment: Alignment.centerRight,
+                                //   child: ElevatedButton.icon(
+                                //     onPressed: () {
+                                //       setState(() {
+                                //         tasks.add(EditTaskForm(
+                                //           controller: TextEditingController(),
+                                //           descriptionController:
+                                //               TextEditingController(),
+                                //           status: allTaskStates.isNotEmpty
+                                //               ? allTaskStates.first.id
+                                //               : null,
+                                //           isExisting: false,
+                                //           remarks: [TextEditingController()],
+                                //         ));
+                                //         _checkForChanges();
+                                //       });
+                                //     },
+                                //     icon: const Icon(Icons.add,
+                                //         size: 18, color: Colors.white),
+                                //     label: const Text('Add Task'),
+                                //     style: ElevatedButton.styleFrom(
+                                //       backgroundColor: Colors.blue,
+                                //       foregroundColor: Colors.white,
+                                //       shape: RoundedRectangleBorder(
+                                //         borderRadius: BorderRadius.circular(8),
+                                //       ),
+                                //       padding: const EdgeInsets.symmetric(
+                                //           horizontal: 20, vertical: 10),
+                                //     ),
+                                //   ),
+                                // ),
                               ],
                             
                             ),

@@ -302,11 +302,28 @@ Client Name    : ${widget.clientName}
     }
   }
 
+  TaskState? get _toDoStatus {
+    try {
+      return allTaskStates.firstWhere((s) {
+        final name = s.status.toLowerCase().replaceAll('-', '').replaceAll(' ', '');
+        return name == 'todo';
+      });
+    } catch (_) {
+      return allTaskStates.isNotEmpty ? allTaskStates.first : null;
+    }
+  }
+
   Future<void> _loadTaskState() async {
     final response = await HttpService.getTaskState();
     if (response != null && response.status == true) {
       setState(() {
         allTaskStates = response.data;
+        final toDo = _toDoStatus;
+        if (toDo != null) {
+          for (var task in tasks) {
+            task.status = toDo.id;
+          }
+        }
       });
       log("✅ Task States Loaded: ${allTaskStates.length}");
       for (var t in allTaskStates) {
@@ -1691,51 +1708,41 @@ Future<void> _loadModules() async {
                                                           DropdownButtonFormField<
                                                               String>(
                                                         isExpanded: true,
-                                                        value: tasks[taskIndex]
-                                                                .status ??
-                                                            (allTaskStates
-                                                                    .isNotEmpty
-                                                                ? allTaskStates
-                                                                    .first.id
-                                                                : null),
-                                                        items: allTaskStates
-                                                                .isNotEmpty
-                                                            ? allTaskStates
-                                                                .map((status) {
-                                                                return DropdownMenuItem(
-                                                                  value:
-                                                                      status.id,
-                                                                  child:
-                                                                      Padding(
-                                                                    padding: const EdgeInsets
-                                                                        .symmetric(
-                                                                        horizontal:
-                                                                            12),
-                                                                    child: Text(
-                                                                      status
-                                                                          .status,
-                                                                      overflow:
-                                                                          TextOverflow
-                                                                              .ellipsis,
-                                                                      maxLines:
-                                                                          1,
-                                                                    ),
-                                                                  ),
-                                                                );
-                                                              }).toList()
-                                                            : [],
-                                                        onChanged: (value) =>
-                                                            setState(() {
-                                                          tasks[taskIndex]
-                                                              .status = value;
-                                                        }),
+                                                        value: _toDoStatus != null
+                                                            ? _toDoStatus!.id
+                                                            : (tasks[taskIndex].status ??
+                                                                (allTaskStates.isNotEmpty
+                                                                    ? allTaskStates.first.id
+                                                                    : null)),
+                                                        items: (_toDoStatus != null
+                                                                ? [_toDoStatus!]
+                                                                : (allTaskStates.isNotEmpty
+                                                                    ? [allTaskStates.first]
+                                                                    : <TaskState>[]))
+                                                            .map((status) {
+                                                          return DropdownMenuItem(
+                                                            value: status.id,
+                                                            child: Padding(
+                                                              padding: const EdgeInsets
+                                                                  .symmetric(
+                                                                  horizontal: 12),
+                                                              child: Text(
+                                                                status.status,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                                maxLines: 1,
+                                                              ),
+                                                            ),
+                                                          );
+                                                        }).toList(),
+                                                        onChanged: null,
                                                         decoration:
                                                             const InputDecoration(
                                                           contentPadding:
                                                               EdgeInsets
                                                                   .symmetric(
-                                                                      horizontal:
-                                                                          4),
+                                                                      horizontal: 4),
                                                           border:
                                                               InputBorder.none,
                                                         ),
@@ -1899,38 +1906,38 @@ Future<void> _loadModules() async {
                                   );
                                 }),
                                 const SizedBox(height: 8),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () {
-                                      setState(() {
-                                        tasks.add(TaskForm(
-                                          controller: TextEditingController(),
-                                          descriptionController:
-                                              TextEditingController(),
-                                          status: allTaskStates.isNotEmpty
-                                              ? allTaskStates.first.id
-                                              : null,
-                                          taskId: null,
-                                          attachments: [],
-                                          remarks: [TextEditingController()],
-                                        ));
-                                      });
-                                    },
-                                    icon: const Icon(Icons.add,
-                                        size: 18, color: Colors.white),
-                                    label: const Text('Add Task'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 20, vertical: 10),
-                                    ),
-                                  ),
-                                ),
+                                // Align(
+                                //   alignment: Alignment.centerRight,
+                                //   child: ElevatedButton.icon(
+                                //     onPressed: () {
+                                //       setState(() {
+                                //         tasks.add(TaskForm(
+                                //           controller: TextEditingController(),
+                                //           descriptionController:
+                                //               TextEditingController(),
+                                //           status: allTaskStates.isNotEmpty
+                                //               ? allTaskStates.first.id
+                                //               : null,
+                                //           taskId: null,
+                                //           attachments: [],
+                                //           remarks: [TextEditingController()],
+                                //         ));
+                                //       });
+                                //     },
+                                //     icon: const Icon(Icons.add,
+                                //         size: 18, color: Colors.white),
+                                //     label: const Text('Add Task'),
+                                //     style: ElevatedButton.styleFrom(
+                                //       backgroundColor: Colors.blue,
+                                //       foregroundColor: Colors.white,
+                                //       shape: RoundedRectangleBorder(
+                                //         borderRadius: BorderRadius.circular(8),
+                                //       ),
+                                //       padding: const EdgeInsets.symmetric(
+                                //           horizontal: 20, vertical: 10),
+                                //     ),
+                                //   ),
+                                // ),
                               ],
                             ),
                           ),

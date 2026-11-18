@@ -991,9 +991,9 @@ String removeHtmlTags(String htmlText) {
       const SizedBox(width: 16),
       Expanded(
         child: _buildStockMetricCard(
-          "Low Stock",
+          "Low Stock Limit",
           product.lowStockLimit,
-          const Color(0xFFF59E0B), // Orange
+          const Color(0xFFF59E0B), 
           Icons.warning_amber_rounded,
         ),
       ),

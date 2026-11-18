@@ -202,6 +202,7 @@ class AssignedWork {
   final NotificationSettings notification;
   final String unreadCount;
   final String completion;
+  final String daysLeft;
 
 
   AssignedWork({
@@ -229,6 +230,7 @@ class AssignedWork {
     required this.notification,
     required this.unreadCount,
     required this.completion,
+    required this.daysLeft,
 
   });
 
@@ -264,6 +266,7 @@ class AssignedWork {
       notification: NotificationSettings.fromJson(json['notification'] ?? {}),
       unreadCount: json['unread_count'] ?? '',
       completion: json['completion'] ?? '',
+      daysLeft: json['days_left']?.toString() ?? '',
     );
   }
 }

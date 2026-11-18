@@ -19,17 +19,20 @@ class StockRequestPage extends StatefulWidget {
 class RequestProduct {
   String? productId;
   String? productName;
+  String? remark;
 
   TextEditingController qtyController =
       TextEditingController(text: "1");
 
-  TextEditingController remarkController =
-      TextEditingController();
+  late TextEditingController remarkController;
 
   RequestProduct({
     this.productId,
     this.productName,
-  });
+    this.remark,
+  }) {
+    remarkController = TextEditingController(text: remark ?? "");
+  }
 }
 class _StockRequestPageState extends State<StockRequestPage> {
   bool _isLoading = true;
@@ -584,6 +587,7 @@ void _showRequestDetails(StockRequestData item) {
       (item.status ?? "").toLowerCase();
 
   final bool isPending = status == "pending";
+  final bool isPartial = status == "partially approved" || status == "partially_approved";
 
   Color statusColor;
   switch (status) {
@@ -782,7 +786,7 @@ void _showRequestDetails(StockRequestData item) {
             child: const Text("Close"),
           ),
 
-          if (isPending)
+          if (isPending || isPartial)
             ElevatedButton(
               style:
                   ElevatedButton.styleFrom(
@@ -1469,6 +1473,8 @@ Row(
                   selectedMaterial!.materialId,
               productName:
                   selectedMaterial!.materialName,
+              remark:
+                  selectedMaterial!.description,
             ),
           );
 
@@ -1557,6 +1563,8 @@ Row(
                       productId: p.id,
                       productName:
                           p.productName,
+                      remark:
+                          p.description,
                     ),
                   );
                 }
@@ -1738,11 +1746,11 @@ ListView.builder(
                             // const SizedBox(height: 20),
 
                             // Section 3: Priority
-                            const SizedBox(height: 24),
-                            _buildSectionHeader("Source & Logistics",
-                                Icons.location_on_outlined),
+                            // const SizedBox(height: 24),
+                            // _buildSectionHeader("Source & Logistics",
+                            //     Icons.location_on_outlined),
                             
-                            const SizedBox(height: 20),
+                            // const SizedBox(height: 20),
 
                             _buildFormField(
                               label: "Remark / Notes",

@@ -438,9 +438,20 @@ Future<void> _submitRequest(
       };
 
       // Send only for Stock Request items
-      if (item.stockRequestItemId.isNotEmpty) {
-        map["stock_request_item_id"] = item.stockRequestItemId;
-      }
+if (editId != null) {
+  if (item.pmrId.isNotEmpty) {
+    map["pmr_id"] = item.pmrId;
+  }
+
+  if (item.stockRequestItemId.isNotEmpty) {
+    map["stock_request_item_id"] = item.stockRequestItemId;
+  }
+} else {
+  // Creating from Stock Request
+  if (item.stockRequestItemId.isNotEmpty) {
+    map["stock_request_item_id"] = item.stockRequestItemId;
+  }
+}
 
       return map;
     }).toList();
@@ -489,6 +500,7 @@ Future<void> _submitRequest(
     Common.toastMessaage("Error: $e", Colors.red);
   }
 }
+  
   void _showEditRequestDialog(PurchaseRequestData request) async {
     Common.showProgressDialog(context, "Fetching details...");
     final detailsResponse =
@@ -520,8 +532,10 @@ Future<void> _submitRequest(
       return CartItem(
         material: mat,
         quantity: double.tryParse(detail.quantity) ?? 1.0,
-        description: detail.description,
-        pmrId: detail.pmrId,
+        unitPrice: double.tryParse(detail.unitPrice ?? "0") ?? 0.0,
+        description: detail.description ?? "",
+        pmrId: detail.pmrId ?? "",
+        stockRequestItemId: detail.stockRequestItemId ?? "",
       );
     }).toList();
 
@@ -534,6 +548,7 @@ Future<void> _submitRequest(
       editId: request.id,
     );
   }
+
 void _openRequestedPurchaseView() {
   if (_popupOpened ||
       widget.openRequestId == null ||

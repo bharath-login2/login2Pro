@@ -38,6 +38,7 @@ class PurchaseOrderData {
   String? balanceAmt;
   String? billStatus;
   String? address;
+  String? approvalStatus;
   List<POProduct>? products;
 
   PurchaseOrderData({
@@ -51,6 +52,7 @@ class PurchaseOrderData {
     this.balanceAmt,
     this.billStatus,
     this.address,
+    this.approvalStatus,
     this.products,
   });
 
@@ -64,6 +66,7 @@ class PurchaseOrderData {
     advanceAmt = json['advance_amt'];
     balanceAmt = json['balance_amt'];
     billStatus = json['bill_status'];
+    approvalStatus = json['approval_status'];
     address = json['address'];
     if (json['products'] != null) {
       products = <POProduct>[];

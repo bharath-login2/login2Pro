@@ -740,9 +740,11 @@ Row(
                             child: 
                            _buildTextField(
                                   controller: purchasePrice,
-                                  label: "Purchase Amount",
+                                  label: "Purchase Amount *",
                                   icon: Icons.currency_rupee_outlined,
                                   keyboardType: TextInputType.number,
+                                  validator: (val) =>
+                                    val!.isEmpty ? "Enter Purchase Amount" : null,
                                   onChanged: (_) {
                                     _updateTotalAmount();
                                   },
@@ -769,16 +771,16 @@ Row(
                               ],
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildTextField(
-                              controller: discount,
-                              label: "Discount (%)",
-                              icon: Icons.discount_outlined,
-                              keyboardType: TextInputType.number,
-                              onChanged: (val) => _updateTotalAmount(),
-                            ),
-                          ),
+                          // const SizedBox(width: 12),
+                          // Expanded(
+                          //   child: _buildTextField(
+                          //     controller: discount,
+                          //     label: "Discount (%)",
+                          //     icon: Icons.discount_outlined,
+                          //     keyboardType: TextInputType.number,
+                          //     onChanged: (val) => _updateTotalAmount(),
+                          //   ),
+                          // ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -1147,16 +1149,20 @@ Row(
                                   ],
                                 ),
                                  Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildTextField(
-                                        controller: lowStock,
-                                        label: "Low Stock Limit",
-                                        icon: Icons.numbers,
+                                        children: [
+                                          Expanded(
+                                            child: _buildTextField(
+                                              controller: lowStock,
+                                              label: "Low Stock Limit",
+                                              icon: Icons.numbers,
+                                              keyboardType: TextInputType.number,
+                                              inputFormatters: [
+                                                FilteringTextInputFormatter.digitsOnly,
+                                              ],
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ),
-                                  ],
-                                ),
                                 const SizedBox(height: 16),
                                 Row(
                                   children: [

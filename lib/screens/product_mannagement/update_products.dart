@@ -700,10 +700,10 @@ Future<void> updateProduct() async {
                             Expanded(
                               child: _buildTextField(
                                 controller: productUCode,
-                                label: "Product Code *",
+                                label: "Product Code",
                                 icon: Icons.qr_code_outlined,
-                                validator: (val) =>
-                                    val!.isEmpty ? "Enter Product Code" : null,
+                                // validator: (val) =>
+                                //     val!.isEmpty ? "Enter Product Code" : null,
                               ),
                             ),
                           ],
@@ -911,16 +911,16 @@ _buildSectionCard(
             ],
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildTextField(
-            controller: discount,
-            label: "Discount (%)",
-            icon: Icons.discount_outlined,
-            keyboardType: TextInputType.number,
-            onChanged: (val) => _updateTotalAmount(),
-          ),
-        ),
+        // const SizedBox(width: 12),
+        // Expanded(
+        //   child: _buildTextField(
+        //     controller: discount,
+        //     label: "Discount (%)",
+        //     icon: Icons.discount_outlined,
+        //     keyboardType: TextInputType.number,
+        //     onChanged: (val) => _updateTotalAmount(),
+        //   ),
+        // ),
       ],
     ),
     const SizedBox(height: 16),
@@ -1196,6 +1196,10 @@ _buildSectionCard(
                                               controller: lowStock,
                                               label: "Low Stock Limit",
                                               icon: Icons.numbers,
+                                              keyboardType: TextInputType.number,
+                                              inputFormatters: [
+                                                FilteringTextInputFormatter.digitsOnly,
+                                              ],
                                             ),
                                           ),
                                         ],

@@ -16,7 +16,7 @@ import 'package:dropdown_search/dropdown_search.dart';
 import 'package:login2/models/lead_management/getPurchaseOrderDetailsModel.dart'
     as order_details_model;
 import 'package:flutter/services.dart';
-import 'package:flutter/services.dart';
+import 'package:login2/models/rental/rentalLocationModel.dart';
 
 class BillItem {
   MaterialData material;
@@ -109,7 +109,9 @@ class _PurchaseBillPageState extends State<PurchaseBillPage> {
   
   String searchQuery = "";
   final TextEditingController _searchController = TextEditingController();
-
+  String? locationId;
+String? locationName;
+List<RetailLocation> _locations = [];
   DateTime? fromDate;
   DateTime? toDate;
   Supplier? selectedSupplier;
@@ -124,6 +126,7 @@ class _PurchaseBillPageState extends State<PurchaseBillPage> {
     }
     _fetchBills();
     _fetchSuppliers();
+    _fetchLocations();
     if (widget.createFromOrder != null || widget.showAddDialogOnArrive) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showAddBillDialog(
@@ -133,7 +136,32 @@ class _PurchaseBillPageState extends State<PurchaseBillPage> {
       });
     }
   }
+Future<void> _fetchLocations() async {
+  try {
+    final response = await HttpService.getRentalLocation();
 
+    if (response != null && response.status) {
+      setState(() {
+        _locations = response.data;
+      });
+
+      print("========= LOCATIONS =========");
+      print("Count : ${_locations.length}");
+
+      for (var loc in _locations) {
+        print("${loc.id} - ${loc.locationName}");
+      }
+    } else {
+      Common.toastMessaage(
+        response?.message ?? "No locations found",
+        Colors.red,
+      );
+    }
+  } catch (e) {
+    debugPrint("Location Error : $e");
+  }
+}
+  
   Future<void> _fetchSuppliers() async {
     try {
       final response = await HttpService.getSupplierList({});
@@ -1722,62 +1750,132 @@ if (d.paymentDetails != null && d.paymentDetails!.isNotEmpty) {
                               children: [
                                 const SizedBox(height: 16),
                                 Row(
-                                  children: [
-                                    _buildInputLabelField(
-                                      label: "Bill Date",
-                                      child: InkWell(
-                                        onTap: () async {
-                                          final picked = await showDatePicker(
-                                              context: context,
-                                              initialDate: invoiceDate,
-                                              firstDate: DateTime(2000),
-                                              lastDate: DateTime(2100));
-                                          if (picked != null)
-                                            setDialogState(
-                                                () => invoiceDate = picked);
-                                        },
-                                        child: Container(
-                                          width: MediaQuery.of(context)
-                                                  .size
-                                                  .width *
-                                              0.45,
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 12, vertical: 12),
-                                          decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              border: Border.all(
-                                                  color: Colors.grey.shade300)),
-                                          child: Row(
-                                            children: [
-                                              const Icon(Icons.calendar_today,
-                                                  size: 14, color: Colors.grey),
-                                              const SizedBox(width: 8),
-                                              Text(DateFormat('dd-MM-yyyy')
-                                                  .format(invoiceDate)),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    editBill != null
-                                        ? const SizedBox(width: 8)
-                                        : SizedBox(),
-                                    editBill != null
-                                        ? Expanded(
-                                            child: _buildInputLabelField(
-                                                label: "Invoice Number",
-                                                child: TextField(
-                                                    controller:
-                                                        invoiceNoController,
-                                                    decoration:
-                                                        _inputDecoration(
-                                                            "Invoice Number"))),
-                                          )
-                                        : SizedBox(),
-                                  ],
-                                ),
+                                   children: [
+                                     Expanded(
+                                       child: _buildInputLabelField(
+                                         label: "Requested To *",
+                                         child: InkWell(
+                                           onTap: () {
+                                             if (_locations.isEmpty) {
+                                               Common.toastMessaage(
+                                                 "No locations available",
+                                                 Colors.red,
+                                               );
+                                               return;
+                                             }
+
+                                             _showItemPicker(
+                                               "Location",
+                                               _locations
+                                                   .map((e) => e.locationName)
+                                                   .toList(),
+                                               (index) {
+                                                 setDialogState(() {
+                                                   locationId =
+                                                       _locations[index].id;
+                                                   locationName =
+                                                       _locations[index]
+                                                           .locationName;
+                                                 });
+                                               },
+                                             );
+                                           },
+                                           child: Container(
+                                             padding: const EdgeInsets.symmetric(
+                                                 horizontal: 12, vertical: 12),
+                                             decoration: BoxDecoration(
+                                               color: Colors.white,
+                                               borderRadius:
+                                                   BorderRadius.circular(10),
+                                               border: Border.all(
+                                                   color: Colors.grey.shade300),
+                                             ),
+                                             child: Row(
+                                               children: [
+                                                 const Icon(Icons.store_rounded,
+                                                     size: 16,
+                                                     color: Color(0xFF2a86c9)),
+                                                 const SizedBox(width: 8),
+                                                 Expanded(
+                                                   child: Text(
+                                                     locationName ??
+                                                         "Select Location",
+                                                     maxLines: 1,
+                                                     overflow:
+                                                         TextOverflow.ellipsis,
+                                                     style: TextStyle(
+                                                       color: locationName !=
+                                                               null
+                                                           ? Colors.black87
+                                                           : Colors.grey,
+                                                       fontSize: 13,
+                                                     ),
+                                                   ),
+                                                 ),
+                                                 const Icon(
+                                                   Icons
+                                                       .keyboard_arrow_down_rounded,
+                                                   size: 18,
+                                                   color: Colors.grey,
+                                                 ),
+                                               ],
+                                             ),
+                                           ),
+                                         ),
+                                       ),
+                                     ),
+                                     const SizedBox(width: 8),
+                                     Expanded(
+                                       child: _buildInputLabelField(
+                                         label: "Bill Date",
+                                         child: InkWell(
+                                           onTap: () async {
+                                             final picked = await showDatePicker(
+                                                 context: context,
+                                                 initialDate: invoiceDate,
+                                                 firstDate: DateTime(2000),
+                                                 lastDate: DateTime(2100));
+                                             if (picked != null)
+                                               setDialogState(
+                                                   () => invoiceDate = picked);
+                                           },
+                                           child: Container(
+                                             padding: const EdgeInsets.symmetric(
+                                                 horizontal: 12, vertical: 12),
+                                             decoration: BoxDecoration(
+                                                 color: Colors.white,
+                                                 borderRadius:
+                                                     BorderRadius.circular(10),
+                                                 border: Border.all(
+                                                     color: Colors.grey.shade300)),
+                                             child: Row(
+                                               children: [
+                                                 const Icon(Icons.calendar_today,
+                                                     size: 14, color: Colors.grey),
+                                                 const SizedBox(width: 8),
+                                                 Text(DateFormat('dd-MM-yyyy')
+                                                     .format(invoiceDate)),
+                                               ],
+                                             ),
+                                           ),
+                                         ),
+                                       ),
+                                     ),
+                                     if (editBill != null) ...[
+                                       const SizedBox(width: 8),
+                                       Expanded(
+                                         child: _buildInputLabelField(
+                                           label: "Invoice Number",
+                                           child: TextField(
+                                             controller: invoiceNoController,
+                                             decoration: _inputDecoration(
+                                                 "Invoice Number"),
+                                           ),
+                                         ),
+                                       ),
+                                     ],
+                                   ],
+                                 ),
                                 Row(
                                   children: [
                                     Expanded(
@@ -2906,6 +3004,8 @@ if (d.paymentDetails != null && d.paymentDetails!.isNotEmpty) {
                                       }
                                       Map<String, dynamic> body = {
                                         "bill_no": billIdController.text,
+                                        
+                                        "requested_to": locationId,
                                         "bill_date": DateFormat('yyyy-MM-dd')
                                             .format(billDate),
                                         "supplier_id":
@@ -3031,6 +3131,7 @@ if (d.paymentDetails != null && d.paymentDetails!.isNotEmpty) {
                             ),
                           ),
                         ),
+                      
                       ],
                     ),
                   ),
@@ -3042,7 +3143,186 @@ if (d.paymentDetails != null && d.paymentDetails!.isNotEmpty) {
       },
     );
   }
+  void _showItemPicker(
+  String title,
+  List<String> items,
+  Function(int index) onSelected,
+) {
+  List<String> filteredItems = List.from(items);
+  final searchController = TextEditingController();
 
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(20),
+      ),
+    ),
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * 0.65,
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+
+                  Container(
+                    width: 50,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  Text(
+                    "Select $title",
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      controller: searchController,
+                      decoration: InputDecoration(
+                        hintText: "Search $title",
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          filteredItems = items
+                              .where(
+                                (e) => e
+                                    .toLowerCase()
+                                    .contains(value.toLowerCase()),
+                              )
+                              .toList();
+                        });
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: filteredItems.length,
+                      separatorBuilder: (_, __) =>
+                          const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        return ListTile(
+                          title: Text(filteredItems[index]),
+                          trailing: const Icon(
+                            Icons.chevron_right,
+                            size: 18,
+                          ),
+                          onTap: () {
+                            final originalIndex =
+                                items.indexOf(filteredItems[index]);
+
+                            Navigator.pop(context);
+
+                            onSelected(originalIndex);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+Widget _buildFormField({
+  required String label,
+  required Widget child,
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+      ),
+      const SizedBox(height: 8),
+      child,
+    ],
+  );
+}
+Widget _buildClickableField(
+  String text,
+  IconData icon,
+  VoidCallback onTap,
+) {
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Container(
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.shade300,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: const Color(0xFF2a86c9),
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: text.startsWith("Select")
+                    ? Colors.grey
+                    : Colors.black87,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: Colors.grey,
+          ),
+        ],
+      ),
+    ),
+  );
+}
+  
   // Widget _buildFinancialRow(String label, TextEditingController controller,
   //     StateSetter setDialogState) {
   //   return Padding(

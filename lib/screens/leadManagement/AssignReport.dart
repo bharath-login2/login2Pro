@@ -15,7 +15,7 @@ import 'package:login2/service/service.dart';
 import 'package:login2/widgets/blinkwidget.dart';
 import 'package:login2/widgets/filterWidget.dart';
 import 'package:login2/models/expense/staffListModel.dart';
-import 'package:login2/models/lead_management/staffwisePendingUpdatedModel.dart';
+import 'package:login2/models/lead_management/staffwisePendingUpdatedModel.dart'; 
 import 'package:url_launcher/url_launcher.dart';
 class AssignReport extends StatefulWidget {
   final String workId;
@@ -26,6 +26,12 @@ class AssignReport extends StatefulWidget {
   final String? assignedToMyself;
   final String? assignedByMyself;
   final String? isUnassigned;
+  final String? isCompletedOverdue;
+  final DateTime? fromDate;
+  final DateTime? toDate;
+  final String? departmentId;
+  final String? assignedById;
+  
 
   const AssignReport(
       {super.key,
@@ -36,7 +42,12 @@ class AssignReport extends StatefulWidget {
       this.staffId,
       this.assignedToMyself,
       this.assignedByMyself,
-      this.isUnassigned});
+      this.isUnassigned,
+      this.isCompletedOverdue,
+      this.fromDate,
+      this.toDate,
+      this.departmentId,
+      this.assignedById});
 
   @override
   State<AssignReport> createState() => _AssignReportState();
@@ -262,6 +273,21 @@ void _initAsync() async {
         currentFilters['status_names'] = ['unassigned'];
         _hasInitialStatusFilter = false;
         _initialStatus = null;
+      }
+
+      if (widget.fromDate != null) {
+        currentFilters['from_date'] = DateFormat('yyyy-MM-dd').format(widget.fromDate!);
+        currentFilters['created_from'] = DateFormat('yyyy-MM-dd').format(widget.fromDate!);
+      }
+      if (widget.toDate != null) {
+        currentFilters['to_date'] = DateFormat('yyyy-MM-dd').format(widget.toDate!);
+        currentFilters['created_to'] = DateFormat('yyyy-MM-dd').format(widget.toDate!);
+      }
+      if (widget.departmentId != null && widget.departmentId!.isNotEmpty) {
+        currentFilters['department_id'] = [widget.departmentId!];
+      }
+      if (widget.assignedById != null && widget.assignedById!.isNotEmpty) {
+        currentFilters['assigned_by_ids'] = [widget.assignedById!];
       }
     });
 
@@ -894,7 +920,7 @@ Future<void> _publishWork(
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text("Assign Report",
+        title: const Text("Assigned Report",
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
         backgroundColor: const Color.fromARGB(255, 77, 173, 252),
         foregroundColor: Colors.white,
@@ -4013,6 +4039,22 @@ Future<void> _showPublishDialog(dynamic item) async {
                               ],
                             ),
                           ),
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 20),
+                            child: Row(
+                              children: [
+                                  const SizedBox(height: 12),
+                                  _buildCompactDetailCard(
+                                    icon: Icons.schedule,
+                                    title: "Days Left",
+                                    value: item.daysLeft,
+                                    color: item.daysLeft.toLowerCase().contains('overdue')
+                                      ? Colors.red
+                                      : Colors.green,
+                                  ),
+                              ],
+                            ),
+                          ),
                           if (item.workSessions.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             const Text(
@@ -4578,10 +4620,10 @@ Future<void> _showPublishDialog(dynamic item) async {
           const SizedBox(height: 6),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Colors.black87,
+              color: color,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,

@@ -67,6 +67,7 @@ class OrderDetails {
   String? supplierName;
   String? referenceNo;
   String? billingAddress;
+  String? shippingAddress;
   String? deliveryDate;
   String? remarks;
   String? supplierBalance;
@@ -86,6 +87,7 @@ class OrderDetails {
     this.supplierName,
     this.referenceNo,
     this.billingAddress,
+    this.shippingAddress,
     this.deliveryDate,
     this.remarks,
     this.supplierBalance,
@@ -106,6 +108,7 @@ class OrderDetails {
     supplierName = json['supplier_name'];
     referenceNo = json['refference_no'];
     billingAddress = json['billing_address'];
+    shippingAddress = json['shipping_address'];
     deliveryDate = json['delivery_date'];
     remarks = json['remarks'];
     supplierBalance = json['supplier_balance'];
@@ -127,6 +130,7 @@ class OrderDetails {
     data['supplier_name'] = supplierName;
     data['refference_no'] = referenceNo;
     data['billing_address'] = billingAddress;
+    data['shipping_address'] = shippingAddress;
     data['delivery_date'] = deliveryDate;
     data['remarks'] = remarks;
     data['supplier_balance'] = supplierBalance;

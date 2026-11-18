@@ -9000,6 +9000,40 @@ static Future<StaffListModel?> getStaffs({
           }
         }
       }
+      if (sectionId == "5") {
+        filters ??= {};
+        if (!filters.containsKey('status_ids') ||
+            filters['status_ids'] == null) {
+          filters['status_ids'] = ["3"];
+        } else if (filters['status_ids'] is List) {
+          if (!filters['status_ids'].contains("3")) {
+            filters['status_ids'].add("3");
+          }
+        }
+        filters['is_overdue_completed'] = "1";
+      }
+      if (sectionId == "6") {
+        filters ??= {};
+        if (!filters.containsKey('status_ids') ||
+            filters['status_ids'] == null) {
+          filters['status_ids'] = ["6"];
+        } else if (filters['status_ids'] is List) {
+          if (!filters['status_ids'].contains("6")) {
+            filters['status_ids'].add("6");
+          }
+        }
+      }
+      if (sectionId == "7") {
+        filters ??= {};
+        if (!filters.containsKey('status_ids') ||
+            filters['status_ids'] == null) {
+          filters['status_ids'] = ["7"];
+        } else if (filters['status_ids'] is List) {
+          if (!filters['status_ids'].contains("7")) {
+            filters['status_ids'].add("7");
+          }
+        }
+      }
     }
 
     if (filters != null) {
@@ -9285,7 +9319,12 @@ static Future<StaffListModel?> getStaffs({
   }
 
   static Future<ProjectCountModel?> dashboardCounts(
-      {required String token, String? departmentId, String? staffId}) async {
+      {required String token,
+      String? departmentId,
+      String? staffId,
+      String? assignedById,
+      String? fromDate,
+      String? toDate}) async {
     try {
       final Map<String, dynamic> map = {'token': token};
       if (departmentId != null && departmentId.isNotEmpty) {
@@ -9293,6 +9332,16 @@ static Future<StaffListModel?> getStaffs({
       }
       if (staffId != null && staffId.isNotEmpty) {
         map['staff_id'] = staffId;
+      }
+      if (assignedById != null && assignedById.isNotEmpty) {
+        map['assigned_by'] = assignedById;
+        map['assigned_by_id'] = assignedById;
+      }
+      if (fromDate != null && fromDate.isNotEmpty) {
+        map['from_date'] = fromDate;
+      }
+      if (toDate != null && toDate.isNotEmpty) {
+        map['to_date'] = toDate;
       }
       final response = await _dio.post(
         "${await Config.getUrl()}work_dashboard",
@@ -11969,7 +12018,7 @@ static Future<StaffListModel?> getStaffs({
         "${await Config.getUrl()}location_list_api",
         data: formData,
       );
-      print('hellor:${response}');
+      // print('hellor:${response}');
       if (response.statusCode == 200) {
         final data = response.data;
         if (data is Map<String, dynamic>) {
@@ -12009,7 +12058,11 @@ static Future<StaffListModel?> getStaffs({
   }
 
   Future<WorksCountModel?> getCountsWorks(
-      {String? departmentId, String? staffId}) async {
+      {String? departmentId,
+      String? staffId,
+      String? assignedById,
+      String? fromDate,
+      String? toDate}) async {
     try {
       final token = await Common.getSharedPref("token");
       final Map<String, dynamic> map = {"token": token};
@@ -12018,6 +12071,16 @@ static Future<StaffListModel?> getStaffs({
       }
       if (staffId != null && staffId.isNotEmpty) {
         map["staff_id"] = staffId;
+      }
+      if (assignedById != null && assignedById.isNotEmpty) {
+        map["assigned_by"] = assignedById;
+        map["assigned_by_id"] = assignedById;
+      }
+      if (fromDate != null && fromDate.isNotEmpty) {
+        map["from_date"] = fromDate;
+      }
+      if (toDate != null && toDate.isNotEmpty) {
+        map["to_date"] = toDate;
       }
       final formData = FormData.fromMap(map);
 
@@ -12408,10 +12471,58 @@ for (final entry in taskAttachments.entries) {
   }
 
   Future<StaffwiseCompletedUpdatedModel?> getStaffwiseWorkCompletedNew(
-      String staffId) async {
+      String staffId, {
+      String? isCompletedOverdue,
+      Map<String, dynamic>? filters,
+    }) async {
     try {
       final token = await Common.getSharedPref("token");
-      final formData = FormData.fromMap({"token": token, "staff_id": staffId});
+      final formData = FormData.fromMap({
+        "token": token,
+        "staff_id": staffId,
+        if (isCompletedOverdue != null && isCompletedOverdue.isNotEmpty)
+          "is_completed_overdue": isCompletedOverdue,
+      });
+      if (filters != null && filters.isNotEmpty) {
+        if (filters.containsKey('assigned_by_ids') &&
+            filters['assigned_by_ids'] is List) {
+          final assignedByIds = filters['assigned_by_ids'] as List;
+          if (assignedByIds.isNotEmpty) {
+            formData.fields
+                .add(MapEntry('assigned_by_ids[]', assignedByIds.join(',')));
+          }
+        }
+        if (filters.containsKey('assigned_to_ids') &&
+            filters['assigned_to_ids'] is List) {
+          final assignedToIds = filters['assigned_to_ids'] as List;
+          if (assignedToIds.isNotEmpty) {
+            formData.fields
+                .add(MapEntry('assigned_to_ids[]', assignedToIds.join(',')));
+          }
+        }
+        if (filters.containsKey('status_names') &&
+            filters['status_names'] is List) {
+          final statusNames = filters['status_names'] as List;
+          if (statusNames.isNotEmpty) {
+            formData.fields
+                .add(MapEntry('status_names[]', statusNames.join(',')));
+          }
+        }
+        if (filters.containsKey('from_date')) {
+          formData.fields.add(MapEntry('from_date', filters['from_date']));
+        }
+        if (filters.containsKey('to_date')) {
+          formData.fields.add(MapEntry('to_date', filters['to_date']));
+        }
+        if (filters.containsKey('department_id') &&
+            filters['department_id'] is List) {
+          final deptIds = filters['department_id'] as List;
+          if (deptIds.isNotEmpty) {
+            formData.fields
+                .add(MapEntry('department_id[]', deptIds.join(',')));
+          }
+        }
+      }
 
       final response = await _dio.post(
         "${await Config.getUrl()}staffwiseCompletedWorks",
@@ -12421,7 +12532,7 @@ for (final entry in taskAttachments.entries) {
           sendTimeout: const Duration(seconds: 30),
         ),
       );
-
+      print('staffwiseCompletedWorks:${response}');
       if (response.statusCode == 200) {
         final data = response.data;
         if (data is Map<String, dynamic>) {
@@ -17100,6 +17211,70 @@ static Future<bool> approveWork({
 
   return false;
 }
+static Future<bool> sendForApprovalPurchaseOrder({
+  required String purchaseOrderId,
+}) async {
+  try {
+    final token = await Common.getSharedPref('token');
+
+    final formData = FormData.fromMap({
+      "token": token ?? "",
+      "purchase_order_id": purchaseOrderId,
+    });
+
+    final response = await _dio.post(
+      '${await Config.getUrl()}send_for_approval',
+      data: formData,
+    );
+
+    print("Send For Approval Status Code : ${response.statusCode}");
+    print("Send For Approval Response : ${response.data}");
+
+    return response.data["status"] == true;
+  } on DioException catch (e) {
+    print("Dio Error : ${e.response?.data}");
+    print("Status : ${e.response?.statusCode}");
+    print("Message : ${e.message}");
+  } catch (e) {
+    print(e);
+  }
+
+  return false;
+}
+
+static Future<bool> approvePurchaseOrder({
+  required String id,
+  required String approvalStatus,
+}) async {
+  try {
+    final token = await Common.getSharedPref('token');
+
+    final formData = FormData.fromMap({
+      "token": token ?? "",
+      "id": id,
+      "approval_status": approvalStatus,
+    });
+
+    final response = await _dio.post(
+      '${await Config.getUrl()}approve_purchase_order',
+      data: formData,
+    );
+
+    print("Approve Purchase Order Status Code : ${response.statusCode}");
+    print("Approve Purchase Order Response : ${response.data}");
+
+    return response.data["status"] == true;
+  } on DioException catch (e) {
+    print("Dio Error : ${e.response?.data}");
+    print("Status : ${e.response?.statusCode}");
+    print("Message : ${e.message}");
+  } catch (e) {
+    print(e);
+  }
+
+  return false;
+}
+
 static Future<String?> getCompanyAddress() async {
   final token = await Common.getSharedPref("token");
 

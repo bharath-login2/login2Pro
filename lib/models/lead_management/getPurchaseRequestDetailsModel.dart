@@ -31,6 +31,7 @@ class GetPurchaseRequestDetailsResponse {
 
 class PurchaseRequestDetail {
   String pmrId;
+  String stockRequestItemId;
   String requestId;
   String requestedBy;
   String requestDate;
@@ -54,6 +55,7 @@ String taxPercent;
 String taxAmount;
   PurchaseRequestDetail({
     required this.pmrId,
+    required this.stockRequestItemId,
     required this.requestId,
     required this.requestedBy,
     required this.requestDate,
@@ -80,6 +82,7 @@ required this.taxAmount,
   factory PurchaseRequestDetail.fromJson(Map<String, dynamic> json) {
     return PurchaseRequestDetail(
       pmrId: json['pmr_id']?.toString() ?? '',
+      stockRequestItemId: json['stock_request_item_id']?.toString() ?? '',
       requestId: json['request_id'] ?? '',
       requestedBy: json['requested_by'] ?? '',
       requestDate: json['request_date'] ?? '',
@@ -118,6 +121,7 @@ taxAmount:
   Map<String, dynamic> toJson() {
     return {
       'pmr_id': pmrId,
+      'stock_request_item_id': stockRequestItemId,
       'request_id': requestId,
       'requested_by': requestedBy,
       'request_date': requestDate,

@@ -427,11 +427,77 @@ Future<void> _pickStopWorkAttachments() async {
     }
   }
 
+  TaskState? get _toDoStatus {
+    try {
+      return allTaskStates.firstWhere((s) {
+        final name = s.status.toLowerCase().replaceAll('-', '').replaceAll(' ', '');
+        return name == 'todo';
+      });
+    } catch (_) {
+      return allTaskStates.isNotEmpty ? allTaskStates.first : null;
+    }
+  }
+
+  TaskState? get _inProgressStatus {
+    try {
+      return allTaskStates.firstWhere((s) {
+        final name = s.status.toLowerCase().replaceAll('-', '').replaceAll(' ', '');
+        return name == 'inprogress';
+      });
+    } catch (_) {
+      return allTaskStates.isNotEmpty ? allTaskStates.first : null;
+    }
+  }
+
+  List<TaskState> get _stopWorkStates {
+    return allTaskStates.where((s) {
+      final name = s.status.toLowerCase().replaceAll('-', '').replaceAll(' ', '');
+      return name == 'pending' || name == 'inprogress' || name == 'approvalpending';
+    }).toList();
+  }
+
+  void _applyTaskStatusRules() {
+    if (allTaskStates.isEmpty) return;
+
+    final isRestartWork = widget.Restart == 1;
+    final isStopWork = widget.existingWork != null && widget.Restart != 1;
+    final isStartWork = widget.existingWork == null && widget.Restart != 1;
+
+    for (var task in tasks) {
+      if (isStartWork) {
+        if (task.isChecked) {
+          final inProg = _inProgressStatus;
+          if (inProg != null) task.status = inProg.id;
+        } else {
+          final toDo = _toDoStatus;
+          if (toDo != null) task.status = toDo.id;
+        }
+      } else if (isRestartWork) {
+        final inProg = _inProgressStatus;
+        if (inProg != null) task.status = inProg.id;
+      } else if (isStopWork) {
+        final stopStates = _stopWorkStates;
+        if (stopStates.isNotEmpty) {
+          bool isValid = stopStates.any((s) => s.id == task.status);
+          if (!isValid) {
+            final inProg = _inProgressStatus;
+            if (inProg != null && stopStates.any((s) => s.id == inProg.id)) {
+              task.status = inProg.id;
+            } else {
+              task.status = stopStates.first.id;
+            }
+          }
+        }
+      }
+    }
+  }
+
   Future<void> _loadTaskState() async {
     final response = await HttpService.getTaskState();
     if (response != null && response.status == true) {
       setState(() {
         allTaskStates = response.data;
+        _applyTaskStatusRules();
       });
       log("✅ Task States Loaded: ${allTaskStates.length}");
       for (var t in allTaskStates) {
@@ -652,21 +718,28 @@ Future<void> _pickStopWorkAttachments() async {
           ),
         );
         await Future.delayed(const Duration(seconds: 1));
-        ProjectDashboardPermission == "true"
-            ? Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      ViewWorkPage(staffId: userId, selectedDate: currentDate),
-                ),
-              )
-            : Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      ViewWorkPage(staffId: userId, selectedDate: currentDate),
-                ),
-              );
+        if (!context.mounted) return;
+        if (widget.isAssigned == 1) {
+          // Opened as a dialog from ViewWorkPage — just pop back so
+          // ViewWorkPage refreshes itself (avoids duplicate page on back press)
+          Navigator.pop(context, true);
+        } else {
+          ProjectDashboardPermission == "true"
+              ? Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        ViewWorkPage(staffId: userId, selectedDate: currentDate),
+                  ),
+                )
+              : Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        ViewWorkPage(staffId: userId, selectedDate: currentDate),
+                  ),
+                );
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -871,22 +944,28 @@ Future<void> _pickStopWorkAttachments() async {
           ),
         );
         await Future.delayed(const Duration(seconds: 1));
-
-        ProjectDashboardPermission == "true"
-            ? Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      ViewWorkPage(staffId: userId, selectedDate: currentDate),
-                ),
-              )
-            : Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      ViewWorkPage(staffId: userId, selectedDate: currentDate),
-                ),
-              );
+        if (!context.mounted) return;
+        if (widget.isAssigned == 1) {
+          // Opened as a dialog from ViewWorkPage — just pop back so
+          // ViewWorkPage refreshes itself (avoids duplicate page on back press)
+          Navigator.pop(context, true);
+        } else {
+          ProjectDashboardPermission == "true"
+              ? Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        ViewWorkPage(staffId: userId, selectedDate: currentDate),
+                  ),
+                )
+              : Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        ViewWorkPage(staffId: userId, selectedDate: currentDate),
+                  ),
+                );
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1017,22 +1096,28 @@ Future<void> _pickStopWorkAttachments() async {
           ),
         );
         await Future.delayed(const Duration(seconds: 1));
-
-        ProjectDashboardPermission == "true"
-            ? Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      ViewWorkPage(staffId: userId, selectedDate: currentDate),
-                ),
-              )
-            : Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      ViewWorkPage(staffId: userId, selectedDate: currentDate),
-                ),
-              );
+        if (!context.mounted) return;
+        if (widget.isAssigned == 1) {
+          // Opened as a dialog from ViewWorkPage — just pop back so
+          // ViewWorkPage refreshes itself (avoids duplicate page on back press)
+          Navigator.pop(context, true);
+        } else {
+          ProjectDashboardPermission == "true"
+              ? Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        ViewWorkPage(staffId: userId, selectedDate: currentDate),
+                  ),
+                )
+              : Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        ViewWorkPage(staffId: userId, selectedDate: currentDate),
+                  ),
+                );
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1233,6 +1318,44 @@ Future<void> _pickStopWorkAttachments() async {
                     final now = DateTime.now();
                     final formattedTime = DateFormat('hh:mm a').format(now);
 
+                    final isRestartWork = widget.Restart == 1;
+                    final isStopWork = widget.existingWork != null && widget.Restart != 1;
+                    final isStartWork = widget.existingWork == null && widget.Restart != 1;
+
+                    List<TaskState> availableDropdownStates = [];
+                    bool isDropdownEnabled = true;
+
+                    if (isStartWork) {
+                      if (!tasks[taskIndex].isChecked) {
+                        final status = _toDoStatus;
+                        availableDropdownStates = status != null ? [status] : [];
+                        isDropdownEnabled = false;
+                      } else {
+                        final status = _inProgressStatus;
+                        availableDropdownStates = status != null ? [status] : [];
+                        isDropdownEnabled = false;
+                      }
+                    } else if (isRestartWork) {
+                      final status = _inProgressStatus;
+                      availableDropdownStates = status != null ? [status] : [];
+                      isDropdownEnabled = false;
+                    } else if (isStopWork) {
+                      availableDropdownStates = _stopWorkStates;
+                      isDropdownEnabled = true;
+                    } else {
+                      availableDropdownStates = allTaskStates;
+                      isDropdownEnabled = true;
+                    }
+
+                    String? currentStatusId = tasks[taskIndex].status;
+                    if (availableDropdownStates.isNotEmpty) {
+                      bool containsCurrent = availableDropdownStates.any((s) => s.id == currentStatusId);
+                      if (!containsCurrent) {
+                        currentStatusId = availableDropdownStates.first.id;
+                        tasks[taskIndex].status = currentStatusId;
+                      }
+                    }
+
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
@@ -1274,37 +1397,27 @@ Future<void> _pickStopWorkAttachments() async {
                                               i++) {
                                             if (i != taskIndex) {
                                               tasks[i].isChecked = false;
-                                              final toDoStatus =
-                                                  allTaskStates.firstWhere(
-                                                (status) =>
-                                                    status.status
-                                                        .toLowerCase()
-                                                        .contains('to-do') ||
-                                                    status.status
-                                                        .toLowerCase()
-                                                        .contains('todo'),
-                                                orElse: () =>
-                                                    allTaskStates.first,
-                                              );
-                                              tasks[i].status = toDoStatus.id;
+                                              if (isStartWork) {
+                                                final toDo = _toDoStatus;
+                                                if (toDo != null) tasks[i].status = toDo.id;
+                                              }
                                             }
                                           }
                                           tasks[taskIndex].isChecked = true;
-                                          final completedStatus =
-                                              allTaskStates.firstWhere(
-                                            (status) => status.id == '4',
-                                            orElse: () =>
-                                                allTaskStates.firstWhere(
-                                              (status) => status.status
-                                                  .toLowerCase()
-                                                  .contains('complete'),
-                                              orElse: () => allTaskStates.first,
-                                            ),
-                                          );
-                                          tasks[taskIndex].status =
-                                              completedStatus.id;
+                                          if (isStartWork || isRestartWork) {
+                                            final inProg = _inProgressStatus;
+                                            if (inProg != null) {
+                                              tasks[taskIndex].status = inProg.id;
+                                            }
+                                          }
                                         } else {
                                           tasks[taskIndex].isChecked = false;
+                                          if (isStartWork) {
+                                            final toDo = _toDoStatus;
+                                            if (toDo != null) {
+                                              tasks[taskIndex].status = toDo.id;
+                                            }
+                                          }
                                         }
                                       });
                                     },
@@ -1346,14 +1459,8 @@ Future<void> _pickStopWorkAttachments() async {
                                   ),
                                   child: DropdownButtonFormField<String>(
                                     isExpanded: true,
-                                    value:
-                                        tasks[taskIndex].status?.isNotEmpty ==
-                                                true
-                                            ? tasks[taskIndex].status
-                                            : (allTaskStates.isNotEmpty
-                                                ? allTaskStates.first.id
-                                                : null),
-                                    items: allTaskStates
+                                    value: currentStatusId,
+                                    items: availableDropdownStates
                                         .map((status) => DropdownMenuItem(
                                               value: status.id,
                                               child: Text(
@@ -1364,9 +1471,11 @@ Future<void> _pickStopWorkAttachments() async {
                                               ),
                                             ))
                                         .toList(),
-                                    onChanged: (value) => setState(() {
-                                      tasks[taskIndex].status = value;
-                                    }),
+                                    onChanged: isDropdownEnabled
+                                        ? (value) => setState(() {
+                                              tasks[taskIndex].status = value;
+                                            })
+                                        : null,
                                     decoration: InputDecoration(
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
@@ -1501,39 +1610,40 @@ Future<void> _pickStopWorkAttachments() async {
                             }),
 
                             // Add Task Button (only for last task)
-                            if ((taskIndex == tasks.length - 1) && widget.Restart != 1 && widget.isAssigned != 1)
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton.icon(
-                                  icon: const Icon(Icons.add_circle_outline,
-                                      size: 18),
-                                  label: const Text(
-                                    "Add Task",
-                                    style: TextStyle(fontSize: 13),
-                                  ),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.green.shade700,
-                                    backgroundColor: Colors.green.shade50,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 6),
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      tasks.add(TaskForm(
-                                        controller: TextEditingController(),
-                                        status: allTaskStates.isNotEmpty
-                                            ? allTaskStates.first.id
-                                            : '',
-                                        taskId: null,
-                                        remarks: [TextEditingController()],
-                                      ));
-                                    });
-                                  },
-                                ),
-                              ),
+                            // if ((taskIndex == tasks.length - 1) && widget.Restart != 1 && widget.isAssigned != 1)
+                            //   Align(
+                            //     alignment: Alignment.centerRight,
+                            //     child: TextButton.icon(
+                            //       icon: const Icon(Icons.add_circle_outline,
+                            //           size: 18),
+                            //       label: const Text(
+                            //         "Add Task",
+                            //         style: TextStyle(fontSize: 13),
+                            //       ),
+                            //       style: TextButton.styleFrom(
+                            //         foregroundColor: Colors.green.shade700,
+                            //         backgroundColor: Colors.green.shade50,
+                            //         shape: RoundedRectangleBorder(
+                            //           borderRadius: BorderRadius.circular(20),
+                            //         ),
+                            //         padding: const EdgeInsets.symmetric(
+                            //             horizontal: 12, vertical: 6),
+                            //       ),
+                            //       onPressed: () {
+                            //         setState(() {
+                            //           tasks.add(TaskForm(
+                            //             controller: TextEditingController(),
+                            //             status: allTaskStates.isNotEmpty
+                            //                 ? allTaskStates.first.id
+                            //                 : '',
+                            //             taskId: null,
+                            //             remarks: [TextEditingController()],
+                            //           ));
+                            //         });
+                            //       },
+                            //     ),
+                            //   ),
+                          
                           ],
                         ),
                       ),

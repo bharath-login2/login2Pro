@@ -158,6 +158,44 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
   bool isDepartmentsLoading = false;
   bool isStaffLoading = false;
 
+  // Assigned By filter
+  List<DepartmentStaffData> allStaffForAssignedBy = [];
+  DepartmentStaffData? selectedAssignedBy;
+  bool isAssignedByLoading = false;
+
+  DateTime? fromDate;
+  DateTime? toDate;
+
+  Future<void> _selectFromDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: fromDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null && picked != fromDate) {
+      setState(() {
+        fromDate = picked;
+      });
+      await _refetchFilteredData();
+    }
+  }
+
+  Future<void> _selectToDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: toDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null && picked != toDate) {
+      setState(() {
+        toDate = picked;
+      });
+      await _refetchFilteredData();
+    }
+  }
+
   Future<void> fetchDepartments() async {
     if (mounted) setState(() => isDepartmentsLoading = true);
     final res = await HttpService.getDepartments();
@@ -188,6 +226,21 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
     }
   }
 
+  Future<void> fetchAllStaffForAssignedBy() async {
+    if (mounted) setState(() => isAssignedByLoading = true);
+    final res = await HttpService.getStaffByDepartment("");
+    if (mounted) {
+      setState(() {
+        isAssignedByLoading = false;
+        if (res != null && res.status) {
+          allStaffForAssignedBy = res.data;
+        } else {
+          allStaffForAssignedBy = [];
+        }
+      });
+    }
+  }
+
   Future<void> onDepartmentChanged(DepartmentData? department) async {
     setState(() {
       selectedDepartment = department;
@@ -205,6 +258,13 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
     _refetchFilteredData();
   }
 
+  void onAssignedByChanged(DepartmentStaffData? staff) {
+    setState(() {
+      selectedAssignedBy = staff;
+    });
+    _refetchFilteredData();
+  }
+
   Future<void> _refetchFilteredData() async {
     await dashboardCounts();
     await loadAssignedData();
@@ -217,6 +277,7 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
     loginorNot();
     fetchDepartments();
     fetchStaff("");
+    fetchAllStaffForAssignedBy();
     dashboardCounts();
 
     _loadWorkStatus();
@@ -237,6 +298,7 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
   Future<void> _refreshDashboard() async {
     await fetchDepartments();
     await fetchStaff(selectedDepartment?.id ?? "");
+    await fetchAllStaffForAssignedBy();
     await loginorNot();
     await dashboardCounts();
     await checkExistingWorkStatus();
@@ -261,6 +323,9 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
         staffId: (selectedStaff != null && !isUnassignedSelected)
             ? selectedStaff!.userId
             : null,
+        assignedById: selectedAssignedBy?.userId,
+        fromDate: fromDate != null ? DateFormat('yyyy-MM-dd').format(fromDate!) : null,
+        toDate: toDate != null ? DateFormat('yyyy-MM-dd').format(toDate!) : null,
       );
 
       if (worksCountModel != null && worksCountModel.status) {
@@ -603,6 +668,9 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
       staffId: (selectedStaff != null && !isUnassignedSelected)
           ? selectedStaff!.userId
           : null,
+      assignedById: selectedAssignedBy?.userId,
+      fromDate: fromDate != null ? DateFormat('yyyy-MM-dd').format(fromDate!) : null,
+      toDate: toDate != null ? DateFormat('yyyy-MM-dd').format(toDate!) : null,
     );
 
     if (response != null && response.status == true) {
@@ -1175,7 +1243,9 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                         Wrap(
                           spacing: 29,
                           runSpacing: 12,
-                          children: projectCounts.map((countData) {
+                          children: projectCounts
+                            .where((c) => c.label.toLowerCase() != 'overdue')
+                            .map((countData) {
                             Color bgColor;
                             switch (countData.label.toLowerCase()) {
                               case 'to do':
@@ -1185,10 +1255,25 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                                 bgColor = Colors.orange.shade100;
                                 break;
                               case 'unassigned':
-                                bgColor = Colors.green.shade100;
+                                bgColor = Colors.blueGrey.shade100;
                                 break;
                               case 'overdue':
-                                bgColor = Colors.pink.shade100;
+                                bgColor = Colors.red.shade100;
+                                break;
+                              case 'completed':
+                                bgColor = Colors.green.shade100;
+                                break;
+                              case 'completed overdue':
+                                bgColor = Colors.deepOrange.shade100;
+                                break;
+                              case 'approval pending':
+                                bgColor = Colors.amber.shade100;
+                                break;
+                              case 'approved':
+                                bgColor = Colors.teal.shade100;
+                                break;
+                              case 'total':
+                                bgColor = Colors.blue.shade100;
                                 break;
                               default:
                                 bgColor = Colors.grey.shade200;
@@ -1313,10 +1398,10 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                         //   }).toList(),
                         // ),
                         const SizedBox(height: 24),
-                        assignWork == "true"
-                            ? _buildAssignedByMeSection()
-                            : const SizedBox(),
-                        const SizedBox(height: 16),
+                        // assignWork == "true"
+                        //     ? _buildAssignedByMeSection()
+                        //     : const SizedBox(),
+                        // const SizedBox(height: 16),
                         
                         // Recent Projects Section
                         if (projectList != null && projectList!.data.isNotEmpty) ...[
@@ -1466,7 +1551,7 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                                             builder: (_) => PendingWorkPageNew(
                                                 workId: "",
                                                 sectionId: "",
-                                                selectedStatus: "pending",
+                                                selectedStatus: "todo,pending,in-progress",
                                                 staffId: ""))),
                                   ),
                                 ],
@@ -1630,139 +1715,321 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          // Department Dropdown
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Department",
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(8),
-                    color: Colors.grey.shade50,
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<DepartmentData>(
-                      isExpanded: true,
-                      hint: const Text(
-                        "All Departments",
-                        style: TextStyle(fontSize: 13),
+          Row(
+            children: [
+              // Department Dropdown
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Department",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey,
                       ),
-                      value: selectedDepartment,
-                      icon: isDepartmentsLoading
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.arrow_drop_down, size: 20),
-                      items: [
-                        const DropdownMenuItem<DepartmentData>(
-                          value: null,
-                          child: Text("All Departments",
-                              style: TextStyle(fontSize: 13)),
-                        ),
-                        ...departmentsList.map((dept) {
-                          return DropdownMenuItem<DepartmentData>(
-                            value: dept,
-                            child: Text(
-                              dept.departmentName,
-                              style: const TextStyle(fontSize: 13),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          );
-                        }),
-                      ],
-                      onChanged: (dept) => onDepartmentChanged(dept),
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          // Staff Dropdown
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Staff",
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(8),
-                    color: Colors.grey.shade50,
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<DepartmentStaffData>(
-                      isExpanded: true,
-                      hint: const Text(
-                        "All Staff",
-                        style: TextStyle(fontSize: 13),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.grey.shade50,
                       ),
-                      value: selectedStaff,
-                      icon: isStaffLoading
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.arrow_drop_down, size: 20),
-                      items: [
-                        const DropdownMenuItem<DepartmentStaffData>(
-                          value: null,
-                          child:
-                              Text("All Staff", style: TextStyle(fontSize: 13)),
-                        ),
-                        DropdownMenuItem<DepartmentStaffData>(
-                          value: unassignedStaff,
-                          child: const Text(
-                            "Unassigned",
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<DepartmentData>(
+                          isExpanded: true,
+                          hint: const Text(
+                            "All Departments",
                             style: TextStyle(fontSize: 13),
                           ),
-                        ),
-                        ...staffList
-                            .where((staff) =>
-                                staff.userId != "0" &&
-                                staff.staffName.toLowerCase() != "unassigned")
-                            .map((staff) {
-                          return DropdownMenuItem<DepartmentStaffData>(
-                            value: staff,
-                            child: Text(
-                              staff.staffName,
-                              style: const TextStyle(fontSize: 13),
-                              overflow: TextOverflow.ellipsis,
+                          value: selectedDepartment,
+                          icon: isDepartmentsLoading
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.arrow_drop_down, size: 20),
+                          items: [
+                            const DropdownMenuItem<DepartmentData>(
+                              value: null,
+                              child: Text("All Departments",
+                                  style: TextStyle(fontSize: 13)),
                             ),
-                          );
-                        }),
-                      ],
-                      onChanged: (staff) => onStaffChanged(staff),
+                            ...departmentsList.map((dept) {
+                              return DropdownMenuItem<DepartmentData>(
+                                value: dept,
+                                child: Text(
+                                  dept.departmentName,
+                                  style: const TextStyle(fontSize: 13),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }),
+                          ],
+                          onChanged: (dept) => onDepartmentChanged(dept),
+                        ),
+                      ),
                     ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Staff Dropdown
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Assigned To",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.grey.shade50,
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<DepartmentStaffData>(
+                          isExpanded: true,
+                          hint: const Text(
+                            "All Staff",
+                            style: TextStyle(fontSize: 13),
+                          ),
+                          value: selectedStaff,
+                          icon: isStaffLoading
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.arrow_drop_down, size: 20),
+                          items: [
+                            const DropdownMenuItem<DepartmentStaffData>(
+                              value: null,
+                              child:
+                                  Text("All Staff", style: TextStyle(fontSize: 13)),
+                            ),
+                            DropdownMenuItem<DepartmentStaffData>(
+                              value: unassignedStaff,
+                              child: const Text(
+                                "Unassigned",
+                                style: TextStyle(fontSize: 13),
+                              ),
+                            ),
+                            ...staffList
+                                .where((staff) =>
+                                    staff.userId != "0" &&
+                                    staff.staffName.toLowerCase() != "unassigned")
+                                .map((staff) {
+                              return DropdownMenuItem<DepartmentStaffData>(
+                                value: staff,
+                                child: Text(
+                                  staff.staffName,
+                                  style: const TextStyle(fontSize: 13),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }),
+                          ],
+                          onChanged: (staff) => onStaffChanged(staff),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Assigned By Dropdown (all staff, no department filter)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Assigned By",
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.grey.shade50,
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<DepartmentStaffData>(
+                    isExpanded: true,
+                    hint: const Text(
+                      "All Staff",
+                      style: TextStyle(fontSize: 13),
+                    ),
+                    value: selectedAssignedBy,
+                    icon: isAssignedByLoading
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.arrow_drop_down, size: 20),
+                    items: [
+                      const DropdownMenuItem<DepartmentStaffData>(
+                        value: null,
+                        child: Text("All Staff", style: TextStyle(fontSize: 13)),
+                      ),
+                      ...allStaffForAssignedBy
+                          .where((staff) =>
+                              staff.userId != "0" &&
+                              staff.staffName.toLowerCase() != "unassigned")
+                          .map((staff) {
+                        return DropdownMenuItem<DepartmentStaffData>(
+                          value: staff,
+                          child: Text(
+                            staff.staffName,
+                            style: const TextStyle(fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }),
+                    ],
+                    onChanged: (staff) => onAssignedByChanged(staff),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "From Date",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: () => _selectFromDate(context),
+                      child: Container(
+                        height: 44,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.grey.shade50,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              fromDate != null
+                                  ? DateFormat('dd-MM-yyyy').format(fromDate!)
+                                  : "Select Date",
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            if (fromDate != null)
+                              GestureDetector(
+                                onTap: () async {
+                                  setState(() {
+                                    fromDate = null;
+                                  });
+                                  await _refetchFilteredData();
+                                },
+                                child: const Padding(
+                                  padding: EdgeInsets.all(4.0),
+                                  child: Icon(Icons.close, size: 18, color: Colors.grey),
+                                ),
+                              )
+                            else
+                              const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              // To Date Picker
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "To Date",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: () => _selectToDate(context),
+                      child: Container(
+                        height: 44,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.grey.shade50,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              toDate != null
+                                  ? DateFormat('dd-MM-yyyy').format(toDate!)
+                                  : "Select Date",
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            if (toDate != null)
+                              GestureDetector(
+                                onTap: () async {
+                                  setState(() {
+                                    toDate = null;
+                                  });
+                                  await _refetchFilteredData();
+                                },
+                                child: const Padding(
+                                  padding: EdgeInsets.all(4.0),
+                                  child: Icon(Icons.close, size: 18, color: Colors.grey),
+                                ),
+                              )
+                            else
+                              const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -2015,13 +2282,21 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
     Color getStatusColor() {
       switch (countData.label.toLowerCase()) {
         case 'to do':
-          return Colors.blue;
+          return Colors.purple;
         case 'pending':
           return Colors.orange;
         case 'unassigned':
-          return Colors.green;
+          return Colors.blueGrey;
         case 'overdue':
-          return const Color.fromARGB(255, 248, 16, 16);
+          return Colors.red;
+        case 'completed':
+          return Colors.green;
+        case 'completed overdue':
+          return Colors.deepOrange;
+        case 'approval pending':
+          return Colors.amber.shade700;
+        case 'approved':
+          return Colors.teal;
         default:
           return Colors.blue;
       }
@@ -2207,6 +2482,8 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
   }
 
   void _navigateToStatusPage(String status, String sectionId) {
+    final deptId = selectedDepartment?.id;
+    final assignedById = selectedAssignedBy?.userId;
     switch (status.toLowerCase()) {
       case 'to do':
         Navigator.push(
@@ -2217,6 +2494,10 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
               sectionId: sectionId,
               selectedStatus: 'todo',
               assignedToMyself: '1',
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
             ),
           ),
         );
@@ -2228,9 +2509,12 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
             builder: (context) => PendingWorkPageNew(
               workId: "",
               sectionId: sectionId,
-              selectedStatus: 'pending',
+              selectedStatus: 'todo,pending,in-progress',
               staffId: '',
-              assignedByMyself: "1",
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
             ),
           ),
         );
@@ -2245,6 +2529,10 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
               selectedStatus: 'unassigned',
               assignedToMyself: '1',
               isUnassigned: '1',
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
             ),
           ),
         );
@@ -2256,9 +2544,81 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
             builder: (context) => PendingWorkPageNew(
               workId: "",
               sectionId: sectionId,
-              selectedStatus: 'pending',
+              selectedStatus: 'todo,pending,in-progress',
               staffId: '',
-              assignedByMyself: "1",
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
+            ),
+          ),
+        );
+        break;
+      case 'completed':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AssignReport(
+              workId: "",
+              sectionId: sectionId,
+              selectedStatus: 'completed',
+              assignedToMyself: '1',
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
+            ),
+          ),
+        );
+        break;
+      case 'completed overdue':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AssignReport(
+              workId: "",
+              sectionId: sectionId,
+              selectedStatus: 'completed',
+              assignedToMyself: '1',
+              isCompletedOverdue: '1',
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
+            ),
+          ),
+        );
+        break;
+      case 'approval pending':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AssignReport(
+              workId: "",
+              sectionId: sectionId,
+              selectedStatus: 'approval_pending',
+              assignedToMyself: '1',
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
+            ),
+          ),
+        );
+        break;
+      case 'approved':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AssignReport(
+              workId: "",
+              sectionId: sectionId,
+              selectedStatus: 'approved',
+              assignedToMyself: '1',
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
             ),
           ),
         );
@@ -2271,6 +2631,10 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
               workId: "",
               sectionId: sectionId,
               assignedToMyself: '1',
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
             ),
           ),
         );
@@ -2279,6 +2643,8 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
 
   void _navigateToStatusPageWithStaff(
       String status, String sectionId, String staffId) {
+    final deptId = selectedDepartment?.id;
+    final assignedById = selectedAssignedBy?.userId;
     switch (status.toLowerCase()) {
       case 'to do':
         Navigator.push(
@@ -2290,6 +2656,10 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
               selectedStatus: 'todo',
               staffId: staffId,
               assignedToMyself: '1',
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
             ),
           ),
         );
@@ -2303,7 +2673,10 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
               sectionId: sectionId,
               selectedStatus: 'todo,pending,in-progress',
               staffId: staffId,
-              assignedToMyself: '1',
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
             ),
           ),
         );
@@ -2319,6 +2692,10 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
               staffId: staffId,
               assignedToMyself: '1',
               isUnassigned: '1',
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
             ),
           ),
         );
@@ -2332,8 +2709,84 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
               sectionId: sectionId,
               selectedStatus: 'todo,pending,in-progress',
               staffId: staffId,
-              assignedToMyself: '1',
               isOverdue: '1',
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
+            ),
+          ),
+        );
+        break;
+      case 'completed':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AssignReport(
+              workId: "",
+              sectionId: sectionId,
+              selectedStatus: 'completed',
+              staffId: staffId,
+              assignedToMyself: '1',
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
+            ),
+          ),
+        );
+        break;
+      case 'completed overdue':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AssignReport(
+              workId: "",
+              sectionId: sectionId,
+              selectedStatus: 'completed',
+              staffId: staffId,
+              assignedToMyself: '1',
+              isCompletedOverdue: '1',
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
+            ),
+          ),
+        );
+        break;
+      case 'approval pending':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AssignReport(
+              workId: "",
+              sectionId: sectionId,
+              selectedStatus: 'approval_pending',
+              staffId: staffId,
+              assignedToMyself: '1',
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
+            ),
+          ),
+        );
+        break;
+      case 'approved':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AssignReport(
+              workId: "",
+              sectionId: sectionId,
+              selectedStatus: 'approved',
+              staffId: staffId,
+              assignedToMyself: '1',
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
             ),
           ),
         );
@@ -2347,6 +2800,10 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
               sectionId: sectionId,
               staffId: staffId,
               assignedToMyself: '1',
+              fromDate: fromDate,
+              toDate: toDate,
+              departmentId: deptId,
+              assignedById: assignedById,
             ),
           ),
         );
@@ -2367,6 +2824,8 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
           ),
           child: GestureDetector(
             onTap: () {
+              final deptId = selectedDepartment?.id;
+              final assignedById = selectedAssignedBy?.userId;
               title == "Pending Tasks"
                   ? Navigator.push(
                       context,
@@ -2375,7 +2834,11 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                           workId: "",
                           sectionId: "",
                           staffId: "",
-                          assignedByMyself: "1",
+                          selectedStatus: 'todo,pending,in-progress',
+                          fromDate: fromDate,
+                          toDate: toDate,
+                          departmentId: deptId,
+                          assignedById: assignedById,
                         ),
                       ),
                     )
@@ -2387,6 +2850,10 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                           sectionId: "",
                           staffId: "",
                           assignedByMyself: "1",
+                          fromDate: fromDate,
+                          toDate: toDate,
+                          departmentId: deptId,
+                          assignedById: assignedById,
                         ),
                       ),
                     );
@@ -2437,6 +2904,8 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                         itemCount: staffList.length,
                         itemBuilder: (context, index) {
                           final staff = staffList[index];
+                          final deptId = selectedDepartment?.id;
+                          final assignedById = selectedAssignedBy?.userId;
                           return GestureDetector(
                             onTap: () {
                               title == "Completed Tasks"
@@ -2450,6 +2919,10 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                                           staffId: staff['staff_id'],
                                           assignedToMyself: "",
                                           assignedByMyself: "1",
+                                          fromDate: fromDate,
+                                          toDate: toDate,
+                                          departmentId: deptId,
+                                          assignedById: assignedById,
                                         ),
                                       ),
                                     )
@@ -2461,8 +2934,12 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
                                           workId: "",
                                           sectionId: "",
                                           staffId: staff['staff_id'],
+                                          selectedStatus: 'todo,pending,in-progress',
                                           assignedToMyself: "",
-                                          assignedByMyself: "1",
+                                          fromDate: fromDate,
+                                          toDate: toDate,
+                                          departmentId: deptId,
+                                          assignedById: assignedById,
                                         ),
                                       ),
                                     );

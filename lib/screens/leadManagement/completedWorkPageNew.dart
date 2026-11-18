@@ -17,6 +17,12 @@ class CompletedWorkPageNew extends StatefulWidget {
   final String staffId;
   final String? assignedToMyself;
   final String? assignedByMyself;
+  final String? isCompletedOverdue;
+  final DateTime? fromDate;
+  final DateTime? toDate;
+  final String? departmentId;
+  final String? assignedById;
+
   const CompletedWorkPageNew({
     super.key,
     required this.workId,
@@ -26,6 +32,11 @@ class CompletedWorkPageNew extends StatefulWidget {
     required this.staffId,
     this.assignedToMyself,
     this.assignedByMyself,
+    this.isCompletedOverdue,
+    this.fromDate,
+    this.toDate,
+    this.departmentId,
+    this.assignedById,
   });
 
   @override
@@ -134,6 +145,25 @@ class _CompletedWorkPageNewState extends State<CompletedWorkPageNew> {
         _hasInitialStatusFilter = false;
         _initialStatus = null;
       }
+
+      if (widget.fromDate != null) {
+        currentFilters['from_date'] = DateFormat('yyyy-MM-dd').format(widget.fromDate!);
+        currentFilters['created_from'] = DateFormat('yyyy-MM-dd').format(widget.fromDate!);
+      }
+      if (widget.toDate != null) {
+        currentFilters['to_date'] = DateFormat('yyyy-MM-dd').format(widget.toDate!);
+        currentFilters['created_to'] = DateFormat('yyyy-MM-dd').format(widget.toDate!);
+      }
+      if (widget.departmentId != null && widget.departmentId!.isNotEmpty) {
+        currentFilters['department_id'] = [widget.departmentId!];
+      }
+      if (widget.assignedById != null && widget.assignedById!.isNotEmpty) {
+        currentFilters['assigned_by_ids'] = [widget.assignedById!];
+      }
+      if (widget.isCompletedOverdue == '1') {
+        currentFilters['is_completed_overdue'] = '1';
+      }
+
       _loadData(currentFilters);
     });
   }
@@ -145,7 +175,11 @@ class _CompletedWorkPageNewState extends State<CompletedWorkPageNew> {
     });
 
     staffwiseWorkFuture =
-        HttpService().getStaffwiseWorkCompletedNew(widget.staffId).then((data) {
+        HttpService().getStaffwiseWorkCompletedNew(
+          widget.staffId,
+          isCompletedOverdue: widget.isCompletedOverdue,
+          filters: filters.isNotEmpty ? filters : null,
+        ).then((data) {
       if (data != null && data.status && data.summary.isNotEmpty) {
         staffwiseData = data.summary;
         _totalCounts = data.count;

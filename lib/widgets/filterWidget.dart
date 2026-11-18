@@ -104,6 +104,21 @@ Future<void> _loadStaffByDepartment(String? departmentId) async {
             Set.from(widget.initialFilters?['assigned_by_ids'] ?? []);
         selectedAssignedToIds =
             Set.from(widget.initialFilters?['assigned_to_ids'] ?? []);
+        if (widget.initialFilters?['department_id'] != null) {
+          var depVal = widget.initialFilters!['department_id'];
+          if (depVal is List) {
+            selectedDepartmentIds = Set.from(depVal.map((e) => e.toString()));
+          } else if (depVal is String && depVal.isNotEmpty) {
+            selectedDepartmentIds = Set.from(depVal.split(',').map((e) => e.trim()));
+          }
+        } else if (widget.initialFilters?['department_ids'] != null) {
+          var depVal = widget.initialFilters!['department_ids'];
+          if (depVal is List) {
+            selectedDepartmentIds = Set.from(depVal.map((e) => e.toString()));
+          } else if (depVal is String && depVal.isNotEmpty) {
+            selectedDepartmentIds = Set.from(depVal.split(',').map((e) => e.trim()));
+          }
+        }
         selectedStatusIds.clear();
 
         // First check for status_names from the filters
@@ -260,16 +275,20 @@ Future<void> _loadStaffByDepartment(String? departmentId) async {
         }
 
         if (widget.initialFilters?['due_from'] != null) {
-          dueDateFrom = DateTime.parse(widget.initialFilters?['due_from']);
+          dueDateFrom = DateTime.tryParse(widget.initialFilters!['due_from'].toString());
         }
         if (widget.initialFilters?['due_to'] != null) {
-          dueDateTo = DateTime.parse(widget.initialFilters?['due_to']);
+          dueDateTo = DateTime.tryParse(widget.initialFilters!['due_to'].toString());
         }
         if (widget.initialFilters?['created_from'] != null) {
-          createdFrom = DateTime.parse(widget.initialFilters?['created_from']);
+          createdFrom = DateTime.tryParse(widget.initialFilters!['created_from'].toString());
+        } else if (widget.initialFilters?['from_date'] != null) {
+          createdFrom = DateTime.tryParse(widget.initialFilters!['from_date'].toString());
         }
         if (widget.initialFilters?['created_to'] != null) {
-          createdTo = DateTime.parse(widget.initialFilters?['created_to']);
+          createdTo = DateTime.tryParse(widget.initialFilters!['created_to'].toString());
+        } else if (widget.initialFilters?['to_date'] != null) {
+          createdTo = DateTime.tryParse(widget.initialFilters!['to_date'].toString());
         }
         shouldSortSelectedFirst = true;
 
