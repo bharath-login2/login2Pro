@@ -5144,6 +5144,7 @@ class HttpService {
     });
     try {
       var response = await _dio.post("${await Config.getUrl()}getLoginorNot",
+     
           data: formData);
       if (response.statusCode == 200) {
         var commonResponse = CommonResponse.fromJson(response.data);
@@ -5154,7 +5155,8 @@ class HttpService {
     }
   }
 
-  static Future getCurrentLoginStatus(token) async {
+  static Future getCurrentLoginStatus() async {
+    final token =  await Common.getSharedPref("token");
     var formData = FormData.fromMap({
       'token': token,
     });

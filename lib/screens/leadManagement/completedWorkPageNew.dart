@@ -1472,6 +1472,30 @@ class _CompletedWorkPageNewState extends State<CompletedWorkPageNew> {
   }
 
   Future<void> _handleStartWork(Task task) async {
+    final loginResponse = await HttpService.getCurrentLoginStatus();
+    if (loginResponse == null ||
+        loginResponse.status != true ||
+        loginResponse.data != true) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Login Required'),
+            content: const Text('Please login first.'),
+            actions: [
+              TextButton(
+                child: const Text('OK'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
     final result = await HttpService.getWorkStatus();
     if (result != null && result.data.isNotEmpty) {
       showDialog(

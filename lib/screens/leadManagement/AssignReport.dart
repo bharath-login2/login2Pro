@@ -92,8 +92,8 @@ class _AssignReportState extends State<AssignReport> {
   bool isLoggedIn = false;
 
   Future<void> loginorNot() async {
-    final token = await Common.getSharedPref("token");
-    final response = await HttpService.getLoginorNot(token);
+    // final token = await Common.getSharedPref("token");
+    final response = await HttpService.getCurrentLoginStatus();
 
     setState(() {
       if (response != null && response.data == true) {
@@ -3006,13 +3006,18 @@ class _AssignReportState extends State<AssignReport> {
   }
 
   Future<void> _handleStartWork(AssignedWork item) async {
+    final loginResponse = await HttpService.getCurrentLoginStatus();
+    isLoggedIn = loginResponse != null &&
+        loginResponse.status == true &&
+        loginResponse.data == true;
+    if (!mounted) return;
     if (!isLoggedIn) {
       showDialog(
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
             title: const Text('Login Required'),
-            content: const Text('Please login to start work.'),
+            content: const Text('Please login first.'),
             actions: [
               TextButton(
                 child: const Text('OK'),

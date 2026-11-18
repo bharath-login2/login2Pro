@@ -510,6 +510,25 @@ class _AddWorkPageState extends State<AddWorkPage> {
   }
 
   Future<void> _submitWork() async {
+    if (widget.existingWork == null) {
+      final loginResponse = await HttpService.getCurrentLoginStatus();
+
+      if (loginResponse == null ||
+          loginResponse.status != true ||
+          loginResponse.data != true) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Please login first.'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+
     if (!_validateTasks()) return;
 
     if (selectedProjectId == null) {
@@ -654,6 +673,207 @@ class _AddWorkPageState extends State<AddWorkPage> {
       );
     }
   }
+  // Future<void> _submitWork() async {
+  //   final bool isStopAction = widget.existingWork != null;
+  //   if (isStopAction) {
+  //     if (_isStoppingWork) return;
+  //     setState(() => _isStoppingWork = true);
+  //   } else {
+  //     if (_isStartingWork) return;
+  //     setState(() => _isStartingWork = true);
+  //   }
+  //   _submitWorkSucceeded = false;
+  //   try {
+  //     await _performSubmitWork();
+  //   } finally {
+  //     if (!_submitWorkSucceeded && mounted) {
+  //       setState(() {
+  //         if (isStopAction) {
+  //           _isStoppingWork = false;
+  //         } else {
+  //           _isStartingWork = false;
+  //         }
+  //       });
+  //     }
+  //   }
+  // }
+
+  // Future<void> _performSubmitWork() async {
+  //   if (widget.existingWork == null) {
+  //     final loginResponse = await HttpService.getCurrentLoginStatus();
+  //     if (loginResponse == null ||
+  //         loginResponse.status != true ||
+  //         loginResponse.data != true) {
+  //       if (!mounted) return;
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: const Text('Please login first.'),
+  //           behavior: SnackBarBehavior.floating,
+  //           backgroundColor: Colors.red.shade400,
+  //           shape: RoundedRectangleBorder(
+  //             borderRadius: BorderRadius.circular(10),
+  //           ),
+  //         ),
+  //       );
+  //       return;
+  //     }
+  //   }
+  //   if (!_validateTasks()) return;
+
+  //   if (selectedProjectId == null) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: const Text('Please select a project'),
+  //         behavior: SnackBarBehavior.floating,
+  //         backgroundColor: Colors.red.shade400,
+  //         shape: RoundedRectangleBorder(
+  //           borderRadius: BorderRadius.circular(10),
+  //         ),
+  //       ),
+  //     );
+  //     return;
+  //   }
+  //   if (_isGettingLocation) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: const Text('Please wait, fetching location...'),
+  //         behavior: SnackBarBehavior.floating,
+  //         backgroundColor: Colors.orange.shade400,
+  //         shape: RoundedRectangleBorder(
+  //           borderRadius: BorderRadius.circular(10),
+  //         ),
+  //       ),
+  //     );
+  //     return;
+  //   }
+
+  //   if (isLocationEnabled &&
+  //       (currentLatitude == null || currentLongitude == null)) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: const Text('Location not available yet.'),
+  //         behavior: SnackBarBehavior.floating,
+  //         backgroundColor: Colors.red.shade400,
+  //         shape: RoundedRectangleBorder(
+  //           borderRadius: BorderRadius.circular(10),
+  //         ),
+  //       ),
+  //     );
+  //     return;
+  //   }
+  //   if (selectedTitleId == null ||
+  //       selectedTitleId!.isEmpty ||
+  //       titleController.text.trim().isEmpty) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: const Text('Please select a title'),
+  //         behavior: SnackBarBehavior.floating,
+  //         backgroundColor: Colors.red.shade400,
+  //         shape: RoundedRectangleBorder(
+  //           borderRadius: BorderRadius.circular(10),
+  //         ),
+  //       ),
+  //     );
+  //     return;
+  //   }
+
+  //   await _getCurrentLocation();
+
+  //   final workData = {
+  //     'work_id': widget.existingWork?.id,
+  //     'project_id': selectedProjectId,
+  //     'project_name': selectedProjectName,
+  //     'title': titleController.text,
+  //     'title_id': selectedTitleId,
+  //     if (widget.workId != "") 'attendance_id': widget.workId,
+  //     'assignedId': widget.existingWork?.assignedId,
+  //     'latitude': currentLatitude,
+  //     'longitude': currentLongitude,
+  //     'action': widget.existingWork != null ? 'stop' : 'start',
+  //     'tasks': tasks.asMap().entries.map((entry) {
+  //       final task = entry.value;
+  //       return {
+  //         'task_id': task.taskId,
+  //         'description': task.controller.text,
+  //         'status': task.status,
+  //         'is_checked': task.isChecked ? 1 : 0,
+  //         'task_description': task.remarksControllers
+  //             .map((controller) => controller.text)
+  //             .where((remark) => remark.isNotEmpty)
+  //             .join('\n'),
+  //       };
+  //     }).toList(),
+  //   };
+  //   try {
+  //     final response = widget.existingWork != null
+  //         ?await HttpService.saveWorkData(workData)
+  //         // await HttpService.updateWorkData(workData)
+  //         : await HttpService.submitWorkData(workData);
+  //     _submitWorkSucceeded = response.status;
+
+  //     if (response.status) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text(widget.existingWork != null
+  //               ? 'Work stopped successfully!'
+  //               : 'Work started successfully!'),
+  //           behavior: SnackBarBehavior.floating,
+  //           backgroundColor: Colors.green.shade400,
+  //           shape: RoundedRectangleBorder(
+  //             borderRadius: BorderRadius.circular(10),
+  //           ),
+  //         ),
+  //       );
+  //       if (widget.existingWork != null) {
+  //         RunningWorkTimerService.instance.clear();
+  //       } else {
+  //         await RunningWorkTimerService.instance.refresh();
+  //       }
+  //       ProjectDashboard.triggerRefresh();
+  //       await Future.delayed(const Duration(seconds: 1));
+  //       widget.onSuccess();
+  //       await RunningWorkTimerService.instance.refresh();
+  //       ProjectDashboard.triggerRefresh();
+  //       ProjectDashboardPermission == "true"
+  //           ? Navigator.pushReplacement(
+  //               context,
+  //               MaterialPageRoute(
+  //                 builder: (context) =>
+  //                     ViewWorkPage(staffId: userId, selectedDate: currentDate),
+  //               ),
+  //             )
+  //           : Navigator.pushReplacement(
+  //               context,
+  //               MaterialPageRoute(
+  //                 builder: (context) =>
+  //                     ViewWorkPage(staffId: userId, selectedDate: currentDate),
+  //               ),
+  //             );
+  //     } else {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text(response.message ?? 'Operation failed'),
+  //           behavior: SnackBarBehavior.floating,
+  //           backgroundColor: Colors.red.shade400,
+  //           shape: RoundedRectangleBorder(
+  //             borderRadius: BorderRadius.circular(10),
+  //           ),
+  //         ),
+  //       );
+  //     }
+  //   } catch (e) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text('Error: ${e.toString()}'),
+  //         behavior: SnackBarBehavior.floating,
+  //         backgroundColor: Colors.red.shade400,
+  //         shape: RoundedRectangleBorder(
+  //           borderRadius: BorderRadius.circular(10),
+  //         ),
+  //       ),
+  //     );
+  //   }
+  // }
 
   Future<void> _savework() async {
     if (!_validateTasks()) return;
@@ -876,6 +1096,24 @@ class _AddWorkPageState extends State<AddWorkPage> {
   }
 
   Future<void> _restartWork() async {
+    if (widget.existingWork == null) {
+      final loginResponse = await HttpService.getCurrentLoginStatus();
+
+      if (loginResponse == null ||
+          loginResponse.status != true ||
+          loginResponse.data != true) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Please login first.'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
     if (!_validateTasks()) return;
     if (selectedProjectId == null) {
       ScaffoldMessenger.of(context).showSnackBar(

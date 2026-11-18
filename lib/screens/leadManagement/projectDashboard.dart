@@ -3206,6 +3206,7 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 import 'dart:ui' show FontFeature;
+import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -3215,6 +3216,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:login2/core/common.dart';
+import 'package:login2/core/app_colors.dart';
 import 'package:login2/models/commonConfigureModel.dart';
 import 'package:login2/models/dashboardModel.dart';
 import 'package:login2/models/expense/expense_post.dart';
@@ -3250,6 +3252,7 @@ import 'package:login2/screens/leadManagement/viewallcompanyworks.dart';
 import 'package:login2/screens/leadManagement/running_task_list_screen.dart';
 import 'package:login2/screens/leave_request_list_page.dart';
 import 'package:login2/service/service.dart';
+import 'package:login2/widgets/work_timer_chip.dart';
 import 'package:login2/widgets/togglebutton_start.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -4673,70 +4676,121 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
     final bool hasRunning =
         workStatus != null && workStatus!.data.isNotEmpty && createdAt != null;
 
-    return Column(
+    return Row(
       children: [
-        if (hasRunning) ...[
-          _buildRunningTimerBanner(),
-          const SizedBox(height: 10),
-        ],
-        Row(
-          children: [
-            _buildActionButton(
-              label: "Add",
-              icon: Icons.add_rounded,
-              filled: false,
-              onTap: _onAddTap,
-            ),
-            if (assignWork == "true") ...[
-              const SizedBox(width: 10),
-              _buildActionButton(
-                label: "Assign",
-                icon: Icons.assignment_ind_outlined,
-                filled: true,
-                onTap: _onAssignTap,
-              ),
-            ],
-          ],
+        _buildActionButton(
+          label: "Add",
+          icon: Icons.add_rounded,
+          filled: true,
+          onTap: _onAddTap,
         ),
+        if (assignWork == "true") ...[
+          const SizedBox(width: 8),
+          _buildActionButton(
+            label: "Assign",
+            icon: Icons.assignment_ind_outlined,
+            filled: false,
+            onTap: _onAssignTap,
+          ),
+        ],
+        const Spacer(),
+        if (hasRunning) const WorkTimerChip(),
       ],
     );
   }
 
+  // Widget _buildActionButton({
+  //   required String label,
+  //   required IconData icon,
+  //   required bool filled,
+  //   required VoidCallback onTap,
+  // }) {
+  //   const Color blue = Color(0xFF1E88E5);
+
+  //   return Container(
+  //     height: 38,
+  //     decoration: BoxDecoration(
+  //       borderRadius: BorderRadius.circular(12),
+  //       gradient: filled
+  //           ? const LinearGradient(
+  //               colors: [Color(0xFF42A5F5), Color(0xFF1565C0)],
+  //               begin: Alignment.topLeft,
+  //               end: Alignment.bottomRight,
+  //             )
+  //           : null,
+  //       color: filled ? null : Colors.white,
+  //       border: filled ? null : Border.all(color: blue.withOpacity(0.35)),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: (filled ? blue : Colors.black)
+  //               .withOpacity(filled ? 0.30 : 0.06),
+  //           blurRadius: 8,
+  //           offset: const Offset(0, 3),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Material(
+  //       color: Colors.transparent,
+  //       child: InkWell(
+  //         borderRadius: BorderRadius.circular(12),
+  //         splashColor: (filled ? Colors.white : blue).withOpacity(0.15),
+  //         onTap: () {
+  //           HapticFeedback.selectionClick();
+  //           onTap();
+  //         },
+  //         child: Padding(
+  //           padding: const EdgeInsets.symmetric(horizontal: 14),
+  //           child: Row(
+  //             mainAxisSize: MainAxisSize.min,
+  //             children: [
+  //               Icon(icon, size: 17, color: filled ? Colors.white : blue),
+  //               const SizedBox(width: 6),
+  //               Text(
+  //                 label,
+  //                 style: TextStyle(
+  //                   fontSize: 13,
+  //                   fontWeight: FontWeight.w700,
+  //                   color: filled ? Colors.white : blue,
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
   Widget _buildActionButton({
     required String label,
     required IconData icon,
     required bool filled,
     required VoidCallback onTap,
   }) {
-    const Color blue = Color(0xFF1E88E5);
-
     return Container(
-      height: 38,
+      height: 40,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        gradient: filled
-            ? const LinearGradient(
-                colors: [Color(0xFF42A5F5), Color(0xFF1565C0)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
+        gradient: filled ? AppColors.primaryGradient : null,
+        color: filled ? null : AppColors.primary.withOpacity(0.10),
+        border: filled
+            ? null
+            : Border.all(color: AppColors.primary.withOpacity(0.30)),
+        boxShadow: filled
+            ? [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.30),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ]
             : null,
-        color: filled ? null : Colors.white,
-        border: filled ? null : Border.all(color: blue.withOpacity(0.35)),
-        boxShadow: [
-          BoxShadow(
-            color: (filled ? blue : Colors.black)
-                .withOpacity(filled ? 0.30 : 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          splashColor: (filled ? Colors.white : blue).withOpacity(0.15),
+          splashColor:
+              (filled ? Colors.white : AppColors.primary).withOpacity(0.2),
           onTap: () {
             HapticFeedback.selectionClick();
             onTap();
@@ -4746,14 +4800,15 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 17, color: filled ? Colors.white : blue),
+                Icon(icon,
+                    size: 18, color: filled ? Colors.white : AppColors.primary),
                 const SizedBox(width: 6),
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w700,
-                    color: filled ? Colors.white : blue,
+                    color: filled ? Colors.white : AppColors.primary,
                   ),
                 ),
               ],
@@ -4764,134 +4819,63 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
     );
   }
 
-// Live timer shown only while work is running. Tap = open the running work.
-  Widget _buildRunningTimerBanner() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.red.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.red.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: _onTimerTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            child: Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.timer_outlined,
-                      size: 17, color: Colors.red.shade400),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Work in progress",
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      StreamBuilder<DateTime>(
-                        stream: Stream.periodic(
-                            const Duration(seconds: 1), (_) => DateTime.now()),
-                        initialData: DateTime.now(),
-                        builder: (context, snapshot) {
-                          if (createdAt == null || !snapshot.hasData) {
-                            return const SizedBox();
-                          }
-                          final diff = snapshot.data!.difference(createdAt!);
-                          String two(int n) => n.toString().padLeft(2, '0');
-                          final text =
-                              "${two(diff.inHours)}:${two(diff.inMinutes % 60)}:${two(diff.inSeconds % 60)}";
-                          return Text(
-                            text,
-                            style: TextStyle(
-                              fontSize: 16,
-                              height: 1.1,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.red.shade600,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures()
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
-// ---------------------------------------------------------------------------
-// Tap handlers (same logic as before, just moved out of build())
-// ---------------------------------------------------------------------------
+  //
+
   Future<void> _onAddTap() async {
-    // Always ask the server at tap time, so a stale isLoggedIn can never let
-    // the user through.
-    final tk = await Common.getSharedPref("token");
-    final loginRes = await HttpService.getLoginorNot(tk);
-    final bool loggedIn = loginRes != null && loginRes.data == true;
-    if (!mounted) return;
-    setState(() => isLoggedIn = loggedIn);
+    final loginResponse = await HttpService.getCurrentLoginStatus();
 
-    if (loggedIn) {
+    isLoggedIn = loginResponse != null &&
+        loginResponse.status == true &&
+        loginResponse.data == true;
+
+    if (!mounted) return;
+
+    if (isLoggedIn == true || existingWork != null) {
       final workStatusModel = await HttpService.getWorkStatus();
+
       WorkStatus? newExistingWork;
+
       if (workStatusModel != null && workStatusModel.data.isNotEmpty) {
         newExistingWork = workStatusModel.data.first;
       }
+
       if (!mounted) return;
-      Navigator.push(
+
+      await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => AddWorkPage(
             workId: "",
             existingWork: newExistingWork,
-            onSuccess: () {},
+            onSuccess: () {
+              _refreshDashboard();
+              checkExistingWorkStatus();
+              getData(token, fromdate, todate);
+            },
           ),
         ),
       );
+
+      await checkExistingWorkStatus();
+      getData(token, fromdate, todate);
     } else {
       showDialog(
         context: context,
-        builder: (BuildContext context) => AlertDialog(
-          title: const Text('Login Required'),
-          content: const Text('Please login to add work.'),
-          actions: [
-            TextButton(
-              child: const Text('OK'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-        ),
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Login Required'),
+            content: const Text('Please login first.'),
+            actions: [
+              TextButton(
+                child: const Text('OK'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
       );
     }
   }
@@ -4911,29 +4895,29 @@ class _ProjectDashboardState extends State<ProjectDashboard> {
     );
   }
 
-  Future<void> _onTimerTap() async {
-    final workStatusModel = await HttpService.getWorkStatus();
-    WorkStatus? running;
-    if (workStatusModel != null && workStatusModel.data.isNotEmpty) {
-      running = workStatusModel.data.first;
-    }
-    if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AddWorkPage(
-          workId: "",
-          existingWork: running,
-          isAssigned: 1,
-          onSuccess: () {
-            setState(() {
-              getData(token, fromdate, todate);
-            });
-          },
-        ),
-      ),
-    );
-  }
+  // Future<void> _onTimerTap() async {
+  //   final workStatusModel = await HttpService.getWorkStatus();
+  //   WorkStatus? running;
+  //   if (workStatusModel != null && workStatusModel.data.isNotEmpty) {
+  //     running = workStatusModel.data.first;
+  //   }
+  //   if (!mounted) return;
+  //   Navigator.push(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder: (context) => AddWorkPage(
+  //         workId: "",
+  //         existingWork: running,
+  //         isAssigned: 1,
+  //         onSuccess: () {
+  //           setState(() {
+  //             getData(token, fromdate, todate);
+  //           });
+  //         },
+  //       ),
+  //     ),
+  //   );
+  // }
 
   Widget _buildStatusCard(String title, String count,
       {required VoidCallback onTap}) {
@@ -6633,3 +6617,4 @@ class _QuickLink {
   final VoidCallback onTap;
   const _QuickLink(this.title, this.icon, this.color, this.onTap);
 }
+

@@ -140,8 +140,9 @@ class _ViewWorkPageState extends State<ViewWorkPage> {
   }
 
   Future<void> loginorNot() async {
-    final token = await Common.getSharedPref("token");
-    final response = await HttpService.getLoginorNot(token);
+    // final token = await Common.getSharedPref("token");
+    // final response = await HttpService.getLoginorNot(token);
+    final response = await HttpService.getCurrentLoginStatus();
 
     setState(() {
       if (response != null && response.data == true) {
@@ -368,6 +369,12 @@ class _ViewWorkPageState extends State<ViewWorkPage> {
                 )
               : FloatingActionButton(
                   onPressed: () async {
+                    final loginResponse =
+                        await HttpService.getCurrentLoginStatus();
+                    isLoggedIn = loginResponse != null &&
+                        loginResponse.status == true &&
+                        loginResponse.data == true;
+                    if (!mounted) return;
                     if (isLoggedIn == true) {
                       final workStatusModel = await HttpService.getWorkStatus();
                       workStatus.WorkStatus? newExistingWork;
@@ -714,61 +721,18 @@ class _ViewWorkPageState extends State<ViewWorkPage> {
                                                             ? GestureDetector(
                                                                 onTap:
                                                                     () async {
-                                                                  await loginorNot();
-                                                                  if (isLoggedIn ==
-                                                                      true) {
-                                                                    bool isAnyWorkInProgress = workStatusDetails!.data.any((w) =>
-                                                                        w.endTime ==
-                                                                            "00:00:00" ||
-                                                                        w.endTime
-                                                                            .isEmpty);
-                                                                    if (isAnyWorkInProgress) {
-                                                                      Common.toastMessaage(
-                                                                          'Work is in progress. Please stop the work before restarting new work',
-                                                                          Colors
-                                                                              .red);
+                                                                  final loginResponse =
+                                                                      await HttpService
+                                                                          .getCurrentLoginStatus();
+                                                                  if (loginResponse == null ||
+                                                                      loginResponse
+                                                                              .status !=
+                                                                          true ||
+                                                                      loginResponse
+                                                                              .data !=
+                                                                          true) {
+                                                                    if (!mounted)
                                                                       return;
-                                                                    }
-                                                                    final workStatusModel =
-                                                                        await HttpService.getWorkStatusPaused(
-                                                                            item.id);
-                                                                    workStatus
-                                                                        .WorkStatus?
-                                                                        newExistingWork;
-                                                                    if (workStatusModel !=
-                                                                            null &&
-                                                                        workStatusModel
-                                                                            .data
-                                                                            .isNotEmpty) {
-                                                                      newExistingWork = workStatusModel
-                                                                          .data
-                                                                          .first;
-                                                                    }
-                                                                    Navigator
-                                                                        .push(
-                                                                      context,
-                                                                      MaterialPageRoute(
-                                                                        builder:
-                                                                            (context) =>
-                                                                                AddWorkPage(
-                                                                          workId:
-                                                                              item.id,
-                                                                          existingWork:
-                                                                              null,
-                                                                          isPaused:
-                                                                              0,
-                                                                          Restart:
-                                                                              1,
-                                                                          onSuccess:
-                                                                              () {
-                                                                            setState(() {
-                                                                              checkExistingWorkStatus();
-                                                                            });
-                                                                          },
-                                                                        ),
-                                                                      ),
-                                                                    );
-                                                                  } else {
                                                                     showDialog(
                                                                       context:
                                                                           context,
@@ -779,7 +743,7 @@ class _ViewWorkPageState extends State<ViewWorkPage> {
                                                                           title:
                                                                               const Text('Login Required'),
                                                                           content:
-                                                                              const Text('Please login to restart work.'),
+                                                                              const Text('Please login first.'),
                                                                           actions: [
                                                                             TextButton(
                                                                               child: const Text('OK'),
@@ -791,8 +755,143 @@ class _ViewWorkPageState extends State<ViewWorkPage> {
                                                                         );
                                                                       },
                                                                     );
+                                                                    return;
                                                                   }
+                                                                  bool isAnyWorkInProgress = workStatusDetails!.data.any((w) =>
+                                                                      w.endTime ==
+                                                                          "00:00:00" ||
+                                                                      w.endTime
+                                                                          .isEmpty);
+                                                                  if (isAnyWorkInProgress) {
+                                                                    Common.toastMessaage(
+                                                                        'Work is in progress. Please stop the work before restarting new work',
+                                                                        Colors
+                                                                            .red);
+                                                                    return;
+                                                                  }
+                                                                  final workStatusModel =
+                                                                      await HttpService
+                                                                          .getWorkStatusPaused(
+                                                                              item.id);
+                                                                  workStatus
+                                                                      .WorkStatus?
+                                                                      newExistingWork;
+                                                                  if (workStatusModel !=
+                                                                          null &&
+                                                                      workStatusModel
+                                                                          .data
+                                                                          .isNotEmpty) {
+                                                                    newExistingWork =
+                                                                        workStatusModel
+                                                                            .data
+                                                                            .first;
+                                                                  }
+                                                                  Navigator
+                                                                      .push(
+                                                                    context,
+                                                                    MaterialPageRoute(
+                                                                      builder:
+                                                                          (context) =>
+                                                                              AddWorkPage(
+                                                                        workId:
+                                                                            item.id,
+                                                                        existingWork:
+                                                                            null,
+                                                                        isPaused:
+                                                                            0,
+                                                                        Restart:
+                                                                            1,
+                                                                        onSuccess:
+                                                                            () {
+                                                                          setState(
+                                                                              () {
+                                                                            checkExistingWorkStatus();
+                                                                          });
+                                                                        },
+                                                                      ),
+                                                                    ),
+                                                                  );
                                                                 },
+                                                                //     () async {
+                                                                //   await loginorNot();
+                                                                //   if (isLoggedIn ==
+                                                                //       true) {
+                                                                //     bool isAnyWorkInProgress = workStatusDetails!.data.any((w) =>
+                                                                //         w.endTime ==
+                                                                //             "00:00:00" ||
+                                                                //         w.endTime
+                                                                //             .isEmpty);
+                                                                //     if (isAnyWorkInProgress) {
+                                                                //       Common.toastMessaage(
+                                                                //           'Work is in progress. Please stop the work before restarting new work',
+                                                                //           Colors
+                                                                //               .red);
+                                                                //       return;
+                                                                //     }
+                                                                //     final workStatusModel =
+                                                                //         await HttpService.getWorkStatusPaused(
+                                                                //             item.id);
+                                                                //     workStatus
+                                                                //         .WorkStatus?
+                                                                //         newExistingWork;
+                                                                //     if (workStatusModel !=
+                                                                //             null &&
+                                                                //         workStatusModel
+                                                                //             .data
+                                                                //             .isNotEmpty) {
+                                                                //       newExistingWork = workStatusModel
+                                                                //           .data
+                                                                //           .first;
+                                                                //     }
+                                                                //     Navigator
+                                                                //         .push(
+                                                                //       context,
+                                                                //       MaterialPageRoute(
+                                                                //         builder:
+                                                                //             (context) =>
+                                                                //                 AddWorkPage(
+                                                                //           workId:
+                                                                //               item.id,
+                                                                //           existingWork:
+                                                                //               null,
+                                                                //           isPaused:
+                                                                //               0,
+                                                                //           Restart:
+                                                                //               1,
+                                                                //           onSuccess:
+                                                                //               () {
+                                                                //             setState(() {
+                                                                //               checkExistingWorkStatus();
+                                                                //             });
+                                                                //           },
+                                                                //         ),
+                                                                //       ),
+                                                                //     );
+                                                                //   } else {
+                                                                //     showDialog(
+                                                                //       context:
+                                                                //           context,
+                                                                //       builder:
+                                                                //           (BuildContext
+                                                                //               context) {
+                                                                //         return AlertDialog(
+                                                                //           title:
+                                                                //               const Text('Login Required'),
+                                                                //           content:
+                                                                //               const Text('Please login to restart work.'),
+                                                                //           actions: [
+                                                                //             TextButton(
+                                                                //               child: const Text('OK'),
+                                                                //               onPressed: () {
+                                                                //                 Navigator.of(context).pop();
+                                                                //               },
+                                                                //             ),
+                                                                //           ],
+                                                                //         );
+                                                                //       },
+                                                                //     );
+                                                                //   }
+                                                                // },
                                                                 child:
                                                                     const Row(
                                                                   mainAxisSize:

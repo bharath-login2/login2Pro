@@ -84,8 +84,9 @@ class _ViewCompanyWorkPageState extends State<ViewCompanyWorkPage> {
   }
 
   Future<void> loginorNot() async {
-    final token = await Common.getSharedPref("token");
-    final response = await HttpService.getLoginorNot(token);
+    // final token = await Common.getSharedPref("token");
+    // final response = await HttpService.getLoginorNot(token);
+    final response = await HttpService.getCurrentLoginStatus();
 
     setState(() {
       if (response != null && response.data == true) {
@@ -311,6 +312,12 @@ class _ViewCompanyWorkPageState extends State<ViewCompanyWorkPage> {
             )
           : FloatingActionButton(
               onPressed: () async {
+                 final loginResponse =
+                    await HttpService.getCurrentLoginStatus();
+                isLoggedIn = loginResponse != null &&
+                    loginResponse.status == true &&
+                    loginResponse.data == true;
+                if (!mounted) return;
                 if (isLoggedIn == true) {
                   final workStatusModel = await HttpService.getWorkStatus();
                   workStatus.WorkStatus? newExistingWork;
