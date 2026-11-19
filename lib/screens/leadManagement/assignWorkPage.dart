@@ -12,6 +12,7 @@ import '../../models/lead_management/titleListModel.dart';
 import '../../models/lead_management/workstatus_model.dart';
 import '../../service/service.dart';
 import 'package:login2/models/expense/staffListModel.dart';
+import 'package:login2/widgets/work_timer_overlay.dart';
 
 class TaskForm {
   TextEditingController controller;
@@ -613,7 +614,9 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
             ),
           ],
         ),
-        body: Stack(
+        body: WorkTimerOverlay(
+          onTimerReturn: widget.onSuccess,
+          child: Stack(
           children: [
             Column(
               children: [
@@ -2083,6 +2086,7 @@ class _AssignWorkPageState extends State<AssignWorkPage> {
               ),
           ],
         ),
+      ),
       ),
     );
   }

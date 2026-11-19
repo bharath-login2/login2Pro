@@ -8,6 +8,7 @@ import 'package:login2/screens/leadManagement/addWork_page.dart';
 import 'package:login2/screens/leadManagement/assignWorkPage.dart';
 import 'package:login2/service/service.dart';
 import 'package:login2/widgets/filterWidget.dart';
+import 'package:login2/widgets/work_timer_overlay.dart';
 
 class CompletedWorkPageNew extends StatefulWidget {
   final String workId;
@@ -356,7 +357,9 @@ class _CompletedWorkPageNewState extends State<CompletedWorkPageNew> {
           // ),
         ],
       ),
-      body: Column(
+      body: WorkTimerOverlay(
+        onTimerReturn: () => _loadData(currentFilters),
+        child: Column(
         children: [
           // Filter buttons row
           Padding(
@@ -709,6 +712,7 @@ class _CompletedWorkPageNewState extends State<CompletedWorkPageNew> {
           ),
         ],
       ),
+    ),
       floatingActionButton: assignWork == "true"
           ? FloatingActionButton(
               backgroundColor: Colors.blue,

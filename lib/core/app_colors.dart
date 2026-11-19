@@ -52,6 +52,9 @@ class AppColors {
   static const Color accent = Color(0xFF4F46E5); // indigo
   static const Color accentTint = Color(0xFFEEF2FF);
 
+  // -------------------------------------------------- task "running" state
+  static const Color running = Color(0xFF0891B2); // cyan
+  static const Color runningTint = Color(0xFFECFEFF);
   // ------------------------------------------------------ add / assign
   static const Color addButton = primary; // outlined Add button
 

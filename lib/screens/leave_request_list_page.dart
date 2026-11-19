@@ -9,6 +9,7 @@ import 'package:login2/models/expense/staffListModel.dart';
 import 'package:login2/models/lead_management/getLeaveBalanceModel.dart';
 import 'package:login2/models/lead_management/getLeaveApprovalRejectTemplate.dart';
 import 'dart:async';
+import 'package:login2/widgets/work_timer_overlay.dart';
 
 class LeaveRequestFilter {
   bool isPending = false;
@@ -901,7 +902,9 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
           ),
         ],
       ),
-      body: Column(
+      body: WorkTimerOverlay(
+        onTimerReturn: _loadData,
+        child: Column(
         children: [
           Container(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -1076,6 +1079,7 @@ class _LeaveRequestListPageState extends State<LeaveRequestListPage>
           ),
         ],
       ),
+    ),
       bottomNavigationBar:
           _selectedLeaves.isNotEmpty ? _buildBulkActionBar() : null,
       floatingActionButton: Container(

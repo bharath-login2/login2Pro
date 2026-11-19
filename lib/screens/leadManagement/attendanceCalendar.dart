@@ -9,6 +9,7 @@ import 'package:login2/screens/leadManagement/viewwork_page.dart';
 import 'package:login2/service/service.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../models/expense/staffListModel.dart';
+import 'package:login2/widgets/work_timer_overlay.dart';
 
 class ViewCalendarPage extends StatefulWidget {
   const ViewCalendarPage({super.key});
@@ -1581,13 +1582,15 @@ class _ViewCalendarPageState extends State<ViewCalendarPage>
           ),
         ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(
-                color: Colors.blue,
-              ),
-            )
-          : SingleChildScrollView(
+      body: WorkTimerOverlay(
+        onTimerReturn: _loadInitialData,
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(
+                  color: Colors.blue,
+                ),
+              )
+            : SingleChildScrollView(
               child: Column(
                 children: [
                   // Calendar
@@ -1877,6 +1880,7 @@ class _ViewCalendarPageState extends State<ViewCalendarPage>
                 ],
               ),
             ),
+      ),
     );
   }
 }

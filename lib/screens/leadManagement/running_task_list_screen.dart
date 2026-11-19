@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:login2/models/lead_management/runningTaskModel.dart';
 import 'package:login2/screens/leadManagement/viewwork_page.dart';
 import 'package:login2/service/service.dart';
+import 'package:login2/widgets/work_timer_overlay.dart';
 // import 'your_service_file.dart'; // file that contains getRunningTasks
 
 class RunningTasksPage extends StatefulWidget {
@@ -74,7 +75,10 @@ class _RunningTasksPageState extends State<RunningTasksPage> {
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
       ),
-      body: _buildBody(),
+      body: WorkTimerOverlay(
+        onTimerReturn: _loadTasks,
+        child: _buildBody(),
+      ),
     );
   }
 

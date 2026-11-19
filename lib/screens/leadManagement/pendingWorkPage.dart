@@ -6,6 +6,7 @@ import 'package:login2/models/lead_management/staffWisePendingModel.dart';
 import 'package:login2/screens/leadManagement/addWork_page.dart';
 import 'package:login2/service/service.dart';
 import 'package:login2/widgets/filterWidget.dart';
+import 'package:login2/widgets/work_timer_overlay.dart';
 import '../../models/lead_management/workDetailsModel.dart' as workDetails;
 import 'package:login2/models/lead_management/workstatus_model.dart'
     as workStatus;
@@ -1095,7 +1096,9 @@ class _PendingWorkPageState extends State<PendingWorkPage>
           ),
         ],
       ),
-      body: TabBarView(
+      body: WorkTimerOverlay(
+        onTimerReturn: fetchData,
+        child: TabBarView(
         controller: _tabController,
         children: [
           Column(
@@ -1132,6 +1135,7 @@ class _PendingWorkPageState extends State<PendingWorkPage>
           ),
         ],
       ),
+    ),
     );
   }
 }

@@ -1,5 +1,3 @@
-
-
 import 'dart:async';
 import 'dart:ui' show FontFeature;
 
@@ -25,6 +23,11 @@ class WorkTimerChip extends StatefulWidget {
 
   final double height;
 
+  // Any page can call WorkTimerChip.refreshAll() after starting / stopping a
+  // work, and every chip on screen re-checks the server immediately.
+  static final ValueNotifier<int> _changes = ValueNotifier<int>(0);
+  static void refreshAll() => _changes.value++;
+
   const WorkTimerChip({
     super.key,
     this.startTime,
@@ -49,9 +52,12 @@ class WorkTimerChipState extends State<WorkTimerChip>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WorkTimerChip._changes.addListener(_onExternalChange);
     _start = widget.startTime;
     if (_start == null) refresh();
   }
+
+  void _onExternalChange() => refresh();
 
   @override
   void didUpdateWidget(covariant WorkTimerChip oldWidget) {
@@ -74,6 +80,7 @@ class WorkTimerChipState extends State<WorkTimerChip>
 
   @override
   void dispose() {
+    WorkTimerChip._changes.removeListener(_onExternalChange);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -124,48 +131,53 @@ class WorkTimerChipState extends State<WorkTimerChip>
   Widget build(BuildContext context) {
     if (_start == null) return const SizedBox.shrink();
 
-    final bool dark = widget.onAppBar;
-    final Color fg = dark ? Colors.white : AppColors.danger;
+    const Color red = AppColors.danger;
+    // In an app bar the chip is always compact (28px), even if the page
+    // still passes height: 34 - so no page needs to be edited.
+    final double h = widget.onAppBar
+        ? (widget.height < 28 ? widget.height : 28)
+        : widget.height;
+    final bool compact = h <= 34;
 
+    // Same white pill everywhere (also on the blue app bar):
+    // glowing red dot + timer icon + live HH:MM:SS
     return Container(
-      height: widget.height,
+      height: h,
       decoration: BoxDecoration(
-        color: dark ? Colors.white.withOpacity(0.20) : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: dark
-              ? Colors.white.withOpacity(0.35)
-              : AppColors.danger.withOpacity(0.25),
-        ),
-        boxShadow: dark
-            ? null
-            : [
-                BoxShadow(
-                  color: AppColors.danger.withOpacity(0.10),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+        border: Border.all(color: red.withOpacity(0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: widget.onAppBar
+                ? Colors.black.withOpacity(0.15)
+                : red.withOpacity(0.10),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          splashColor: fg.withOpacity(0.12),
+          splashColor: red.withOpacity(0.12),
           onTap: _open,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _PulseDot(color: dark ? Colors.white : AppColors.danger),
-                const SizedBox(width: 7),
+                _PulseDot(color: red, size: compact ? 6 : 8),
+                SizedBox(width: compact ? 5 : 6),
+                Icon(Icons.timer_outlined, size: compact ? 13 : 16, color: red),
+                SizedBox(width: compact ? 3 : 4),
                 _LiveTimer(
                   start: _start!,
                   style: TextStyle(
-                    fontSize: widget.height < 38 ? 13 : 14,
+                    fontSize: compact ? 11.5 : 14,
                     fontWeight: FontWeight.w800,
-                    color: fg,
+                    color: red,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
@@ -183,7 +195,8 @@ class WorkTimerChipState extends State<WorkTimerChip>
 // ----------------------------------------------------------------------------
 class _PulseDot extends StatefulWidget {
   final Color color;
-  const _PulseDot({required this.color});
+  final double size;
+  const _PulseDot({required this.color, this.size = 8});
 
   @override
   State<_PulseDot> createState() => _PulseDotState();
@@ -204,13 +217,27 @@ class _PulseDotState extends State<_PulseDot>
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: Tween<double>(begin: 0.3, end: 1.0).animate(_c),
-      child: Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
-      ),
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, __) {
+        final double v = Curves.easeInOut.transform(_c.value);
+        return Container(
+          width: widget.size,
+          height: widget.size,
+          decoration: BoxDecoration(
+            color: widget.color,
+            shape: BoxShape.circle,
+            // glow grows and fades with the pulse
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withOpacity(0.35 + 0.45 * v),
+                blurRadius: 2 + 5 * v,
+                spreadRadius: 0.3 + 1.0 * v,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -7,6 +7,8 @@ import 'package:login2/screens/leadManagement/AssignReport.dart';
 import 'package:login2/screens/leadManagement/addWork_page.dart';
 import 'package:login2/screens/leadManagement/login_summary_page.dart';
 import 'package:login2/widgets/blinkngTime.dart';
+import 'package:login2/widgets/work_timer_overlay.dart';
+import 'package:login2/widgets/work_timer_chip.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../models/lead_management/workDetailsModel.dart' as workDetails;
 import 'package:login2/models/lead_management/workstatus_model.dart'
@@ -105,6 +107,7 @@ class _ViewWorkPageState extends State<ViewWorkPage> {
         existingWork = null;
       }
     });
+     WorkTimerChip.refreshAll();
   }
 
   String formatDueDate(String? dueDate) {
@@ -298,231 +301,293 @@ class _ViewWorkPageState extends State<ViewWorkPage> {
           ),
         ],
       ),
+      // floatingActionButton: ((widget.staffId != "")
+      //             ? (userId != null && widget.staffId == userId)
+      //             : (userId != null)) &&
+      //         addWorkPermission == "true"
+      //     ? (existingWork != null
+      //         ? StreamBuilder<DateTime>(
+      //             stream: Stream.periodic(
+      //               const Duration(seconds: 1),
+      //               (_) => DateTime.now(),
+      //             ),
+      //             builder: (context, snapshot) {
+      //               if (!snapshot.hasData) return const SizedBox();
+      //               final now = snapshot.data!;
+      //               final createdAt = DateTime.parse(existingWork!.createdAt);
+      //               final diff = now.difference(createdAt);
+      //               String timeSince =
+      //                   "${diff.inHours.toString().padLeft(2, '0')}:"
+      //                   "${(diff.inMinutes % 60).toString().padLeft(2, '0')}:"
+      //                   "${(diff.inSeconds % 60).toString().padLeft(2, '0')}";
+      //               return FloatingActionButton.extended(
+      //                 onPressed: () async {
+      //                   final workStatusModel =
+      //                       await HttpService.getWorkStatus();
+      //                   workStatus.WorkStatus? newExistingWork;
+      //                   if (workStatusModel != null &&
+      //                       workStatusModel.data.isNotEmpty) {
+      //                     newExistingWork = workStatusModel.data.first;
+      //                   }
+      //                   final paused = await showDialog(
+      //                     context: context,
+      //                     builder: (context) => AddWorkPage(
+      //                       workId: "",
+      //                       existingWork: newExistingWork,
+      //                       isAssigned: 1,
+      //                       onSuccess: () {
+      //                         setState(() {
+      //                           getWorkDuration(currentDate);
+      //                           checkExistingWorkStatus();
+      //                         });
+      //                       },
+      //                     ),
+      //                   );
+
+      //                   if (paused == true) {
+      //                     setState(() {
+      //                       existingWork = null;
+      //                     });
+      //                     getWorkDuration(currentDate);
+      //                   }
+      //                 },
+      //                 backgroundColor: Colors.red,
+      //                 label: Row(
+      //                   mainAxisSize: MainAxisSize.min,
+      //                   children: [
+      //                     Text(
+      //                       timeSince,
+      //                       style: const TextStyle(
+      //                         fontSize: 14,
+      //                         color: Colors.white,
+      //                         fontWeight: FontWeight.bold,
+      //                       ),
+      //                     ),
+      //                     const SizedBox(width: 8),
+      //                     const Icon(Icons.pause, color: Colors.white),
+      //                   ],
+      //                 ),
+      //               );
+      //             },
+      //           )
+      //         : FloatingActionButton(
+      //             onPressed: () async {
+      //               final loginResponse =
+      //                   await HttpService.getCurrentLoginStatus();
+      //               isLoggedIn = loginResponse != null &&
+      //                   loginResponse.status == true &&
+      //                   loginResponse.data == true;
+      //               if (!mounted) return;
+      //               if (isLoggedIn == true) {
+      //                 final workStatusModel = await HttpService.getWorkStatus();
+      //                 workStatus.WorkStatus? newExistingWork;
+
+      //                 if (workStatusModel != null &&
+      //                     workStatusModel.data.isNotEmpty) {
+      //                   newExistingWork = workStatusModel.data.first;
+      //                 }
+      //                 Navigator.push(
+      //                   context,
+      //                   MaterialPageRoute(
+      //                     builder: (context) => AddWorkPage(
+      //                       workId: "",
+      //                       existingWork: newExistingWork,
+      //                       onSuccess: () {
+      //                         setState(() {
+      //                           getWorkDuration(currentDate);
+      //                           checkExistingWorkStatus();
+      //                         });
+      //                       },
+      //                     ),
+      //                   ),
+      //                 );
+      //               } else {
+      //                 showDialog(
+      //                   context: context,
+      //                   builder: (BuildContext context) {
+      //                     return AlertDialog(
+      //                       title: const Text('Login Required'),
+      //                       content: const Text('Please login to add work.'),
+      //                       actions: [
+      //                         TextButton(
+      //                           child: const Text('OK'),
+      //                           onPressed: () {
+      //                             Navigator.of(context).pop();
+      //                           },
+      //                         ),
+      //                       ],
+      //                     );
+      //                   },
+      //                 );
+      //               }
+      //             },
+      //             backgroundColor: Colors.green,
+      //             child: const Icon(Icons.add, color: Colors.white),
+      //           ))
+      //     : null,
       floatingActionButton: ((widget.staffId != "")
                   ? (userId != null && widget.staffId == userId)
                   : (userId != null)) &&
-              addWorkPermission == "true"
-          ? (existingWork != null
-              ? StreamBuilder<DateTime>(
-                  stream: Stream.periodic(
-                    const Duration(seconds: 1),
-                    (_) => DateTime.now(),
-                  ),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) return const SizedBox();
-                    final now = snapshot.data!;
-                    final createdAt = DateTime.parse(existingWork!.createdAt);
-                    final diff = now.difference(createdAt);
-                    String timeSince =
-                        "${diff.inHours.toString().padLeft(2, '0')}:"
-                        "${(diff.inMinutes % 60).toString().padLeft(2, '0')}:"
-                        "${(diff.inSeconds % 60).toString().padLeft(2, '0')}";
-                    return FloatingActionButton.extended(
-                      onPressed: () async {
-                        final workStatusModel =
-                            await HttpService.getWorkStatus();
-                        workStatus.WorkStatus? newExistingWork;
-                        if (workStatusModel != null &&
-                            workStatusModel.data.isNotEmpty) {
-                          newExistingWork = workStatusModel.data.first;
-                        }
-                        final paused = await showDialog(
-                          context: context,
-                          builder: (context) => AddWorkPage(
-                            workId: "",
-                            existingWork: newExistingWork,
-                            isAssigned: 1,
-                            onSuccess: () {
-                              setState(() {
-                                getWorkDuration(currentDate);
-                                checkExistingWorkStatus();
-                              });
-                            },
-                          ),
-                        );
-
-                        if (paused == true) {
-                          setState(() {
-                            existingWork = null;
-                          });
-                          getWorkDuration(currentDate);
-                        }
-                      },
-                      backgroundColor: Colors.red,
-                      label: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            timeSince,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Icon(Icons.pause, color: Colors.white),
-                        ],
-                      ),
-                    );
-                  },
-                )
-              : FloatingActionButton(
-                  onPressed: () async {
-                    final loginResponse =
-                        await HttpService.getCurrentLoginStatus();
-                    isLoggedIn = loginResponse != null &&
-                        loginResponse.status == true &&
-                        loginResponse.data == true;
-                    if (!mounted) return;
-                    if (isLoggedIn == true) {
-                      final workStatusModel = await HttpService.getWorkStatus();
-                      workStatus.WorkStatus? newExistingWork;
-
-                      if (workStatusModel != null &&
-                          workStatusModel.data.isNotEmpty) {
-                        newExistingWork = workStatusModel.data.first;
-                      }
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => AddWorkPage(
-                            workId: "",
-                            existingWork: newExistingWork,
-                            onSuccess: () {
-                              setState(() {
-                                getWorkDuration(currentDate);
-                                checkExistingWorkStatus();
-                              });
-                            },
-                          ),
-                        ),
-                      );
-                    } else {
-                      showDialog(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            title: const Text('Login Required'),
-                            content: const Text('Please login to add work.'),
-                            actions: [
-                              TextButton(
-                                child: const Text('OK'),
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                },
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                    }
-                  },
-                  backgroundColor: Colors.green,
-                  child: const Icon(Icons.add, color: Colors.white),
-                ))
-          : null,
-      body: Stack(
-        children: [
-          // _buildMainContent(),
-          GestureDetector(
-            onTap: () {
-              if (_isPanelOpen) {
-                _togglePanel();
-              }
-            },
-            child: AbsorbPointer(
-              absorbing: _isPanelOpen,
-              child: _buildMainContent(),
-            ),
-          ),
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            right: _panelPosition,
-            top: 0,
-            bottom: 0,
-            width: _panelWidth,
-            child: GestureDetector(
-              onHorizontalDragUpdate: (details) {
-                if (details.delta.dx < 0) {
-                  // Swiping left
-                  setState(() {
-                    _panelPosition = (_panelPosition - details.delta.dx)
-                        .clamp(-_panelWidth, 0.0);
-                  });
-                } else if (details.delta.dx > 0) {
-                  // Swiping right
-                  setState(() {
-                    _panelPosition = (_panelPosition - details.delta.dx)
-                        .clamp(-_panelWidth, 0.0);
-                  });
-                }
-              },
-              onHorizontalDragEnd: (details) {
-                if (details.primaryVelocity! < 0) {
-                  // Swiped left
-                  _togglePanel();
-                } else if (details.primaryVelocity! > 0) {
-                  // Swiped right
-                  _togglePanel();
-                } else {
-                  // No significant velocity - snap to nearest state
-                  if (_panelPosition.abs() > _panelWidth / 2) {
-                    _togglePanel();
-                  } else {
-                    _togglePanel();
+              addWorkPermission == "true" &&
+              existingWork == null
+          ? FloatingActionButton(
+              onPressed: () async {
+                final loginResponse = await HttpService.getCurrentLoginStatus();
+                isLoggedIn = loginResponse != null &&
+                    loginResponse.status == true &&
+                    loginResponse.data == true;
+                if (!mounted) return;
+                if (isLoggedIn == true) {
+                  final workStatusModel = await HttpService.getWorkStatus();
+                  workStatus.WorkStatus? newExistingWork;
+                  if (workStatusModel != null &&
+                      workStatusModel.data.isNotEmpty) {
+                    newExistingWork = workStatusModel.data.first;
                   }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AddWorkPage(
+                        workId: "",
+                        existingWork: newExistingWork,
+                        onSuccess: () {
+                          setState(() {
+                            getWorkDuration(currentDate);
+                            checkExistingWorkStatus();
+                          });
+                        },
+                      ),
+                    ),
+                  );
+                } else {
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text('Login Required'),
+                        content: const Text('Please login to add work.'),
+                        actions: [
+                          TextButton(
+                            child: const Text('OK'),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ],
+                      );
+                    },
+                  );
                 }
               },
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 8,
-                      offset: const Offset(-3, 0),
-                    ),
-                  ],
-                ),
-                child: _buildTimeSummaryPanel(),
+              backgroundColor: Colors.green,
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
+      body: WorkTimerOverlay(
+        onTimerReturn: () {
+          getWorkDuration(currentDate);
+          checkExistingWorkStatus();
+        },
+        child: Stack(
+          children: [
+            // _buildMainContent(),
+            GestureDetector(
+              onTap: () {
+                if (_isPanelOpen) {
+                  _togglePanel();
+                }
+              },
+              child: AbsorbPointer(
+                absorbing: _isPanelOpen,
+                child: _buildMainContent(),
               ),
             ),
-          ),
-          if (!_isPanelOpen)
-            Positioned(
-              right: 0,
-              top: MediaQuery.of(context).size.height / 2 - 50,
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              right: _panelPosition,
+              top: 0,
+              bottom: 0,
+              width: _panelWidth,
               child: GestureDetector(
-                onTap: _togglePanel,
+                onHorizontalDragUpdate: (details) {
+                  if (details.delta.dx < 0) {
+                    // Swiping left
+                    setState(() {
+                      _panelPosition = (_panelPosition - details.delta.dx)
+                          .clamp(-_panelWidth, 0.0);
+                    });
+                  } else if (details.delta.dx > 0) {
+                    // Swiping right
+                    setState(() {
+                      _panelPosition = (_panelPosition - details.delta.dx)
+                          .clamp(-_panelWidth, 0.0);
+                    });
+                  }
+                },
+                onHorizontalDragEnd: (details) {
+                  if (details.primaryVelocity! < 0) {
+                    // Swiped left
+                    _togglePanel();
+                  } else if (details.primaryVelocity! > 0) {
+                    // Swiped right
+                    _togglePanel();
+                  } else {
+                    // No significant velocity - snap to nearest state
+                    if (_panelPosition.abs() > _panelWidth / 2) {
+                      _togglePanel();
+                    } else {
+                      _togglePanel();
+                    }
+                  }
+                },
                 child: Container(
-                  width: 24,
-                  height: 100,
                   decoration: BoxDecoration(
-                    color: Colors.blue,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                      bottomLeft: Radius.circular(12),
-                    ),
+                    color: Colors.white,
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.2),
-                        blurRadius: 4,
-                        offset: const Offset(-2, 0),
+                        blurRadius: 8,
+                        offset: const Offset(-3, 0),
                       ),
                     ],
                   ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.chevron_left,
-                      color: Colors.white,
+                  child: _buildTimeSummaryPanel(),
+                ),
+              ),
+            ),
+            if (!_isPanelOpen)
+              Positioned(
+                right: 0,
+                top: MediaQuery.of(context).size.height / 2 - 50,
+                child: GestureDetector(
+                  onTap: _togglePanel,
+                  child: Container(
+                    width: 24,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        bottomLeft: Radius.circular(12),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 4,
+                          offset: const Offset(-2, 0),
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.chevron_left,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
