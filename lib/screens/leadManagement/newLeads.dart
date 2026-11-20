@@ -417,7 +417,8 @@ class _NewLeadsState extends State<NewLeads>
         .toList();
   }
 
-  Future<void> getData(String sort, bool isFirst, dynamic status1, {String? search}) async {
+  Future<void> getData(String sort, bool isFirst, dynamic status1,
+      {String? search}) async {
     if (isLoading) return;
 
     setState(() {
@@ -493,7 +494,7 @@ class _NewLeadsState extends State<NewLeads>
     transferPermission = await Common.getSharedPref("transferLeads") ?? "";
     userId = await Common.getSharedPref("userId") ?? "";
     name = await Common.getSharedPref("name") ?? "";
-     viewLeadCategoryOnly =
+    viewLeadCategoryOnly =
         await Common.getSharedPref("viewLeadCategoryOnly") ?? '';
     viewAllCategory = await Common.getSharedPref("viewAllCategory") ?? '';
     phoneCallLogPermission =
@@ -508,7 +509,6 @@ class _NewLeadsState extends State<NewLeads>
     });
 
     if (statusWise == 'yes') {
-
       statusWiseId = await Common.getSharedPref("statusWisId") ?? "";
       statusCatId = await Common.getSharedPref("statusCatId") ?? "";
       type = await Common.getSharedPref("type") ?? "";
@@ -744,8 +744,7 @@ class _NewLeadsState extends State<NewLeads>
       final results = await Future.wait([
         HttpService.leadDetails(widget.token!, targetCallMasterId),
         HttpService.listAddonDet(widget.token!, targetCallMasterId),
-        HttpService.listFolderAndFiles(
-            widget.token!, targetCallMasterId, ''),
+        HttpService.listFolderAndFiles(widget.token!, targetCallMasterId, ''),
         HttpService.leadMileStone(widget.token!, targetCallMasterId),
         HttpService.leadFollowupData(widget.token!, targetCallMasterId),
       ]);
@@ -1991,7 +1990,8 @@ class _NewLeadsState extends State<NewLeads>
                               Padding(
                                 padding: const EdgeInsets.only(left: 4),
                                 child: InkWell(
-                                  onTap: () => _showCategoryPopup(displayItem, index),
+                                  onTap: () =>
+                                      _showCategoryPopup(displayItem, index),
                                   child: Container(
                                     height: 18,
                                     width: 18,
@@ -3023,7 +3023,6 @@ class _NewLeadsState extends State<NewLeads>
                         // Transfer as Fresh Data Toggle - Hidden as per request
                         Visibility(
                           visible: showTransferFreshValue,
-
                           child: InkWell(
                             onTap: () {
                               setDialogState(() {

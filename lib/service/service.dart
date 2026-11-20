@@ -280,6 +280,7 @@ import 'package:login2/screens/accounts/renewal_mannagement/restoreInvoicesModel
 import 'package:login2/models/product_mannagement/rental_history_model.dart';
 import 'package:login2/screens/authentication/googleDriveAccountsModel.dart';
 import 'package:login2/screens/authentication/googleDriveFilesModel.dart';
+import 'package:login2/models/rental/staffRateListModel.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../models/commonConfigureModel.dart';
 import '../../models/commonsettingsModel.dart';
@@ -765,6 +766,8 @@ class HttpService {
       var result = await _dio.post(
           "${await Config.getUrl()}view_total_lead_report",
           data: jsonEncode(body));
+      print("hy");
+      print(result);
       ViewLeadsModel model = ViewLeadsModel.fromJson(result.data);
       return model;
     } catch (e) {
@@ -893,6 +896,8 @@ class HttpService {
           "${await Config.getUrl()}leadReportByCreatedDate",
           options: Options(receiveTimeout: const Duration(seconds: 30)),
           data: jsonEncode(body));
+      print("hy");
+      print(result);
       if (result.statusCode == 200) {
         ViewLeadsModel model = ViewLeadsModel.fromJson(result.data);
         return model;
@@ -5144,7 +5149,6 @@ class HttpService {
     });
     try {
       var response = await _dio.post("${await Config.getUrl()}getLoginorNot",
-     
           data: formData);
       if (response.statusCode == 200) {
         var commonResponse = CommonResponse.fromJson(response.data);
@@ -5156,7 +5160,7 @@ class HttpService {
   }
 
   static Future getCurrentLoginStatus() async {
-    final token =  await Common.getSharedPref("token");
+    final token = await Common.getSharedPref("token");
     var formData = FormData.fromMap({
       'token': token,
     });
@@ -7241,6 +7245,7 @@ class HttpService {
     String noOfDays,
     String remindBefore,
     String sellingPrice,
+    String rentRateHourly,
     String purchasePrice,
     String barcode,
     String taxPercent,
@@ -7290,6 +7295,7 @@ class HttpService {
       "purchase_price": purchasePrice,
       "barcode": barcode,
       "tax_percent": taxPercent,
+      "hourly_rate": rentRateHourly,
       "total_amount": totalAmount,
       "description": description,
       "product_type": productType,
@@ -7381,6 +7387,8 @@ class HttpService {
   }
 
   static Future getProductById(String id) async {
+    print("hy");
+    print(id);
     var formData = FormData.fromMap(
         {"token": await Common.getSharedPref('token'), "row_id": id});
     print(formData);
@@ -7408,6 +7416,7 @@ class HttpService {
     String noOfDays,
     String remindBefore,
     String sellingPrice,
+    String? rentRateHourly,
     String purchasePrice,
     String barcode,
     String taxPercent,
@@ -7460,6 +7469,7 @@ class HttpService {
       "bar_code": barcode,
       "tax_percent": taxPercent,
       "total_amount": totalAmount,
+      "hourly_rate": rentRateHourly,
       "description": description,
       "product_type": productType,
       "brand": brand,
@@ -19033,6 +19043,29 @@ class HttpService {
       }
     } catch (e) {
       log("getTargetList error: $e");
+    }
+    return null;
+  }
+
+  //get labourlist (rate)
+  static Future<StaffRateListResponse?> getStaffRates() async {
+    final token = await Common.getSharedPref("token");
+    final data = {
+      'token': token,
+    };
+
+    try {
+      final response = await _dio.post(
+        "${await Config.getUrl()}getLabourLists", // change to your real endpoint
+        data: FormData.fromMap(data),
+      );
+
+      if (response.statusCode == 200) {
+        log("getStaffRates response: ${response.data}");
+        return StaffRateListResponse.fromJson(response.data);
+      }
+    } catch (e) {
+      log("getStaffRates error: $e");
     }
     return null;
   }

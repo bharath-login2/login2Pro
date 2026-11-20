@@ -104,6 +104,7 @@ class RentIssue {
   final String customerName;
   final String locationName;
   final String collectedStaffName;
+  final String rentType;
 
   RentIssue({
     required this.id,
@@ -137,6 +138,7 @@ class RentIssue {
     required this.customerName,
     required this.locationName,
     required this.collectedStaffName,
+    required this.rentType,
   });
 
   factory RentIssue.fromJson(Map<String, dynamic> json) {
@@ -172,6 +174,7 @@ class RentIssue {
       customerName: json['customer_name']?.toString() ?? '',
       locationName: json['location_name']?.toString() ?? '',
       collectedStaffName: json['collected_staff_name']?.toString() ?? '',
+      rentType: json['rent_type']?.toString().toLowerCase() ?? 'daily',
     );
   }
 
@@ -208,6 +211,7 @@ class RentIssue {
       'customer_name': customerName,
       'location_name': locationName,
       'collected_staff_name': collectedStaffName,
+      'rent_type': rentType,
     };
   }
 }

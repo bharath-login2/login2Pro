@@ -30,6 +30,7 @@ class _UpdateProductsState extends State<UpdateProducts> {
   TextEditingController productName = TextEditingController();
   TextEditingController productCode = TextEditingController();
   TextEditingController sellingPrice = TextEditingController();
+  TextEditingController rentRateHourly = TextEditingController();
   TextEditingController purchasePrice = TextEditingController();
   TextEditingController barcodeController = TextEditingController();
   TextEditingController tax = TextEditingController();
@@ -63,7 +64,7 @@ class _UpdateProductsState extends State<UpdateProducts> {
     "Warranty Issue",
     "Technical Issue"
   ];
-  
+
   List<UnitData> unitList = [];
   List<UnitData> filteredUnits = [];
   bool isUnitsLoading = false;
@@ -77,6 +78,7 @@ class _UpdateProductsState extends State<UpdateProducts> {
     final type = selectedProductType?.trim().toLowerCase();
     return type == "service product" || type == "service";
   }
+
   String? selectedServiceCycle;
   String? selectedWeekDay;
   String? selectedYearMonth;
@@ -200,34 +202,31 @@ class _UpdateProductsState extends State<UpdateProducts> {
       addPublish = d.publishStatus.isNotEmpty;
       purchasePrice.text = d.purchasePrice;
 
-      selectedProductType =
-          d.productType.isNotEmpty ? d.productType : null;
+      selectedProductType = d.productType.isNotEmpty ? d.productType : null;
 
       rentalPrice.text = d.rentalPrice;
 
       // Set correct value based on product type
-      sellingPrice.text = selectedProductType == "Rental"
-          ? d.rentalPrice
-          : d.sellingPrice;
-            // Pipeline handling
-            if (d.pipelineName.isNotEmpty) {
-              pipelineControllers =
-                  d.pipelineName.map((e) => TextEditingController(text: e)).toList();
-            } else {
-              pipelineControllers = [TextEditingController()];
-            }
+      sellingPrice.text =
+          selectedProductType == "Rental" ? d.rentalPrice : d.sellingPrice;
+      // Pipeline handling
+      if (d.pipelineName.isNotEmpty) {
+        pipelineControllers =
+            d.pipelineName.map((e) => TextEditingController(text: e)).toList();
+      } else {
+        pipelineControllers = [TextEditingController()];
+      }
 
       // Complaints handling
-    if (d.complaintType.isNotEmpty) {
-      complaintControllers = d.complaintType
-          .map((e) => TextEditingController(text: e))
-          .toList();
+      if (d.complaintType.isNotEmpty) {
+        complaintControllers =
+            d.complaintType.map((e) => TextEditingController(text: e)).toList();
 
-      selectedComplaintTypes = List<String>.from(d.complaintType);
-    } else {
-      complaintControllers = [TextEditingController()];
-      selectedComplaintTypes = ["Complaint Type"];
-    }
+        selectedComplaintTypes = List<String>.from(d.complaintType);
+      } else {
+        complaintControllers = [TextEditingController()];
+        selectedComplaintTypes = ["Complaint Type"];
+      }
 
       getProductSubCategory();
       setState(() {
@@ -265,31 +264,32 @@ class _UpdateProductsState extends State<UpdateProducts> {
       setState(() {});
     }
   }
+
   Future<void> checkBarcodeValidation() async {
-  if (barcodeController.text.trim().isEmpty) {
+    if (barcodeController.text.trim().isEmpty) {
+      setState(() {
+        barcodeError = null;
+        isBarcodeDuplicate = false;
+      });
+      return;
+    }
+
+    final result = await HttpService.checkBarcodeDuplicate(
+      barcodeController.text.trim(),
+      "0",
+    );
+
     setState(() {
-      barcodeError = null;
-      isBarcodeDuplicate = false;
+      if (result != null && result.duplicate == true) {
+        barcodeError = result.message ?? "Barcode already exists";
+        isBarcodeDuplicate = true;
+      } else {
+        barcodeError = null;
+        isBarcodeDuplicate = false;
+      }
     });
-    return;
   }
 
-  final result = await HttpService.checkBarcodeDuplicate(
-    barcodeController.text.trim(),
-    "0",
-  );
-
-  setState(() {
-    if (result != null && result.duplicate == true) {
-      barcodeError = result.message ?? "Barcode already exists";
-      isBarcodeDuplicate = true;
-    } else {
-      barcodeError = null;
-      isBarcodeDuplicate = false;
-    }
-  });
-}
-  
   void filterCategories(String query) {
     if (categories != null) {
       setState(() {
@@ -324,6 +324,7 @@ class _UpdateProductsState extends State<UpdateProducts> {
       noOfDays.text,
       remindBefore.text,
       sellingPrice.text,
+      rentRateHourly.text,
       purchasePrice.text,
       barcodeController.text,
       tax.text,
@@ -602,148 +603,153 @@ class _UpdateProductsState extends State<UpdateProducts> {
                               ],
                             ),
                             const SizedBox(height: 12),
-
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildTextField(
-                                controller: productUCode,
-                                label: "Product Code *",
-                                icon: Icons.qr_code_outlined,
-                                validator: (val) =>
-                                    val!.isEmpty ? "Enter Product Code" : null,
-                              ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildTextField(
+                                    controller: productUCode,
+                                    label: "Product Code *",
+                                    icon: Icons.qr_code_outlined,
+                                    validator: (val) => val!.isEmpty
+                                        ? "Enter Product Code"
+                                        : null,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                             const SizedBox(height: 16),
-                        Row(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildTextField(
-  controller: barcodeController,
-  label: "Barcode value",
-  icon: Icons.qr_code,
-  onChanged: (value) async {
-    if (value.trim().isEmpty) {
-      setState(() {
-        barcodeError = null;
-      });
-      return;
-    }
+                            const SizedBox(height: 16),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _buildTextField(
+                                        controller: barcodeController,
+                                        label: "Barcode value",
+                                        icon: Icons.qr_code,
+                                        onChanged: (value) async {
+                                          if (value.trim().isEmpty) {
+                                            setState(() {
+                                              barcodeError = null;
+                                            });
+                                            return;
+                                          }
 
-    final result = await HttpService.checkBarcodeDuplicate(
-      value.trim(),
-      productId?.toString() ?? "0",
-    );
+                                          final result = await HttpService
+                                              .checkBarcodeDuplicate(
+                                            value.trim(),
+                                            productId?.toString() ?? "0",
+                                          );
 
-    setState(() {
-      if (result?.duplicate == true) {
-        barcodeError = result?.message;
-      } else {
-        barcodeError = null;
-      }
-    });
-  },
-),
+                                          setState(() {
+                                            if (result?.duplicate == true) {
+                                              barcodeError = result?.message;
+                                            } else {
+                                              barcodeError = null;
+                                            }
+                                          });
+                                        },
+                                      ),
+                                      if (barcodeError != null)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(top: 5),
+                                          child: Text(
+                                            barcodeError!,
+                                            style: const TextStyle(
+                                              color: Colors.red,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Transform.translate(
+                                  offset: const Offset(0, 24),
+                                  child: Container(
+                                    height: 50,
+                                    width: 50,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      color: const Color(0xFF2a86c9),
+                                    ),
+                                    child: IconButton(
+                                      onPressed: () async {
+                                        var res = await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const SimpleBarcodeScannerPage(),
+                                          ),
+                                        );
 
-          if (barcodeError != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 5),
-              child: Text(
-                barcodeError!,
-                style: const TextStyle(
-                  color: Colors.red,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-        ],
-      ),
-    ),
-    const SizedBox(width: 12),
-    Transform.translate(
-      offset: const Offset(0, 24),
-      child: Container(
-        height: 50,
-        width: 50,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          color: const Color(0xFF2a86c9),
-        ),
-        child: IconButton(
-          onPressed: () async {
-            var res = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    const SimpleBarcodeScannerPage(),
-              ),
-            );
+                                        if (res is String && res != '-1') {
+                                          barcodeController.text = res;
 
-            if (res is String && res != '-1') {
-              barcodeController.text = res;
+                                          final result = await HttpService
+                                              .checkBarcodeDuplicate(
+                                            res,
+                                            productId?.toString() ??
+                                                "0", // Current Product ID
+                                          );
 
-              final result =
-                  await HttpService.checkBarcodeDuplicate(
-                res,
-                productId?.toString() ?? "0", // Current Product ID
-              );
-
-              setState(() {
-                if (result?.duplicate == true) {
-                  barcodeError = result?.message;
-                  isBarcodeDuplicate = true;
-                } else {
-                  barcodeError = null;
-                  isBarcodeDuplicate = false;
-                }
-              });
-            }
-          },
-          icon: const Icon(
-            Icons.qr_code_scanner,
-            color: Colors.white,
-            size: 24,
-          ),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-          style: IconButton.styleFrom(
-            backgroundColor: const Color(0xFF2a86c9),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            minimumSize: const Size(50, 50),
-          ),
-          tooltip: "Scan Barcode",
-        ),
-      ),
-    ),
-  ],
-),
+                                          setState(() {
+                                            if (result?.duplicate == true) {
+                                              barcodeError = result?.message;
+                                              isBarcodeDuplicate = true;
+                                            } else {
+                                              barcodeError = null;
+                                              isBarcodeDuplicate = false;
+                                            }
+                                          });
+                                        }
+                                      },
+                                      icon: const Icon(
+                                        Icons.qr_code_scanner,
+                                        color: Colors.white,
+                                        size: 24,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      style: IconButton.styleFrom(
+                                        backgroundColor:
+                                            const Color(0xFF2a86c9),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        minimumSize: const Size(50, 50),
+                                      ),
+                                      tooltip: "Scan Barcode",
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                             const SizedBox(height: 16),
                             Row(
                               children: [
                                 Expanded(
                                   child: _buildTextField(
-                                    controller: productCode,
-                                    label: selectedProductType == "Service"
-                                        ? "SAC Code"
-                                        : (selectedProductType == "Material" ||
-                                                selectedProductType == "Rental")
-                                            ? "HSN/SAC Code"
-                                            : "HSN Code",
-                                    icon: Icons.qr_code_outlined,
-                                     keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter
-                                    .digitsOnly, 
-                              ]
-                                  ),
+                                      controller: productCode,
+                                      label: selectedProductType == "Service"
+                                          ? "SAC Code"
+                                          : (selectedProductType ==
+                                                      "Material" ||
+                                                  selectedProductType ==
+                                                      "Rental")
+                                              ? "HSN/SAC Code"
+                                              : "HSN Code",
+                                      icon: Icons.qr_code_outlined,
+                                      keyboardType: TextInputType.number,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                      ]),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
@@ -758,163 +764,164 @@ class _UpdateProductsState extends State<UpdateProducts> {
                           ],
                         ),
                         const SizedBox(height: 16),
-_buildSectionCard(
-  title: "Pricing & Tax",
-  children: [
-    Row(
-      children: [
-        Expanded(
-          child: _buildTextField(
-            controller: sellingPrice,
-            label: selectedProductType == "Rental"
-                ? "Rental Price *"
-                : (_isServiceProduct()
-                    ? "Service Amount *"
-                    : "Selling Price *"),
-            icon: Icons.currency_rupee_outlined,
-            keyboardType:
-                const TextInputType.numberWithOptions(
-              decimal: true,
-            ),
-            onChanged: (val) {
-              _updateTotalAmount();
-              formKey.currentState?.validate();
-            },
-            validator: (val) {
-              if (val == null || val.trim().isEmpty) {
-                return selectedProductType == "Rental"
-                    ? "Enter Rental Price"
-                    : (_isServiceProduct()
-                        ? "Enter Service Amount"
-                        : "Enter Selling Price");
-              }
-              return null;
-            },
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildTextField(
-            controller: tax,
-            label: "Tax (%)",
-            icon: Icons.percent_outlined,
-            keyboardType: TextInputType.number,
-            onChanged: (val) {
-              _updateTotalAmount();
-            },
-          ),
-        ),
-      ],
-    ),
+                        _buildSectionCard(
+                          title: "Pricing & Tax",
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildTextField(
+                                    controller: sellingPrice,
+                                    label: selectedProductType == "Rental"
+                                        ? "Rental Price *"
+                                        : (_isServiceProduct()
+                                            ? "Service Amount *"
+                                            : "Selling Price *"),
+                                    icon: Icons.currency_rupee_outlined,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                    onChanged: (val) {
+                                      _updateTotalAmount();
+                                      formKey.currentState?.validate();
+                                    },
+                                    validator: (val) {
+                                      if (val == null || val.trim().isEmpty) {
+                                        return selectedProductType == "Rental"
+                                            ? "Enter Rental Price"
+                                            : (_isServiceProduct()
+                                                ? "Enter Service Amount"
+                                                : "Enter Selling Price");
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildTextField(
+                                    controller: tax,
+                                    label: "Tax (%)",
+                                    icon: Icons.percent_outlined,
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (val) {
+                                      _updateTotalAmount();
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _buildTextField(
+                                        controller: purchasePrice,
+                                        label: "Purchase Amount",
+                                        icon: Icons.currency_rupee_outlined,
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (val) {
+                                          formKey.currentState?.validate();
+                                        },
+                                        validator: (val) {
+                                          if (val != null &&
+                                              val.isNotEmpty &&
+                                              sellingPrice.text.isNotEmpty) {
+                                            double pPrice =
+                                                double.tryParse(val) ?? 0;
 
-    const SizedBox(height: 16),
+                                            double sPrice = double.tryParse(
+                                                  sellingPrice.text,
+                                                ) ??
+                                                0;
 
-    Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-            children: [
-              _buildTextField(
-                controller: purchasePrice,
-                label: "Purchase Amount",
-                icon: Icons.currency_rupee_outlined,
-                keyboardType: TextInputType.number,
-                onChanged: (val) {
-                  formKey.currentState?.validate();
-                },
-                validator: (val) {
-                  if (val != null &&
-                      val.isNotEmpty &&
-                      sellingPrice.text.isNotEmpty) {
-                    double pPrice =
-                        double.tryParse(val) ?? 0;
+                                            if (pPrice > sPrice) {
+                                              return "Purchase price > selling price";
+                                            }
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildTextField(
+                                    controller: discount,
+                                    label: "Discount (%)",
+                                    icon: Icons.discount_outlined,
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (val) {
+                                      _updateTotalAmount();
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (selectedProductType == "Rental") ...[
+                              const SizedBox(height: 16),
+                              _buildTextField(
+                                controller: rentRateHourly,
+                                label: "Rent Rate Hourly",
+                                icon: Icons.currency_rupee_outlined,
+                                keyboardType: TextInputType.number,
+                                onChanged: (val) => _updateTotalAmount(),
+                              ),
+                            ],
+                            const SizedBox(height: 16),
+                            if (selectedProductType != "Rental" &&
+                                !_isServiceProduct()) ...[
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTextField(
+                                      controller: mrp,
+                                      label: "MRP",
+                                      icon: Icons.price_check_outlined,
+                                      keyboardType: TextInputType.number,
+                                      onChanged: (val) {
+                                        formKey.currentState?.validate();
+                                      },
+                                      validator: (val) {
+                                        if (val == null || val.trim().isEmpty) {
+                                          return "Please enter MRP";
+                                        }
 
-                    double sPrice =
-                        double.tryParse(
-                              sellingPrice.text,
-                            ) ??
-                            0;
+                                        double mrpValue =
+                                            double.tryParse(val) ?? 0;
 
-                    if (pPrice > sPrice) {
-                      return "Purchase price > selling price";
-                    }
-                  }
-                  return null;
-                },
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildTextField(
-            controller: discount,
-            label: "Discount (%)",
-            icon: Icons.discount_outlined,
-            keyboardType: TextInputType.number,
-            onChanged: (val) {
-              _updateTotalAmount();
-            },
-          ),
-        ),
-      ],
-    ),
+                                        double sellingValue = double.tryParse(
+                                              sellingPrice.text,
+                                            ) ??
+                                            0;
 
-    const SizedBox(height: 16),
+                                        if (mrpValue < sellingValue) {
+                                          return "MRP must be greater than Selling Price";
+                                        }
 
-    if (selectedProductType != "Rental" && !_isServiceProduct()) ...[
-      Row(
-        children: [
-          Expanded(
-            child: _buildTextField(
-              controller: mrp,
-              label: "MRP",
-              icon: Icons.price_check_outlined,
-              keyboardType: TextInputType.number,
-              onChanged: (val) {
-                formKey.currentState?.validate();
-              },
-              validator: (val) {
-                if (val == null ||
-                    val.trim().isEmpty) {
-                  return "Please enter MRP";
-                }
-
-                double mrpValue =
-                    double.tryParse(val) ?? 0;
-
-                double sellingValue =
-                    double.tryParse(
-                          sellingPrice.text,
-                        ) ??
-                        0;
-
-                if (mrpValue < sellingValue) {
-                  return "MRP must be greater than Selling Price";
-                }
-
-                return null;
-              },
-            ),
-          ),
-        ],
-      ),
-
-      const SizedBox(height: 16),
-    ],
-
-    _buildTextField(
-      controller: totalAmount,
-      label: "Total Amount",
-      icon:
-          Icons.account_balance_wallet_outlined,
-      readOnly: true,
-      fillColor: Colors.grey[100],
-    ),
-  ],
-),
+                                        return null;
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            _buildTextField(
+                              controller: totalAmount,
+                              label: "Total Amount",
+                              icon: Icons.account_balance_wallet_outlined,
+                              readOnly: true,
+                              fillColor: Colors.grey[100],
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 16),
                         _buildSectionCard(
                           title: "Other Details",
@@ -1316,37 +1323,30 @@ _buildSectionCard(
     );
   }
 
- void _updateTotalAmount() {
-  double selling =
-      double.tryParse(sellingPrice.text) ?? 0;
+  void _updateTotalAmount() {
+    double selling = double.tryParse(sellingPrice.text) ?? 0;
 
-  double taxVal =
-      double.tryParse(tax.text) ?? 0;
+    double taxVal = double.tryParse(tax.text) ?? 0;
 
-  double discVal =
-      double.tryParse(discount.text) ?? 0;
+    double discVal = double.tryParse(discount.text) ?? 0;
 
-  double amountWithTax =
-      selling + (selling * taxVal / 100);
+    double amountWithTax = selling + (selling * taxVal / 100);
 
-  double discountAmount =
-      amountWithTax * discVal / 100;
+    double discountAmount = amountWithTax * discVal / 100;
 
-  double total =
-      amountWithTax - discountAmount;
+    double total = amountWithTax - discountAmount;
 
-  setState(() {
-    totalAmount.text =
-        total.toStringAsFixed(2);
+    setState(() {
+      totalAmount.text = total.toStringAsFixed(2);
 
-    if (selectedProductType != "Rental") {
-      mrp.text =
-          total.toStringAsFixed(2);
-    }
-  });
+      if (selectedProductType != "Rental") {
+        mrp.text = total.toStringAsFixed(2);
+      }
+    });
 
-  formKey.currentState?.validate();
-}
+    formKey.currentState?.validate();
+  }
+
   Widget _buildLabel(String label) {
     bool hasAsterisk = label.contains('*');
     String cleanLabel = label.replaceAll('*', '').trim();
@@ -1563,74 +1563,72 @@ _buildSectionCard(
     );
   }
 
-
   Widget _buildTextField({
-  required TextEditingController controller,
-  required String label,
-  required IconData icon,
-  TextInputType keyboardType = TextInputType.text,
-  int maxLines = 1,
-  bool readOnly = false,
-  Color? fillColor,
-  ValueChanged<String>? onChanged,
-  FormFieldValidator<String>? validator,
-  Widget? actionWidget,
-  List<TextInputFormatter>? inputFormatters, // Add this parameter
-}) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _buildLabel(label),
-      const SizedBox(height: 8),
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: TextFormField(
-              controller: controller,
-              keyboardType: keyboardType,
-              maxLines: maxLines,
-              readOnly: readOnly,
-              onChanged: onChanged,
-              validator: validator,
-              inputFormatters: inputFormatters, // Add this line
-              decoration: InputDecoration(
-                hintText: label.replaceAll('*', '').trim(),
-                prefixIcon: Icon(icon, size: 20, color: Colors.grey[600]),
-                filled: fillColor != null,
-                fillColor: fillColor,
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      const BorderSide(color: Color(0xFF2a86c9), width: 2),
-                ),
-                hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                errorMaxLines: 2,
-                errorStyle: const TextStyle(
-                  fontSize: 11,
-                  height: 1.2,
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+    bool readOnly = false,
+    Color? fillColor,
+    ValueChanged<String>? onChanged,
+    FormFieldValidator<String>? validator,
+    Widget? actionWidget,
+    List<TextInputFormatter>? inputFormatters, // Add this parameter
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabel(label),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: controller,
+                keyboardType: keyboardType,
+                maxLines: maxLines,
+                readOnly: readOnly,
+                onChanged: onChanged,
+                validator: validator,
+                inputFormatters: inputFormatters, // Add this line
+                decoration: InputDecoration(
+                  hintText: label.replaceAll('*', '').trim(),
+                  prefixIcon: Icon(icon, size: 20, color: Colors.grey[600]),
+                  filled: fillColor != null,
+                  fillColor: fillColor,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF2a86c9), width: 2),
+                  ),
+                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  errorMaxLines: 2,
+                  errorStyle: const TextStyle(
+                    fontSize: 11,
+                    height: 1.2,
+                  ),
                 ),
               ),
             ),
-          ),
-          if (actionWidget != null) ...[
-            const SizedBox(width: 8),
-            actionWidget,
+            if (actionWidget != null) ...[
+              const SizedBox(width: 8),
+              actionWidget,
+            ],
           ],
-        ],
-      ),
-    ],
-  );
-}
-
+        ),
+      ],
+    );
+  }
 
   // Widget _buildTextField({
   //   required TextEditingController controller,

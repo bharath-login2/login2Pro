@@ -26,6 +26,7 @@ class _AddProductsState extends State<AddProducts> {
   TextEditingController productName = TextEditingController();
   TextEditingController productCode = TextEditingController();
   TextEditingController sellingPrice = TextEditingController();
+  TextEditingController rentRateHourly = TextEditingController();
   TextEditingController purchasePrice = TextEditingController();
   TextEditingController tax = TextEditingController();
   TextEditingController discount = TextEditingController();
@@ -71,6 +72,7 @@ class _AddProductsState extends State<AddProducts> {
     final type = selectedProductType?.trim().toLowerCase();
     return type == "service product" || type == "service";
   }
+
   String? selectedServiceCycle;
   String? selectedWeekDay;
   String? selectedYearMonth;
@@ -168,56 +170,58 @@ class _AddProductsState extends State<AddProducts> {
             map.categoryName.toLowerCase().contains(query.toLowerCase()))
         .toList();
   }
+
   Future<bool> validateBarcode() async {
-  if (barcodeController.text.trim().isEmpty) {
+    if (barcodeController.text.trim().isEmpty) {
+      return true;
+    }
+
+    final result = await HttpService.checkBarcodeDuplicate(
+      barcodeController.text.trim(),
+      "0",
+    );
+
+    print("result = $result");
+    print("duplicate = ${result?.duplicate}");
+    print("message = ${result?.message}");
+
+    if (result != null && result.duplicate == true) {
+      Common.toastMessaage(
+        result.message ?? "Barcode already exists",
+        Colors.red,
+      );
+
+      return false;
+    }
+
     return true;
   }
 
-  final result = await HttpService.checkBarcodeDuplicate(
-    barcodeController.text.trim(),
-    "0",
-  );
+  Future<void> checkBarcodeValidation() async {
+    if (barcodeController.text.trim().isEmpty) {
+      setState(() {
+        barcodeError = null;
+        isBarcodeDuplicate = false;
+      });
+      return;
+    }
 
-  print("result = $result");
-  print("duplicate = ${result?.duplicate}");
-  print("message = ${result?.message}");
-
-  if (result != null && result.duplicate == true) {
-    Common.toastMessaage(
-      result.message ?? "Barcode already exists",
-      Colors.red,
+    final result = await HttpService.checkBarcodeDuplicate(
+      barcodeController.text.trim(),
+      "0",
     );
 
-    return false;
-  }
-
-  return true;
-}
-  Future<void> checkBarcodeValidation() async {
-  if (barcodeController.text.trim().isEmpty) {
     setState(() {
-      barcodeError = null;
-      isBarcodeDuplicate = false;
+      if (result != null && result.duplicate == true) {
+        barcodeError = result.message ?? "Barcode already exists";
+        isBarcodeDuplicate = true;
+      } else {
+        barcodeError = null;
+        isBarcodeDuplicate = false;
+      }
     });
-    return;
   }
 
-  final result = await HttpService.checkBarcodeDuplicate(
-    barcodeController.text.trim(),
-    "0",
-  );
-
-  setState(() {
-    if (result != null && result.duplicate == true) {
-      barcodeError = result.message ?? "Barcode already exists";
-      isBarcodeDuplicate = true;
-    } else {
-      barcodeError = null;
-      isBarcodeDuplicate = false;
-    }
-  });
-}
-  
   void filterSubCategories(
     String query,
   ) {
@@ -239,6 +243,7 @@ class _AddProductsState extends State<AddProducts> {
       noOfDays.text,
       remindBefore.text,
       sellingPrice.text,
+      rentRateHourly.text,
       purchasePrice.text,
       barcodeController.text,
       tax.text,
@@ -411,20 +416,20 @@ class _AddProductsState extends State<AddProducts> {
     );
   }
 
-@override
-void initState() {
-  super.initState();
+  @override
+  void initState() {
+    super.initState();
 
-  getProductCategory();
-  getProductTypes();
-  getUnitsList();
+    getProductCategory();
+    getProductTypes();
+    getUnitsList();
 
-  checkStock = true;
-  addPublish = true;
-  selectedStatus = "Published";
-  selectedVisibility = "Public";
-}
-  
+    checkStock = true;
+    addPublish = true;
+    selectedStatus = "Published";
+    selectedVisibility = "Public";
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -527,66 +532,65 @@ void initState() {
                         ],
                       ),
                       const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildTextField(
-                                controller: productUCode,
-                                label: "Product Code ",
-                                icon: Icons.qr_code_outlined,
-                              ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildTextField(
+                              controller: productUCode,
+                              label: "Product Code ",
+                              icon: Icons.qr_code_outlined,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 16),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                          child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildTextField(
-                              controller: barcodeController,
-                              label: "Barcode value",
-                              icon: Icons.qr_code,
-                              onChanged: (value) async {
-                                if (value.trim().isEmpty) {
-                                  setState(() {
-                                    barcodeError = null;
-                                  });
-                                  return;
-                                }
-
-                                final result = await HttpService.checkBarcodeDuplicate(
-                                  value.trim(),
-                                  productId?.toString() ?? "0",
-                                );
-
-                                setState(() {
-                                  if (result?.duplicate == true) {
-                                    barcodeError = result?.message;
-                                  } else {
-                                    barcodeError = null;
+                              child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildTextField(
+                                controller: barcodeController,
+                                label: "Barcode value",
+                                icon: Icons.qr_code,
+                                onChanged: (value) async {
+                                  if (value.trim().isEmpty) {
+                                    setState(() {
+                                      barcodeError = null;
+                                    });
+                                    return;
                                   }
-                                });
-                              },
-                            ),
 
-                            if (barcodeError != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 5),
-                                child: Text(
-                                  barcodeError!,
-                                  style: const TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 12,
+                                  final result =
+                                      await HttpService.checkBarcodeDuplicate(
+                                    value.trim(),
+                                    productId?.toString() ?? "0",
+                                  );
+
+                                  setState(() {
+                                    if (result?.duplicate == true) {
+                                      barcodeError = result?.message;
+                                    } else {
+                                      barcodeError = null;
+                                    }
+                                  });
+                                },
+                              ),
+                              if (barcodeError != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 5),
+                                  child: Text(
+                                    barcodeError!,
+                                    style: const TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ),
-                              ),
-                          ],
-                        )
-                        ),
+                            ],
+                          )),
                           const SizedBox(width: 12),
                           Transform.translate(
                             offset: const Offset(0, 24),
@@ -602,34 +606,36 @@ void initState() {
                                   var res = await Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => const SimpleBarcodeScannerPage(),
+                                      builder: (context) =>
+                                          const SimpleBarcodeScannerPage(),
                                     ),
                                   );
 
                                   if (res is String && res != '-1') {
-                                  barcodeController.text = res;
+                                    barcodeController.text = res;
 
-                                  // print("Scanned Barcode = $res");
+                                    // print("Scanned Barcode = $res");
 
-                                  final result = await HttpService.checkBarcodeDuplicate(
-                                    res,
-                                    "0",
-                                  );
+                                    final result =
+                                        await HttpService.checkBarcodeDuplicate(
+                                      res,
+                                      "0",
+                                    );
 
-                                  // print("API Result = $result");
-                                  // print("Duplicate = ${result?.duplicate}");
-                                  // print("Message = ${result?.message}");
+                                    // print("API Result = $result");
+                                    // print("Duplicate = ${result?.duplicate}");
+                                    // print("Message = ${result?.message}");
 
-                                  setState(() {
-                                    if (result?.duplicate == true) {
-                                      barcodeError = result?.message;
-                                    } else {
-                                      barcodeError = null;
-                                    }
-                                  });
+                                    setState(() {
+                                      if (result?.duplicate == true) {
+                                        barcodeError = result?.message;
+                                      } else {
+                                        barcodeError = null;
+                                      }
+                                    });
 
-                                  print("barcodeError = $barcodeError");
-                                }
+                                    print("barcodeError = $barcodeError");
+                                  }
                                 },
                                 icon: const Icon(Icons.qr_code_scanner,
                                     color: Colors.white, size: 24),
@@ -685,41 +691,40 @@ void initState() {
                       Row(
                         children: [
                           Expanded(
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _buildTextField(
-        controller: sellingPrice,
-        label: selectedProductType == "Rental"
-            ? "Rental Price *"
-            : (_isServiceProduct()
-                ? "Service Amount *"
-                : "Selling Price *"),
-        icon: Icons.currency_rupee_outlined,
-        keyboardType: TextInputType.number,
-        onChanged: (val) {
-          _updateTotalAmount();
-          formKey.currentState?.validate();
-        },
-        validator: (val) => val!.isEmpty
-            ? (selectedProductType == "Rental"
-                ? "Enter Rental Price"
-                : (_isServiceProduct()
-                    ? "Enter Service Amount"
-                    : "Enter Selling Price"))
-            : null,
-      ),
-
-      if (selectedProductType != "Rental")
-        const Padding(
-          padding: EdgeInsets.only(
-            left: 4,
-            top: 4,
-          ),
-        ),
-    ],
-  ),
-),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildTextField(
+                                  controller: sellingPrice,
+                                  label: selectedProductType == "Rental"
+                                      ? "Rental Price *"
+                                      : (_isServiceProduct()
+                                          ? "Service Amount *"
+                                          : "Selling Price *"),
+                                  icon: Icons.currency_rupee_outlined,
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (val) {
+                                    _updateTotalAmount();
+                                    formKey.currentState?.validate();
+                                  },
+                                  validator: (val) => val!.isEmpty
+                                      ? (selectedProductType == "Rental"
+                                          ? "Enter Rental Price"
+                                          : (_isServiceProduct()
+                                              ? "Enter Service Amount"
+                                              : "Enter Selling Price"))
+                                      : null,
+                                ),
+                                if (selectedProductType != "Rental")
+                                  const Padding(
+                                    padding: EdgeInsets.only(
+                                      left: 4,
+                                      top: 4,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: _buildTextField(
@@ -777,48 +782,54 @@ void initState() {
                           ),
                         ],
                       ),
+                      if (selectedProductType == "Rental") ...[
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: rentRateHourly,
+                          label: "Rent Rate Hourly",
+                          icon: Icons.currency_rupee_outlined,
+                          keyboardType: TextInputType.number,
+                          onChanged: (val) => _updateTotalAmount(),
+                        ),
+                      ],
                       const SizedBox(height: 16),
-                    if (selectedProductType != "Rental" && !_isServiceProduct()) ...[
-  Row(
-    children: [
-      Expanded(
-        child: _buildTextField(
-          controller: mrp,
-          label: "MRP",
-          icon: Icons.price_check_outlined,
-          keyboardType: TextInputType.number,
+                      if (selectedProductType != "Rental" &&
+                          !_isServiceProduct()) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTextField(
+                                controller: mrp,
+                                label: "MRP",
+                                icon: Icons.price_check_outlined,
+                                keyboardType: TextInputType.number,
+                                onChanged: (val) {
+                                  formKey.currentState?.validate();
+                                },
+                                validator: (val) {
+                                  if (val == null || val.trim().isEmpty) {
+                                    return "Please enter MRP";
+                                  }
 
-          onChanged: (val) {
-            formKey.currentState?.validate();
-          },
+                                  double mrpValue = double.tryParse(val) ?? 0;
 
-         validator: (val) {
-  if (val == null || val.trim().isEmpty) {
-    return "Please enter MRP";
-  }
+                                  double sellingValue = double.tryParse(
+                                        sellingPrice.text,
+                                      ) ??
+                                      0;
 
-  double mrpValue =
-      double.tryParse(val) ?? 0;
+                                  if (mrpValue < sellingValue) {
+                                    return "MRP must be greater than Selling Price";
+                                  }
 
-  double sellingValue =
-      double.tryParse(
-        sellingPrice.text,
-      ) ??
-      0;
-
-  if (mrpValue < sellingValue) {
-    return "MRP must be greater than Selling Price";
-  }
-
-  return null;
-},
-        ),
-      ),
-    ],
-  ),
-
-  const SizedBox(height: 16),
-],
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       const SizedBox(height: 16),
                       _buildTextField(
                         controller: totalAmount,
@@ -829,7 +840,7 @@ void initState() {
                       ),
                     ],
                   ),
-                  
+
                   //  const SizedBox(height: 16),
                   // Row(
                   //   children: [
@@ -1314,38 +1325,31 @@ void initState() {
   //     mrp.text = totalAmount.text;
   //   });
   // }
-void _updateTotalAmount() {
-  double selling =
-      double.tryParse(sellingPrice.text) ?? 0;
+  void _updateTotalAmount() {
+    double selling = double.tryParse(sellingPrice.text) ?? 0;
 
-  double taxVal =
-      double.tryParse(tax.text) ?? 0;
+    double taxVal = double.tryParse(tax.text) ?? 0;
 
-  double discVal =
-      double.tryParse(discount.text) ?? 0;
+    double discVal = double.tryParse(discount.text) ?? 0;
 
-  double amountWithTax =
-      selling + (selling * taxVal / 100);
+    double amountWithTax = selling + (selling * taxVal / 100);
 
-  double discountAmount =
-      amountWithTax * discVal / 100;
+    double discountAmount = amountWithTax * discVal / 100;
 
-  double total =
-      amountWithTax - discountAmount;
+    double total = amountWithTax - discountAmount;
 
-  setState(() {
-    totalAmount.text =
-        total.toStringAsFixed(2);
+    setState(() {
+      totalAmount.text = total.toStringAsFixed(2);
 
-    // Always update MRP from total
-    if (selectedProductType != "Rental") {
-      mrp.text =
-          total.toStringAsFixed(2);
-    }
-  });
+      // Always update MRP from total
+      if (selectedProductType != "Rental") {
+        mrp.text = total.toStringAsFixed(2);
+      }
+    });
 
-  formKey.currentState?.validate();
-}
+    formKey.currentState?.validate();
+  }
+
   Widget _buildLabel(String label) {
     bool hasAsterisk = label.contains('*');
     String cleanLabel = label.replaceAll('*', '').trim();

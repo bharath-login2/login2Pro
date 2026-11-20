@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:intl/intl.dart';
 import 'package:login2/core/common.dart';
 import 'package:login2/models/expense/customerListModel.dart';
@@ -7,6 +8,7 @@ import 'package:login2/models/expense/staffListModel.dart';
 import 'package:login2/models/lead_management/materialModel.dart';
 import 'package:login2/models/rental/rentalCustomerLocations.dart';
 import 'package:login2/models/rental/rentalCollectedByStaffList.dart' as rcs;
+import 'package:login2/models/rental/staffRateListModel.dart';
 import 'package:login2/screens/accounts/clients/addClients.dart';
 import 'package:login2/service/service.dart';
 
@@ -48,24 +50,42 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
   bool _isBillingAddressExpanded = false;
   bool _isShippingAddressExpanded = false;
 
+  // 'daily' or 'hourly' (sent to the API as rent_type)
+  String _rentType = 'daily';
+  bool get _isHourly => _rentType == 'hourly';
+
   final TextEditingController _billingNameController = TextEditingController();
-  final TextEditingController _billingAddressLine1Controller = TextEditingController();
-  final TextEditingController _billingAddressLine2Controller = TextEditingController();
-  final TextEditingController _billingAddressLine3Controller = TextEditingController();
-  final TextEditingController _billingPincodeController = TextEditingController();
-  final TextEditingController _billingPostOfficeController = TextEditingController();
-  final TextEditingController _billingMobileController = TextEditingController();
-  final TextEditingController _billingWhatsappController = TextEditingController();
+  final TextEditingController _billingAddressLine1Controller =
+      TextEditingController();
+  final TextEditingController _billingAddressLine2Controller =
+      TextEditingController();
+  final TextEditingController _billingAddressLine3Controller =
+      TextEditingController();
+  final TextEditingController _billingPincodeController =
+      TextEditingController();
+  final TextEditingController _billingPostOfficeController =
+      TextEditingController();
+  final TextEditingController _billingMobileController =
+      TextEditingController();
+  final TextEditingController _billingWhatsappController =
+      TextEditingController();
   final TextEditingController _billingGstController = TextEditingController();
 
   final TextEditingController _shippingNameController = TextEditingController();
-  final TextEditingController _shippingAddressLine1Controller = TextEditingController();
-  final TextEditingController _shippingAddressLine2Controller = TextEditingController();
-  final TextEditingController _shippingAddressLine3Controller = TextEditingController();
-  final TextEditingController _shippingPincodeController = TextEditingController();
-  final TextEditingController _shippingPostOfficeController = TextEditingController();
-  final TextEditingController _shippingMobileController = TextEditingController();
-  final TextEditingController _shippingWhatsappController = TextEditingController();
+  final TextEditingController _shippingAddressLine1Controller =
+      TextEditingController();
+  final TextEditingController _shippingAddressLine2Controller =
+      TextEditingController();
+  final TextEditingController _shippingAddressLine3Controller =
+      TextEditingController();
+  final TextEditingController _shippingPincodeController =
+      TextEditingController();
+  final TextEditingController _shippingPostOfficeController =
+      TextEditingController();
+  final TextEditingController _shippingMobileController =
+      TextEditingController();
+  final TextEditingController _shippingWhatsappController =
+      TextEditingController();
   final TextEditingController _shippingGstController = TextEditingController();
 
   String? _selectedCustomerId;
@@ -80,22 +100,27 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
   List<MaterialData> _searchResults = [];
   List<LocationData> _customerLocations = [];
   List<Staff> _staffs = [];
+  // Labour list (with hourly & daily rates)
+  List<StaffRate> _staffRates = [];
   List<rcs.Staff> _collectedStaffs = [];
   List<String> _paymentStatuses = ['Unpaid', 'Paid', 'Partial'];
   final List<String> _paymentMethods = ['Cash', 'Bank'];
   String? _selectedPaymentMethod = 'Cash';
   List<ProductRow> _productRows = [ProductRow()];
   List<AddonProductRow> _addonProductRows = [AddonProductRow()];
+  List<LabourRow> _labourRows = [LabourRow()];
   double _totalGrossAmount = 0.0;
   double _gstAmount = 0.0;
+  double _labourTotal = 0.0;
   double _grandTotal = 0.0;
-  int _totalDays = 1;
+  int _totalDays = 1; // holds hours when rent type is hourly
   bool _isLoading = false;
   bool _isSubmitting = false;
+
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _rentType = 'daily';
     _invoiceDateController.text =
         DateFormat('dd-MM-yyyy').format(DateTime.now());
     _fromDateController.text =
@@ -103,20 +128,115 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
     _toDateController.text = DateFormat('dd-MM-yyyy HH:mm')
         .format(DateTime.now().add(const Duration(days: 1)));
     if (widget.rentId != null) {
-      _loadEditData();
+      _loadEditData(); // calls _loadData() internally
     } else {
       _loadData();
     }
     _updateTotalDays();
   }
 
+  // ---------------------------------------------------------------------------
+  // Rent type helpers
+  // ---------------------------------------------------------------------------
+
+  /// Raw rate for the selected rent type, or "" if the product has none.
+  String _rawRateFor(MaterialData mat) {
+    final r = _isHourly ? mat.hourlyRate : mat.unitPrice;
+    final v = (r ?? '').trim();
+    final n = double.tryParse(v);
+    return (n == null || n <= 0) ? '' : v;
+  }
+
+  bool _hasRate(MaterialData mat) => _rawRateFor(mat).isNotEmpty;
+
+  void _toastNoRate(String productName) {
+    Common.toastMessaage(
+      'No ${_isHourly ? 'hourly' : 'daily'} rate set for $productName. Please enter it manually.',
+      Colors.orange,
+    );
+  }
+
+  /// Returns the rate for a product based on the selected rent type.
+  String _rateFor(MaterialData mat) {
+    final r = _isHourly ? mat.hourlyRate : mat.unitPrice;
+    return (r == null || r.trim().isEmpty) ? "0" : r;
+  }
+
+  /// Raw labour rate for the selected rent type, or "" if not set.
+  String _labourRawRate(StaffRate labour) {
+    final v = (_isHourly ? labour.hourlyRate : labour.dailyRate).trim();
+    final n = double.tryParse(v);
+    return (n == null || n <= 0) ? '' : v;
+  }
+
+  /// Converts a minute difference to hours or days depending on rent type.
+  int _unitsFromMinutes(int diffInMinutes) {
+    if (diffInMinutes <= 0) return 1;
+    return _isHourly
+        ? (diffInMinutes / 60).ceil()
+        : (diffInMinutes / (24 * 60)).ceil();
+  }
+
+  void _onRentTypeChanged(String type) {
+    if (_rentType == type) return;
+    _rentType = type;
+
+    final missing = <String>[];
+    for (final row in _productRows) {
+      if (row.selectedProductId == null) continue;
+      final mat = _materials.firstWhere(
+        (m) => m.materialId == row.selectedProductId,
+        orElse: () => MaterialData(),
+      );
+      final rate = _rawRateFor(mat);
+      row.unitPriceController.text = rate;
+      row.ratePerDayController.text = rate;
+      if (rate.isEmpty) missing.add(mat.materialName ?? 'Product');
+    }
+
+    // Update labour rates for the new rent type
+    final missingLabours = <String>[];
+    for (final row in _labourRows) {
+      if (row.selectedLabourId == null) continue;
+      final labour = _staffRates.firstWhere(
+        (l) => l.id == row.selectedLabourId,
+        orElse: () =>
+            StaffRate(id: '', name: '', hourlyRate: '', dailyRate: ''),
+      );
+      final rate = _labourRawRate(labour);
+      row.rateController.text = rate;
+      if (rate.isEmpty) missingLabours.add(row.labourName ?? 'Labour');
+    }
+
+    _updateTotalDays();
+    setState(() {});
+
+    if (missing.isNotEmpty) {
+      Common.toastMessaage(
+        'No ${_isHourly ? 'hourly' : 'daily'} rate for: ${missing.join(', ')}. Please enter manually.',
+        Colors.orange,
+      );
+    }
+    if (missingLabours.isNotEmpty) {
+      Common.toastMessaage(
+        'No ${_isHourly ? 'hourly' : 'daily'} rate for labour: ${missingLabours.join(', ')}. Please enter manually.',
+        Colors.orange,
+      );
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Data loading
+  // ---------------------------------------------------------------------------
+
   Future<void> _loadEditData() async {
     setState(() => _isLoading = true);
     try {
-      await _loadData(); 
+      await _loadData();
       final response = await HttpService.rentIssueDetails(widget.rentId!);
       if (response != null && response.status) {
         final issue = response.data.rentIssue;
+        _rentType = issue.rentType;
         _selectedCustomerId = issue.customerId;
         await _loadCustomerLocations(_selectedCustomerId!);
         await _loadCollectedStaffs(_selectedCustomerId!);
@@ -126,7 +246,8 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
         _selectedStaffName = issue.collectedStaffName;
 
         _invoiceDateController.text = _formatDate(issue.invoiceDate);
-        _fromDateController.text = _formatDate(issue.fromDate, includeTime: true);
+        _fromDateController.text =
+            _formatDate(issue.fromDate, includeTime: true);
         _toDateController.text = _formatDate(issue.toDate, includeTime: true);
         _totalDaysController.text = issue.totalDays;
         _advanceAmountController.text = issue.advanceAmount;
@@ -172,8 +293,10 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
           row.unitPriceController.text = item.unitPrice;
           row.ratePerDayController.text = item.ratePerDay;
           row.noOfDaysController.text = item.days;
-          row.fromDateController.text = _formatDate(issue.fromDate, includeTime: true);
-          row.toDateController.text = _formatDate(issue.toDate, includeTime: true);
+          row.fromDateController.text =
+              _formatDate(issue.fromDate, includeTime: true);
+          row.toDateController.text =
+              _formatDate(issue.toDate, includeTime: true);
           row.grossAmountController.text = item.gross;
           row.gstPercentController.text = item.gstPercent;
           row.gstAmountController.text = item.gstAmount;
@@ -214,6 +337,7 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
         _loadCustomers(),
         _loadMaterials(),
         _loadStaffs(),
+        _loadStaffRates(),
       ]);
     } catch (e) {
       log('Error loading data: $e');
@@ -242,6 +366,13 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
     }
   }
 
+  Future<void> _loadStaffRates() async {
+    final data = await HttpService.getStaffRates();
+    if (data != null && data.status) {
+      setState(() => _staffRates = data.data);
+    }
+  }
+
   void _onProductSearch(String query) {
     setState(() {
       if (query.isEmpty) {
@@ -267,10 +398,11 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
       bool exists =
           _productRows.any((row) => row.selectedProductId == mat.materialId);
       if (!exists) {
+        final rate = _rawRateFor(mat);
         final newRow = ProductRow();
         newRow.selectedProductId = mat.materialId;
-        newRow.unitPriceController.text = mat.unitPrice ?? "0";
-        newRow.ratePerDayController.text = mat.unitPrice ?? "0";
+        newRow.unitPriceController.text = rate;
+        newRow.ratePerDayController.text = rate;
         newRow.currentStock = mat.currentStock;
         newRow.gstPercentController.text = mat.gstPercentage ?? "0";
         newRow.hasGst =
@@ -286,6 +418,7 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
           _productRows.add(newRow);
         }
         _recalculateAllRows();
+        if (rate.isEmpty) _toastNoRate(mat.materialName ?? 'this product');
       }
       _productSearchController.clear();
       _searchResults.clear();
@@ -315,6 +448,10 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Calculations
+  // ---------------------------------------------------------------------------
+
   void _updateTotalDays() {
     if (_fromDateController.text.isNotEmpty &&
         _toDateController.text.isNotEmpty) {
@@ -325,16 +462,15 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
             DateFormat('dd-MM-yyyy HH:mm').parse(_toDateController.text);
 
         final diffInMinutes = toDate.difference(fromDate).inMinutes;
-        if (diffInMinutes <= 0) {
-          _totalDays = 1; 
-        } else {
-          _totalDays = (diffInMinutes / (24 * 60)).ceil();
-        }
+        _totalDays = _unitsFromMinutes(diffInMinutes);
         _totalDaysController.text = _totalDays.toString();
         for (final row in _productRows) {
           row.noOfDaysController.text = _totalDays.toString();
           row.fromDateController.text = _fromDateController.text;
           row.toDateController.text = _toDateController.text;
+        }
+        for (final row in _labourRows) {
+          row.daysController.text = _totalDays.toString();
         }
         _recalculateAllRows();
       } catch (e) {
@@ -381,12 +517,7 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
             DateFormat('dd-MM-yyyy HH:mm').parse(row.toDateController.text);
 
         final diffInMinutes = toDate.difference(fromDate).inMinutes;
-        int rowDays = 0;
-        if (diffInMinutes <= 0) {
-          rowDays = 1;
-        } else {
-          rowDays = (diffInMinutes / (24 * 60)).ceil();
-        }
+        final rowDays = _unitsFromMinutes(diffInMinutes);
         row.noOfDaysController.text = rowDays.toString();
         _recalculateRow(index);
       } catch (e) {
@@ -395,10 +526,26 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
     }
   }
 
+  /// Amount = rate x days (hours when hourly). Does not touch the summary.
+  void _recalculateLabourAmount(LabourRow row) {
+    final rate = double.tryParse(row.rateController.text) ?? 0;
+    final days = double.tryParse(row.daysController.text) ?? 0;
+    row.amountController.text = (rate * days).toStringAsFixed(2);
+  }
+
+  void _onLabourChanged(LabourRow row) {
+    _recalculateLabourAmount(row);
+    _calculateSummary();
+  }
+
   void _recalculateAllRows() {
     for (int i = 0; i < _productRows.length; i++) {
       _recalculateRow(i);
     }
+    for (final row in _labourRows) {
+      _recalculateLabourAmount(row);
+    }
+    _calculateSummary(); // also covers the case with no product rows
   }
 
   void _calculateSummary() {
@@ -407,6 +554,11 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
     for (final row in _productRows) {
       totalGross += double.tryParse(row.grossAmountController.text) ?? 0;
       totalGST += double.tryParse(row.gstAmountController.text) ?? 0;
+    }
+    double labourTotal = 0;
+    for (final row in _labourRows) {
+      if (row.selectedLabourId == null) continue;
+      labourTotal += double.tryParse(row.amountController.text) ?? 0;
     }
     final discount = double.tryParse(_discountController.text) ?? 0;
     final otherExpenses = double.tryParse(_otherExpensesController.text) ?? 0;
@@ -417,8 +569,10 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
     setState(() {
       _totalGrossAmount = totalGross;
       _gstAmount = totalGST;
+      _labourTotal = labourTotal;
       _grandTotal = totalGross +
-          totalGST -
+          totalGST +
+          labourTotal -
           discount +
           otherExpenses +
           transportation +
@@ -430,6 +584,10 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
       }
     });
   }
+
+  // ---------------------------------------------------------------------------
+  // Date pickers
+  // ---------------------------------------------------------------------------
 
   Future<void> _selectDate(
       BuildContext context, TextEditingController controller) async {
@@ -511,6 +669,10 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Submit
+  // ---------------------------------------------------------------------------
+
   Future<void> _submitForm() async {
     if (_selectedCustomerId == null) {
       Common.toastMessaage('Please select a customer', Colors.red);
@@ -521,14 +683,28 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
       Common.toastMessaage('Please add at least one product', Colors.red);
       return;
     }
+    final hasEmptyRate = _productRows.any((row) =>
+        row.selectedProductId != null &&
+        (double.tryParse(row.ratePerDayController.text) ?? 0) <= 0);
+    if (hasEmptyRate) {
+      Common.toastMessaage(
+          'Please enter the ${_isHourly ? 'hourly' : 'daily'} rate for all products',
+          Colors.red);
+      return;
+    }
+    final hasEmptyLabourRate = _labourRows.any((row) =>
+        row.selectedLabourId != null &&
+        (double.tryParse(row.rateController.text) ?? 0) <= 0);
+    if (hasEmptyLabourRate) {
+      Common.toastMessaage(
+          'Please enter the ${_isHourly ? 'hourly' : 'daily'} rate for all labours',
+          Colors.red);
+      return;
+    }
     if (_selectedLocationId == null) {
       Common.toastMessaage('Please select a work site', Colors.red);
       return;
     }
-    // if (_selectedCollectedByStaffId == null) {
-    //   Common.toastMessaage('Please select a collected staff', Colors.red);
-    //   return;
-    // }
 
     // Payment validation
     if (_selectedPaymentStatus == 'Paid' ||
@@ -560,15 +736,15 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
         'to_date': "${_toDateController.text}:00",
         'invoice_date': _invoiceDateController.text,
         'location': _selectedLocationId,
-        'total_days': _totalDays.toString(),
+        'rent_type': _rentType, // 'daily' or 'hourly'
+        'total_days': _totalDays.toString(), // hours when rent_type is hourly
         'advance_amount': _advanceAmountController.text,
         'payment_status': _selectedPaymentStatus,
         'total_paid_amount': _totalPaidAmountController.text,
         'discount': _discountController.text,
         'other_expenses': _otherExpensesController.text,
         'transportation_charges': _transportationChargesController.text,
-        'loading_charges':
-            _otherTransportationChargesController.text,
+        'loading_charges': _otherTransportationChargesController.text,
         'billing_name': _billingNameController.text,
         'billing_address1': _billingAddressLine1Controller.text,
         'billing_address2': _billingAddressLine2Controller.text,
@@ -587,6 +763,7 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
         'shipping_contact_no': _shippingMobileController.text,
         'shipping_whatsapp_number': _shippingWhatsappController.text,
         'shipping_gst': _shippingGstController.text,
+        'labour_total': _labourTotal.toStringAsFixed(2),
         'grand_total': _grandTotal.toStringAsFixed(2),
         'collected_by': _selectedCollectedByStaffId,
         'payment_collected_by': _paymentCollectedByStaffId,
@@ -614,6 +791,16 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
             .map((row) => {
                   'material_id': row.selectedProductId,
                   'quantity': row.quantityController.text,
+                })
+            .toList(),
+        'labours': _labourRows
+            .where((row) => row.selectedLabourId != null)
+            .map((row) => {
+                  'labour_id': row.selectedLabourId,
+                  'labour_rate': row.rateController.text,
+                  'labour_duration':
+                      row.daysController.text, // hours when hourly
+                  'amount': row.amountController.text,
                 })
             .toList(),
       };
@@ -655,6 +842,10 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
       setState(() => _isSubmitting = false);
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Product row UI
+  // ---------------------------------------------------------------------------
 
   Widget _buildMinimalProductRow(int index) {
     final row = _productRows[index];
@@ -772,12 +963,14 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    "Qty: ${row.quantityController.text} | Price: ₹ ${row.ratePerDayController.text} | Days: ${row.noOfDaysController.text}",
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade700,
-                      fontWeight: FontWeight.w500,
+                  Expanded(
+                    child: Text(
+                      "Qty: ${row.quantityController.text} | ${_isHourly ? 'Rate/Hr' : 'Price'}: ₹ ${row.ratePerDayController.text} | ${_isHourly ? 'Hours' : 'Days'}: ${row.noOfDaysController.text}",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ],
@@ -797,7 +990,7 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildFormRow(
-                    "Rental Price",
+                    _isHourly ? "Rate/Hour" : "Rental Price",
                     TextFormField(
                       controller: row.ratePerDayController,
                       keyboardType: TextInputType.number,
@@ -811,69 +1004,11 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
               ],
             ),
             const SizedBox(height: 10),
-            // Row(
-            //   children: [
-            //     Expanded(
-            //       child: _buildFormRow(
-            //         "From Date",
-            //         GestureDetector(
-            //           onTap: () async {
-            //             await _selectDate(context, row.fromDateController);
-            //             _updateRowDaysFromDates(index);
-            //           },
-            //           child: Container(
-            //             padding: const EdgeInsets.all(12),
-            //             decoration: _boxDecoration(),
-            //             child: Row(
-            //               children: [
-            //                 Expanded(
-            //                   child: Text(
-            //                     row.fromDateController.text,
-            //                     style: const TextStyle(fontSize: 12),
-            //                   ),
-            //                 ),
-            //                 const Icon(Icons.calendar_today, size: 16),
-            //               ],
-            //             ),
-            //           ),
-            //         ),
-            //       ),
-            //     ),
-            //     const SizedBox(width: 12),
-            //     Expanded(
-            //       child: _buildFormRow(
-            //         "To Date",
-            //         GestureDetector(
-            //           onTap: () async {
-            //             await _selectDate(context, row.toDateController);
-            //             _updateRowDaysFromDates(index);
-            //           },
-            //           child: Container(
-            //             padding: const EdgeInsets.all(12),
-            //             decoration: _boxDecoration(),
-            //             child: Row(
-            //               children: [
-            //                 Expanded(
-            //                   child: Text(
-            //                     row.toDateController.text,
-            //                     style: const TextStyle(fontSize: 12),
-            //                   ),
-            //                 ),
-            //                 const Icon(Icons.calendar_today, size: 16),
-            //               ],
-            //             ),
-            //           ),
-            //         ),
-            //       ),
-            //     ),
-            //   ],
-            // ),
-            // const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
                   child: _buildFormRow(
-                    "No of Days",
+                    _isHourly ? "No of Hours" : "No of Days",
                     _counterField(
                         row.noOfDaysController, () => _recalculateRow(index)),
                   ),
@@ -918,6 +1053,73 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
       ),
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Rent type toggle
+  // ---------------------------------------------------------------------------
+
+  Widget _buildRentTypeToggle() {
+    const options = {'daily': 'Daily', 'hourly': 'Hourly'};
+    final bool isEditMode = widget.rentId != null; // locked when editing
+
+    return Card(
+      elevation: 1,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: _buildFormRow(
+          "Rent Type *:",
+          Opacity(
+            opacity: isEditMode ? 0.6 : 1,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: _boxDecoration(),
+              child: Row(
+                children: options.entries.map((entry) {
+                  final isSelected = _rentType == entry.key;
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: isEditMode
+                          ? null
+                          : () => _onRentTypeChanged(entry.key),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? (isEditMode
+                                  ? Colors.grey.shade600
+                                  : const Color(0xFF2a86c9))
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          entry.value,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isSelected ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -1121,45 +1323,10 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                             ),
                           ],
                         ),
-                        // const SizedBox(height: 12),
-                        // Row(
-                        //   children: [
-                        //     Expanded(
-                        //       child: _buildFormRow(
-                        //         "Invoice Number :",
-                        //         TextFormField(
-                        //           controller: _invoiceNoController,
-                        //           readOnly: true,
-                        //           style: const TextStyle(
-                        //               fontSize: 13,
-                        //               fontWeight: FontWeight.bold,
-                        //               color: Colors.blue),
-                        //           decoration: _inputDecoration(isDense: true)
-                        //               .copyWith(fillColor: Colors.blue.shade50),
-                        //         ),
-                        //       ),
-                        //     ),
-                        //     const SizedBox(width: 12),
-                        //     Expanded(
-                        //       child: _buildFormRow(
-                        //         "Rent Issue ID :",
-                        //         TextFormField(
-                        //           controller: _rentIssueIdController,
-                        //           readOnly: true,
-                        //           style: const TextStyle(
-                        //               fontSize: 13,
-                        //               fontWeight: FontWeight.bold,
-                        //               color: Colors.blue),
-                        //           decoration: _inputDecoration(isDense: true)
-                        //               .copyWith(fillColor: Colors.blue.shade50),
-                        //         ),
-                        //       ),
-                        //     ),
-                        //   ],
-                        // ),
                       ],
                     ),
-
+                    const SizedBox(height: 8),
+                    _buildRentTypeToggle(),
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -1175,7 +1342,8 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                           _minimalDateItem("Issue Date", _fromDateController),
                           _minimalDateItem("Due Date", _toDateController),
                           _minimalDaysItemDays(
-                              "No of Days", _totalDaysController),
+                              _isHourly ? "Total Hours" : "Total Days",
+                              _totalDaysController),
                         ],
                       ),
                     ),
@@ -1240,7 +1408,8 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                                           fontSize: 13)),
                                   subtitle: Row(
                                     children: [
-                                      Text("Price: ₹${mat.unitPrice}",
+                                      Text(
+                                          "${_isHourly ? 'Rate/Hr' : 'Price'}: ₹${_rateFor(mat)}",
                                           style: const TextStyle(fontSize: 11)),
                                       const SizedBox(width: 12),
                                       Container(
@@ -1293,6 +1462,8 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                                   "₹${_totalGrossAmount.toStringAsFixed(2)}"),
                               _buildMinimalSummaryRow("GST Amount",
                                   "₹${_gstAmount.toStringAsFixed(2)}"),
+                              _buildMinimalSummaryRow("Labour Charges",
+                                  "₹${_labourTotal.toStringAsFixed(2)}"),
                               const SizedBox(height: 8),
                               Row(
                                 children: [
@@ -1380,10 +1551,10 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                         ),
                       ],
                     ),
-
+                    const SizedBox(height: 12),
+                    _buildLabourSection(),
                     const SizedBox(height: 12),
                     _buildAddonProductsSection(),
-
                     const SizedBox(height: 12),
                     _buildCollapsibleAddressSection(
                       title: "Billing Address",
@@ -1405,7 +1576,6 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                       whatsappController: _billingWhatsappController,
                       gstController: _billingGstController,
                     ),
-
                     const SizedBox(height: 12),
                     _buildCollapsibleAddressSection(
                       title: "Shipping Address",
@@ -1427,11 +1597,10 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                       whatsappController: _shippingWhatsappController,
                       gstController: _shippingGstController,
                     ),
-
                     const SizedBox(height: 8),
-                    widget.rentId != null ?SizedBox():
-                    _buildPaymentSection(),
-
+                    widget.rentId != null
+                        ? const SizedBox()
+                        : _buildPaymentSection(),
                     const SizedBox(height: 24),
                     Row(
                       children: [
@@ -1464,6 +1633,309 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                 ),
               ),
             ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Labour section
+  // ---------------------------------------------------------------------------
+
+  Widget _buildLabourSection() {
+    return _buildSectionCard(
+      title: 'Labours',
+      icon: Icons.engineering_outlined,
+      children: [
+        const SizedBox(height: 12),
+        if (_labourRows.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              "No labours added.",
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            ),
+          )
+        else
+          ...List.generate(
+              _labourRows.length, (index) => _buildLabourRow(index)),
+        ElevatedButton(
+          onPressed: () {
+            setState(() {
+              final row = LabourRow();
+              row.daysController.text = _totalDays.toString();
+              _labourRows.add(row);
+            });
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF334155),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          ),
+          child: const Text(
+            "Add Labour",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLabourRow(int index) {
+    final row = _labourRows[index];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Sl + Labour selector + delete
+          Row(
+            children: [
+              Container(
+                width: 26,
+                height: 26,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  "${index + 1}",
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _showLabourSelectionDialog(index),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 10),
+                    decoration: _boxDecoration(),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            row.selectedLabourId != null
+                                ? (row.labourName ?? "Select Labour")
+                                : "Select Labour",
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: row.selectedLabourId != null
+                                  ? Colors.black87
+                                  : Colors.grey.shade500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (row.selectedLabourId != null)
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                row.selectedLabourId = null;
+                                row.labourName = null;
+                                row.rateController.clear();
+                                row.amountController.text = "0.00";
+                              });
+                              _calculateSummary();
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.only(right: 6),
+                              child: Icon(Icons.close,
+                                  size: 14, color: Colors.grey),
+                            ),
+                          ),
+                        const Icon(Icons.arrow_drop_down,
+                            size: 20, color: Colors.grey),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                height: 36,
+                width: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEE5253),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.delete_outline,
+                      color: Colors.white, size: 18),
+                  onPressed: () {
+                    setState(() => _labourRows.removeAt(index));
+                    _calculateSummary();
+                    // dispose after the frame so the removed fields are gone
+                    SchedulerBinding.instance
+                        .addPostFrameCallback((_) => row.dispose());
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Rate / Days (Hours) / Amount
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: _buildFormRow(
+                  _isHourly ? "Rate/Hour" : "Rate/Day",
+                  TextFormField(
+                    controller: row.rateController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w500),
+                    decoration: _inputDecoration(isDense: true),
+                    onChanged: (_) => _onLabourChanged(row),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 3,
+                child: _buildFormRow(
+                  _isHourly ? "Hours" : "Days",
+                  TextFormField(
+                    controller: row.daysController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w500),
+                    decoration: _inputDecoration(isDense: true),
+                    onChanged: (_) => _onLabourChanged(row),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 3,
+                child: _buildFormRow(
+                  "Amount",
+                  TextFormField(
+                    controller: row.amountController,
+                    readOnly: true,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue),
+                    decoration: _inputDecoration(isDense: true)
+                        .copyWith(fillColor: Colors.blue.shade50),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLabourSelectionDialog(int index) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        String searchQuery = "";
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            // IDs already selected in OTHER rows
+            final usedIds = <String>{};
+            for (int i = 0; i < _labourRows.length; i++) {
+              final id = _labourRows[i].selectedLabourId;
+              if (i != index && id != null) usedIds.add(id);
+            }
+            final List<StaffRate> filtered = _staffRates
+                .where((l) =>
+                    !usedIds.contains(l.id) &&
+                    l.name.toLowerCase().contains(searchQuery.toLowerCase()))
+                .toList();
+            return AlertDialog(
+              title: const Text("Select Labour",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      onChanged: (val) =>
+                          setDialogState(() => searchQuery = val),
+                      decoration: const InputDecoration(
+                        hintText: "Search Labour...",
+                        prefixIcon: Icon(Icons.search),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(child: Text("No labours found"))
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: filtered.length,
+                              itemBuilder: (context, idx) {
+                                final labour = filtered[idx];
+                                final rate = _labourRawRate(labour);
+                                return ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  title: Text(
+                                    labour.name,
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                  subtitle: Text(
+                                    rate.isEmpty
+                                        ? "No ${_isHourly ? 'hourly' : 'daily'} rate"
+                                        : "${_isHourly ? 'Rate/Hr' : 'Rate/Day'}: ₹$rate",
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: rate.isEmpty
+                                          ? Colors.red.shade700
+                                          : Colors.green.shade700,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    final row = _labourRows[index];
+                                    setState(() {
+                                      row.selectedLabourId = labour.id;
+                                      row.labourName = labour.name;
+                                      row.rateController.text = rate;
+                                      row.daysController.text =
+                                          _totalDays.toString();
+                                    });
+                                    _onLabourChanged(row);
+                                    Navigator.pop(context);
+                                    if (rate.isEmpty) {
+                                      Common.toastMessaage(
+                                        'No ${_isHourly ? 'hourly' : 'daily'} rate set for ${labour.name}. Please enter it manually.',
+                                        Colors.orange,
+                                      );
+                                    }
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1713,6 +2185,10 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Dialogs
+  // ---------------------------------------------------------------------------
+
   void _addWorkSiteDialog(BuildContext context) {
     if (_selectedCustomerId == null) {
       Common.toastMessaage('Please select a customer first', Colors.red);
@@ -1755,11 +2231,12 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                           'Work Site added successfully', Colors.green);
                       Navigator.pop(context);
                       await _loadCustomerLocations(_selectedCustomerId!);
-                      
+
                       // Find and select the newly added location
                       final newLoc = _customerLocations.firstWhere(
                         (l) => l.locationName == locationController.text.trim(),
-                        orElse: () => LocationData(id: '', locationName: '', customerId: ''),
+                        orElse: () => LocationData(
+                            id: '', locationName: '', customerId: ''),
                       );
                       if (newLoc.id.isNotEmpty) {
                         setState(() {
@@ -1825,7 +2302,7 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                           'Staff added successfully', Colors.green);
                       Navigator.pop(context);
                       await _loadCollectedStaffs(_selectedCustomerId!);
-                      
+
                       // Find and select the newly added staff
                       final newStaff = _collectedStaffs.firstWhere(
                         (s) => s.customerStaff == staffController.text.trim(),
@@ -1931,8 +2408,6 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                             backgroundColor: Colors.green,
                           ),
                         );
-                      } else {
-                        // User cancelled or back button
                       }
                     },
                     icon: const Icon(Icons.add, color: Colors.blue, size: 20),
@@ -2215,6 +2690,9 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
     for (var row in _addonProductRows) {
       row.quantityController.dispose();
     }
+    for (var row in _labourRows) {
+      row.dispose();
+    }
     super.dispose();
   }
 
@@ -2413,8 +2891,8 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                       TextFormField(
                         controller: postController,
                         style: const TextStyle(fontSize: 13),
-                        decoration:
-                            _inputDecoration().copyWith(hintText: "Post Office"),
+                        decoration: _inputDecoration()
+                            .copyWith(hintText: "Post Office"),
                       ),
                     ),
                   ),
@@ -2485,7 +2963,8 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                     bottom: BorderSide(color: Colors.grey.shade300),
                   ),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
                 child: Row(
                   children: [
                     const SizedBox(
@@ -2500,7 +2979,8 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                         textAlign: TextAlign.center,
                       ),
                     ),
-                    Container(width: 1, height: 18, color: Colors.grey.shade300),
+                    Container(
+                        width: 1, height: 18, color: Colors.grey.shade300),
                     const SizedBox(width: 8),
                     const Expanded(
                       flex: 5,
@@ -2513,7 +2993,8 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                         ),
                       ),
                     ),
-                    Container(width: 1, height: 18, color: Colors.grey.shade300),
+                    Container(
+                        width: 1, height: 18, color: Colors.grey.shade300),
                     const SizedBox(width: 8),
                     const Expanded(
                       flex: 4,
@@ -2526,7 +3007,8 @@ class _AddRentalIssuePageState extends State<AddRentalIssuePage> {
                         ),
                       ),
                     ),
-                    Container(width: 1, height: 18, color: Colors.grey.shade300),
+                    Container(
+                        width: 1, height: 18, color: Colors.grey.shade300),
                     const SizedBox(
                       width: 55,
                       child: Text(""),
@@ -2854,7 +3336,26 @@ class AddonProductRow {
       TextEditingController(text: "1");
   String? currentStock;
 
-  AddonProductRow({this.selectedProductId, String qty = "1", this.currentStock}) {
+  AddonProductRow(
+      {this.selectedProductId, String qty = "1", this.currentStock}) {
     quantityController.text = qty;
+  }
+}
+
+class LabourRow {
+  String? selectedLabourId;
+  String? labourName;
+  final TextEditingController rateController = TextEditingController();
+  final TextEditingController daysController =
+      TextEditingController(text: "1"); // hours when rent type is hourly
+  final TextEditingController amountController =
+      TextEditingController(text: "0.00");
+
+  LabourRow();
+
+  void dispose() {
+    rateController.dispose();
+    daysController.dispose();
+    amountController.dispose();
   }
 }
