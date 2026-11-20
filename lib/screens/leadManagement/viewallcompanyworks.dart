@@ -845,7 +845,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:login2/core/common.dart';
-import 'package:login2/core/app_colors.dart'; 
+import 'package:login2/core/app_colors.dart';
 import 'package:login2/models/expense/expense_post.dart';
 import 'package:login2/screens/leadManagement/AddProjectPage.dart';
 import 'package:login2/screens/leadManagement/AssignReport.dart';
@@ -1077,7 +1077,8 @@ class _ViewCompanyWorkPageState extends State<ViewCompanyWorkPage> {
   }
 
   Widget _buildDateRow(int count) {
-    final isToday = DateFormat('yyyy-MM-dd').format(selectedDate) == currentDate;
+    final isToday =
+        DateFormat('yyyy-MM-dd').format(selectedDate) == currentDate;
     return Row(
       children: [
         InkWell(
@@ -1186,7 +1187,9 @@ class _ViewCompanyWorkPageState extends State<ViewCompanyWorkPage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: (loginTime == null || loginTime.isEmpty)
+            ? AppColors.tint(AppColors.danger, 0.20)
+            : AppColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
         boxShadow: AppColors.cardShadow,
@@ -1260,8 +1263,8 @@ class _ViewCompanyWorkPageState extends State<ViewCompanyWorkPage> {
                     if (onCalendarTap != null)
                       IconButton(
                         visualDensity: VisualDensity.compact,
-                        constraints: const BoxConstraints(
-                            minWidth: 36, minHeight: 36),
+                        constraints:
+                            const BoxConstraints(minWidth: 36, minHeight: 36),
                         padding: EdgeInsets.zero,
                         icon: Container(
                           padding: const EdgeInsets.all(6),
@@ -1526,10 +1529,10 @@ class _ViewCompanyWorkPageState extends State<ViewCompanyWorkPage> {
                   }
                 },
                 itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  _menuItem('summary', Icons.bar_chart_rounded,
-                      'Total Work Summary'),
                   _menuItem(
-                      'add_project', Icons.create_new_folder_outlined, 'Add Project'),
+                      'summary', Icons.bar_chart_rounded, 'Total Work Summary'),
+                  _menuItem('add_project', Icons.create_new_folder_outlined,
+                      'Add Project'),
                   _menuItem('pending_works', Icons.pending_actions_rounded,
                       'Pending Works'),
                   _menuItem('assign_works', Icons.assignment_ind_outlined,
