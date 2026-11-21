@@ -581,7 +581,8 @@ class _FilterWidgetState extends State<FilterWidget> {
                   dueDateFrom = d;
                   if (dateFilterMonths != null && dateFilterMonths > 0) {
                     final maxTo = Common.addMonths(d, dateFilterMonths);
-                    if (dueDateTo != null && (dueDateTo!.isBefore(d) || dueDateTo!.isAfter(maxTo))) {
+                    if (dueDateTo != null &&
+                        (dueDateTo!.isBefore(d) || dueDateTo!.isAfter(maxTo))) {
                       dueDateTo = null;
                     }
                   } else if (dueDateTo != null && dueDateTo!.isBefore(d)) {
@@ -599,9 +600,13 @@ class _FilterWidgetState extends State<FilterWidget> {
                 final dateFilterMonths = await Common.getDateFilter();
                 setState(() {
                   dueDateTo = d;
-                  if (d != null && dateFilterMonths != null && dateFilterMonths > 0) {
+                  if (d != null &&
+                      dateFilterMonths != null &&
+                      dateFilterMonths > 0) {
                     final minFrom = Common.subtractMonths(d, dateFilterMonths);
-                    if (dueDateFrom != null && (dueDateFrom!.isBefore(minFrom) || dueDateFrom!.isAfter(d))) {
+                    if (dueDateFrom != null &&
+                        (dueDateFrom!.isBefore(minFrom) ||
+                            dueDateFrom!.isAfter(d))) {
                       dueDateFrom = null;
                     }
                   }
@@ -642,7 +647,8 @@ class _FilterWidgetState extends State<FilterWidget> {
                   createdFrom = d;
                   if (dateFilterMonths != null && dateFilterMonths > 0) {
                     final maxTo = Common.addMonths(d, dateFilterMonths);
-                    if (createdTo != null && (createdTo!.isBefore(d) || createdTo!.isAfter(maxTo))) {
+                    if (createdTo != null &&
+                        (createdTo!.isBefore(d) || createdTo!.isAfter(maxTo))) {
                       createdTo = null;
                     }
                   } else if (createdTo != null && createdTo!.isBefore(d)) {
@@ -660,9 +666,13 @@ class _FilterWidgetState extends State<FilterWidget> {
                 final dateFilterMonths = await Common.getDateFilter();
                 setState(() {
                   createdTo = d;
-                  if (d != null && dateFilterMonths != null && dateFilterMonths > 0) {
+                  if (d != null &&
+                      dateFilterMonths != null &&
+                      dateFilterMonths > 0) {
                     final minFrom = Common.subtractMonths(d, dateFilterMonths);
-                    if (createdFrom != null && (createdFrom!.isBefore(minFrom) || createdFrom!.isAfter(d))) {
+                    if (createdFrom != null &&
+                        (createdFrom!.isBefore(minFrom) ||
+                            createdFrom!.isAfter(d))) {
                       createdFrom = null;
                     }
                   }
@@ -949,7 +959,6 @@ class _FilterWidgetState extends State<FilterWidget> {
 
           DateTime firstDate;
           DateTime lastDate;
-          DateTime initialDate;
 
           if (isFrom) {
             if (otherDate != null) {
@@ -963,9 +972,6 @@ class _FilterWidgetState extends State<FilterWidget> {
               firstDate = DateTime(2020);
               lastDate = DateTime(2100);
             }
-            initialDate = value ?? lastDate;
-            if (initialDate.isBefore(firstDate)) initialDate = firstDate;
-            if (initialDate.isAfter(lastDate)) initialDate = lastDate;
           } else {
             if (otherDate != null) {
               firstDate = otherDate;
@@ -978,10 +984,12 @@ class _FilterWidgetState extends State<FilterWidget> {
               firstDate = DateTime(2020);
               lastDate = DateTime(2100);
             }
-            initialDate = value ?? firstDate;
-            if (initialDate.isBefore(firstDate)) initialDate = firstDate;
-            if (initialDate.isAfter(lastDate)) initialDate = lastDate;
           }
+
+          // Use selected value, otherwise today, then clamp into the allowed range
+          DateTime initialDate = value ?? now;
+          if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+          if (initialDate.isAfter(lastDate)) initialDate = lastDate;
 
           final picked = await showDatePicker(
             context: context,
