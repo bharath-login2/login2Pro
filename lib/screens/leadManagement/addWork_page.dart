@@ -44,6 +44,7 @@ class AddWorkPage extends StatefulWidget {
   final int isPaused;
   final int Restart;
   final int isAssigned;
+  final bool popOnSuccess;
   const AddWorkPage({
     super.key,
     required this.workId,
@@ -52,6 +53,7 @@ class AddWorkPage extends StatefulWidget {
     this.isPaused = 0,
     this.Restart = 0,
     this.isAssigned = 0,
+    this.popOnSuccess = false,
   });
 
   @override
@@ -633,6 +635,11 @@ class _AddWorkPageState extends State<AddWorkPage> {
           ),
         );
         await Future.delayed(const Duration(seconds: 1));
+        if (!mounted) return;
+        if (widget.popOnSuccess) {
+          Navigator.pop(context, true);
+          return;
+        }
         ProjectDashboardPermission == "true"
             ? Navigator.pushReplacement(
                 context,
@@ -1053,6 +1060,11 @@ class _AddWorkPageState extends State<AddWorkPage> {
           ),
         );
         await Future.delayed(const Duration(seconds: 1));
+        if (!mounted) return;
+        if (widget.popOnSuccess) {
+          Navigator.pop(context, true);
+          return;
+        }
 
         ProjectDashboardPermission == "true"
             ? Navigator.pushReplacement(
@@ -1217,6 +1229,11 @@ class _AddWorkPageState extends State<AddWorkPage> {
           ),
         );
         await Future.delayed(const Duration(seconds: 1));
+        if (!mounted) return;
+        if (widget.popOnSuccess) {
+          Navigator.pop(context, true);
+          return;
+        }
 
         ProjectDashboardPermission == "true"
             ? Navigator.pushReplacement(

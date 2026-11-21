@@ -340,6 +340,16 @@ class Common {
       date.microsecond,
     );
   }
+
+  static bool isWorkInProgressStatus(String? status) {
+    if (status == null || status.trim().isEmpty) return false;
+    final s = status.trim().toLowerCase().replaceAll(RegExp(r'[\s\-_]'), '');
+    return s == 'inprogress' ||
+        s == 'running' ||
+        s == 'working' ||
+        s == 'started' ||
+        s == '2';
+  }
 }
 
 RegExp regex = RegExp(PatterStrings.email);

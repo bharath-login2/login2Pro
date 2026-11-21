@@ -8134,7 +8134,7 @@ class _AssignReportState extends State<AssignReport> {
                   height: 36,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: item.status == "Running"
+                      backgroundColor: Common.isWorkInProgressStatus(item.status)
                           ? AppColors.pending
                           : item.startStatus == "Started"
                               ? AppColors.halfDay
@@ -8148,17 +8148,17 @@ class _AssignReportState extends State<AssignReport> {
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                     ),
-                    onPressed: item.status == "Running"
+                    onPressed: Common.isWorkInProgressStatus(item.status)
                         ? null
                         : () => _handleStartWork(item),
                     icon: Icon(
-                      item.status == "Running"
+                      Common.isWorkInProgressStatus(item.status)
                           ? Icons.pause_circle_outline
                           : Icons.play_circle_outline,
                       size: 16,
                     ),
                     label: Text(
-                      item.status == "Running"
+                      Common.isWorkInProgressStatus(item.status)
                           ? "Working"
                           : item.startStatus == "Started"
                               ? "Restart"
@@ -8287,7 +8287,7 @@ class _AssignReportState extends State<AssignReport> {
   }
 
   Widget _buildStatusInfoRow(AssignedWork item) {
-    bool isRunning = item.status.toLowerCase() == 'running';
+    bool isRunning = Common.isWorkInProgressStatus(item.status);
     Widget statusWidget = Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -10376,6 +10376,9 @@ class _AssignReportState extends State<AssignReport> {
   }
 
   Color _getStatusColor(String status) {
+    if (Common.isWorkInProgressStatus(status)) {
+      return AppColors.accent;
+    }
     switch (status.toLowerCase()) {
       case 'pending':
         return AppColors.pending;
